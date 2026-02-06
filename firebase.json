@@ -1,0 +1,27 @@
+{
+  "firestore": [
+    {
+      "database": "dbbjbank",
+      "rules": "firestore.rules"
+    }
+  ],
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "bjbanck",
+          "appId": "1:645960663033:android:53435f039794cb3b834728",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "bjbanck",
+          "configurations": {
+            "android": "1:645960663033:android:53435f039794cb3b834728"
+          }
+        }
+      }
+    }
+  }
+}

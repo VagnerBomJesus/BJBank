@@ -1,0 +1,421 @@
+{
+  "name": "BJBank Design System",
+  "version": "1.0.0",
+  "description": "Design System para aplicativo de banco digital com foco em Criptografia Pós-Quântica",
+  "brand": {
+    "name": "BJBank",
+    "tagline": "Segurança Quântica para seu Futuro Financeiro",
+    "mission": "Proteger ativos financeiros com tecnologia de criptografia pós-quântica"
+  },
+  "colors": {
+    "primary": {
+      "main": "#6750A4",
+      "light": "#EADDFF",
+      "dark": "#21005D",
+      "onPrimary": "#FFFFFF",
+      "container": "#EADDFF",
+      "onContainer": "#21005D"
+    },
+    "secondary": {
+      "main": "#625B71",
+      "light": "#E8DEF8",
+      "dark": "#1D192B",
+      "onSecondary": "#FFFFFF",
+      "container": "#E8DEF8",
+      "onContainer": "#1D192B"
+    },
+    "tertiary": {
+      "main": "#7D5260",
+      "light": "#FFD8E4",
+      "dark": "#31111D",
+      "onTertiary": "#FFFFFF",
+      "container": "#FFD8E4",
+      "onContainer": "#31111D"
+    },
+    "semantic": {
+      "success": {
+        "main": "#4CAF50",
+        "light": "#C8E6C9",
+        "dark": "#2E7D32"
+      },
+      "warning": {
+        "main": "#FF9800",
+        "light": "#FFE0B2",
+        "dark": "#EF6C00"
+      },
+      "error": {
+        "main": "#BA1A1A",
+        "light": "#FFDAD6",
+        "dark": "#93000A",
+        "onError": "#FFFFFF",
+        "container": "#FFDAD6",
+        "onContainer": "#410002"
+      },
+      "info": {
+        "main": "#2196F3",
+        "light": "#BBDEFB",
+        "dark": "#1565C0"
+      }
+    },
+    "neutral": {
+      "surface": "#FFFBFE",
+      "surfaceVariant": "#E7E0EC",
+      "onSurface": "#1C1B1F",
+      "onSurfaceVariant": "#49454F",
+      "outline": "#79747E",
+      "outlineVariant": "#CAC4D0",
+      "background": "#FFFBFE",
+      "onBackground": "#1C1B1F"
+    },
+    "security": {
+      "quantum": "#00BCD4",
+      "encrypted": "#8BC34A",
+      "shield": "#3F51B5",
+      "verified": "#009688"
+    }
+  },
+  "typography": {
+    "fontFamily": {
+      "primary": "Roboto",
+      "secondary": "Roboto Mono",
+      "display": "Roboto"
+    },
+    "scale": {
+      "displayLarge": {
+        "fontSize": 57,
+        "lineHeight": 64,
+        "fontWeight": 400,
+        "letterSpacing": -0.25
+      },
+      "displayMedium": {
+        "fontSize": 45,
+        "lineHeight": 52,
+        "fontWeight": 400,
+        "letterSpacing": 0
+      },
+      "displaySmall": {
+        "fontSize": 36,
+        "lineHeight": 44,
+        "fontWeight": 400,
+        "letterSpacing": 0
+      },
+      "headlineLarge": {
+        "fontSize": 32,
+        "lineHeight": 40,
+        "fontWeight": 400,
+        "letterSpacing": 0
+      },
+      "headlineMedium": {
+        "fontSize": 28,
+        "lineHeight": 36,
+        "fontWeight": 400,
+        "letterSpacing": 0
+      },
+      "headlineSmall": {
+        "fontSize": 24,
+        "lineHeight": 32,
+        "fontWeight": 400,
+        "letterSpacing": 0
+      },
+      "titleLarge": {
+        "fontSize": 22,
+        "lineHeight": 28,
+        "fontWeight": 400,
+        "letterSpacing": 0
+      },
+      "titleMedium": {
+        "fontSize": 16,
+        "lineHeight": 24,
+        "fontWeight": 500,
+        "letterSpacing": 0.15
+      },
+      "titleSmall": {
+        "fontSize": 14,
+        "lineHeight": 20,
+        "fontWeight": 500,
+        "letterSpacing": 0.1
+      },
+      "bodyLarge": {
+        "fontSize": 16,
+        "lineHeight": 24,
+        "fontWeight": 400,
+        "letterSpacing": 0.5
+      },
+      "bodyMedium": {
+        "fontSize": 14,
+        "lineHeight": 20,
+        "fontWeight": 400,
+        "letterSpacing": 0.25
+      },
+      "bodySmall": {
+        "fontSize": 12,
+        "lineHeight": 16,
+        "fontWeight": 400,
+        "letterSpacing": 0.4
+      },
+      "labelLarge": {
+        "fontSize": 14,
+        "lineHeight": 20,
+        "fontWeight": 500,
+        "letterSpacing": 0.1
+      },
+      "labelMedium": {
+        "fontSize": 12,
+        "lineHeight": 16,
+        "fontWeight": 500,
+        "letterSpacing": 0.5
+      },
+      "labelSmall": {
+        "fontSize": 11,
+        "lineHeight": 16,
+        "fontWeight": 500,
+        "letterSpacing": 0.5
+      }
+    }
+  },
+  "spacing": {
+    "unit": 4,
+    "scale": {
+      "xxs": 4,
+      "xs": 8,
+      "sm": 12,
+      "md": 16,
+      "lg": 24,
+      "xl": 32,
+      "xxl": 48,
+      "xxxl": 64
+    }
+  },
+  "borderRadius": {
+    "none": 0,
+    "xs": 4,
+    "sm": 8,
+    "md": 12,
+    "lg": 16,
+    "xl": 28,
+    "full": 9999
+  },
+  "elevation": {
+    "level0": 0,
+    "level1": 1,
+    "level2": 3,
+    "level3": 6,
+    "level4": 8,
+    "level5": 12
+  },
+  "components": {
+    "buttons": {
+      "filled": {
+        "borderRadius": 20,
+        "minHeight": 40,
+        "horizontalPadding": 24,
+        "states": {
+          "default": { "opacity": 1 },
+          "hovered": { "opacity": 0.92 },
+          "focused": { "opacity": 0.88 },
+          "pressed": { "opacity": 0.88 },
+          "disabled": { "opacity": 0.38 }
+        }
+      },
+      "outlined": {
+        "borderRadius": 20,
+        "minHeight": 40,
+        "borderWidth": 1,
+        "horizontalPadding": 24
+      },
+      "text": {
+        "borderRadius": 20,
+        "minHeight": 40,
+        "horizontalPadding": 12
+      },
+      "elevated": {
+        "borderRadius": 20,
+        "minHeight": 40,
+        "horizontalPadding": 24,
+        "elevation": 1
+      },
+      "tonal": {
+        "borderRadius": 20,
+        "minHeight": 40,
+        "horizontalPadding": 24
+      }
+    },
+    "cards": {
+      "elevated": {
+        "borderRadius": 12,
+        "elevation": 1,
+        "padding": 16
+      },
+      "filled": {
+        "borderRadius": 12,
+        "elevation": 0,
+        "padding": 16
+      },
+      "outlined": {
+        "borderRadius": 12,
+        "elevation": 0,
+        "borderWidth": 1,
+        "padding": 16
+      }
+    },
+    "inputs": {
+      "textField": {
+        "borderRadius": 4,
+        "minHeight": 56,
+        "horizontalPadding": 16,
+        "variants": ["filled", "outlined"]
+      },
+      "searchBar": {
+        "borderRadius": 28,
+        "minHeight": 56,
+        "horizontalPadding": 16
+      }
+    },
+    "navigation": {
+      "bottomNavBar": {
+        "height": 80,
+        "iconSize": 24,
+        "labelStyle": "labelMedium"
+      },
+      "navigationRail": {
+        "width": 80,
+        "iconSize": 24
+      },
+      "appBar": {
+        "height": 64,
+        "elevation": 0
+      }
+    },
+    "dialogs": {
+      "borderRadius": 28,
+      "minWidth": 280,
+      "maxWidth": 560,
+      "padding": 24
+    },
+    "snackbars": {
+      "borderRadius": 4,
+      "minHeight": 48,
+      "horizontalPadding": 16
+    },
+    "chips": {
+      "borderRadius": 8,
+      "height": 32,
+      "horizontalPadding": 16
+    },
+    "lists": {
+      "itemHeight": {
+        "oneLine": 56,
+        "twoLine": 72,
+        "threeLine": 88
+      },
+      "horizontalPadding": 16,
+      "leadingIconSize": 24,
+      "trailingIconSize": 24
+    }
+  },
+  "icons": {
+    "size": {
+      "xs": 16,
+      "sm": 20,
+      "md": 24,
+      "lg": 32,
+      "xl": 48
+    },
+    "banking": [
+      "account_balance",
+      "account_balance_wallet",
+      "credit_card",
+      "payments",
+      "savings",
+      "currency_exchange",
+      "receipt_long",
+      "attach_money"
+    ],
+    "security": [
+      "lock",
+      "security",
+      "verified_user",
+      "shield",
+      "fingerprint",
+      "face",
+      "vpn_key",
+      "enhanced_encryption"
+    ],
+    "navigation": [
+      "home",
+      "history",
+      "pie_chart",
+      "settings",
+      "person",
+      "notifications"
+    ],
+    "actions": [
+      "send",
+      "qr_code_scanner",
+      "add",
+      "remove",
+      "edit",
+      "delete",
+      "share",
+      "copy"
+    ]
+  },
+  "animations": {
+    "duration": {
+      "instant": 0,
+      "fast": 100,
+      "normal": 200,
+      "slow": 300,
+      "slower": 500
+    },
+    "easing": {
+      "standard": "cubic-bezier(0.2, 0.0, 0, 1.0)",
+      "standardDecelerate": "cubic-bezier(0, 0, 0, 1)",
+      "standardAccelerate": "cubic-bezier(0.3, 0, 1, 1)",
+      "emphasized": "cubic-bezier(0.2, 0.0, 0, 1.0)",
+      "emphasizedDecelerate": "cubic-bezier(0.05, 0.7, 0.1, 1.0)",
+      "emphasizedAccelerate": "cubic-bezier(0.3, 0.0, 0.8, 0.15)"
+    }
+  },
+  "breakpoints": {
+    "compact": 0,
+    "medium": 600,
+    "expanded": 840,
+    "large": 1200,
+    "extraLarge": 1600
+  },
+  "accessibility": {
+    "minTouchTarget": 48,
+    "focusIndicatorWidth": 2,
+    "contrastRatio": {
+      "normal": 4.5,
+      "large": 3
+    }
+  },
+  "pqcTheme": {
+    "description": "Elementos visuais específicos para Criptografia Pós-Quântica",
+    "indicators": {
+      "quantumSafe": {
+        "icon": "shield",
+        "color": "#00BCD4",
+        "label": "Quantum Safe"
+      },
+      "encrypted": {
+        "icon": "enhanced_encryption",
+        "color": "#8BC34A",
+        "label": "Encrypted"
+      },
+      "verified": {
+        "icon": "verified_user",
+        "color": "#009688",
+        "label": "Verified"
+      }
+    },
+    "algorithms": [
+      "CRYSTALS-Kyber",
+      "CRYSTALS-Dilithium",
+      "SPHINCS+",
+      "FALCON"
+    ]
+  }
+}
