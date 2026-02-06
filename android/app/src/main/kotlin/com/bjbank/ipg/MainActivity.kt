@@ -1,4 +1,4 @@
-package com.bjbank.ipg.bjbank
+package com.bjbank.ipg
 
 import io.flutter.embedding.android.FlutterActivity
 
