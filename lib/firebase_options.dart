@@ -26,20 +26,14 @@ class DefaultFirebaseOptions {
       case TargetPlatform.android:
         return android;
       case TargetPlatform.iOS:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for ios - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return ios;
       case TargetPlatform.macOS:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for macos - '
           'you can reconfigure this by running the FlutterFire CLI again.',
         );
       case TargetPlatform.windows:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for windows - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return windows;
       case TargetPlatform.linux:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for linux - '
@@ -54,9 +48,33 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyAUqKRgbHBi85OcpDv2hMhCD0dMYNbKH_Y',
-    appId: '1:645960663033:android:53435f039794cb3b834728',
+    appId: '1:645960663033:android:4bad7867ff88bba9834728',
     messagingSenderId: '645960663033',
     projectId: 'bjbanck',
+    databaseURL: 'https://bjbanck-default-rtdb.europe-west1.firebasedatabase.app',
     storageBucket: 'bjbanck.firebasestorage.app',
   );
+
+  static const FirebaseOptions ios = FirebaseOptions(
+    apiKey: 'AIzaSyBUop6jeVceEgsvLOsMr4CnefAO7y6Sc4Y',
+    appId: '1:645960663033:ios:770193b410e60b2e834728',
+    messagingSenderId: '645960663033',
+    projectId: 'bjbanck',
+    databaseURL: 'https://bjbanck-default-rtdb.europe-west1.firebasedatabase.app',
+    storageBucket: 'bjbanck.firebasestorage.app',
+    iosClientId: '645960663033-utkspkg19qira6coj468g7putacvgqic.apps.googleusercontent.com',
+    iosBundleId: 'com.bjbank.ipg',
+  );
+
+  static const FirebaseOptions windows = FirebaseOptions(
+    apiKey: 'AIzaSyDrgBvpU5OZi4WC-8YYpHFmU3EIP4iWuUY',
+    appId: '1:645960663033:web:22a5b4215edaf31b834728',
+    messagingSenderId: '645960663033',
+    projectId: 'bjbanck',
+    authDomain: 'bjbanck.firebaseapp.com',
+    databaseURL: 'https://bjbanck-default-rtdb.europe-west1.firebasedatabase.app',
+    storageBucket: 'bjbanck.firebasestorage.app',
+    measurementId: 'G-9052N42RKK',
+  );
+
 }
