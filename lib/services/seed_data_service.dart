@@ -403,6 +403,403 @@ class SeedDataService {
     return 'DILITHIUM3-SIG-$timestamp-BJBANK-PQC-DEMO';
   }
 
+  /// Seed a demo account for Google Play review
+  /// Email: demo@bjbank.com / Password: BjBank2026!
+  static Future<SeedResult> seedDemoAccount() async {
+    final result = SeedResult();
+
+    try {
+      debugPrint('=== BJBank: Seeding Demo Account for Google Play ===');
+
+      // Step 1: Create demo user in Firebase Auth
+      String demoUserId;
+      try {
+        final credential = await _auth.createUserWithEmailAndPassword(
+          email: 'demo@bjbank.com',
+          password: 'BjBank2026!',
+        );
+        demoUserId = credential.user!.uid;
+        await credential.user!.updateDisplayName('Demo User');
+        result.usersCreated++;
+        debugPrint('  Demo user created in Firebase Auth');
+      } catch (e) {
+        if (e.toString().contains('email-already-in-use')) {
+          debugPrint('  Demo user already exists, fetching...');
+          final existing = await _getExistingUser('demo@bjbank.com');
+          if (existing != null) {
+            demoUserId = existing['userId']!;
+            result.usersSkipped++;
+          } else {
+            result.errors.add('Demo user exists in Auth but not in Firestore');
+            result.success = false;
+            return result;
+          }
+        } else {
+          result.errors.add('Error creating demo user: $e');
+          result.success = false;
+          return result;
+        }
+      }
+
+      // Step 2: Create demo user document in Firestore
+      final demoIban = 'PT50003600019876543210001';
+      await _db.collection('users').doc(demoUserId).set({
+        'email': 'demo@bjbank.com',
+        'name': 'Demo User',
+        'phone': '+351910000000',
+        'iban': demoIban,
+        'pqcPublicKey': 'DILITHIUM3-PK-DEMO-BJBANK-GOOGLE-PLAY-REVIEW',
+        'photoUrl': null,
+        'emailVerified': true,
+        'phoneVerified': true,
+        'status': 'active',
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      debugPrint('  Demo user Firestore document created');
+
+      // Step 3: Create demo account with healthy balance
+      final demoAccountRef = _db.collection('accounts').doc();
+      final demoAccountId = demoAccountRef.id;
+      await demoAccountRef.set({
+        'userId': demoUserId,
+        'iban': demoIban,
+        'accountNumber': '98765432100',
+        'type': 'checking',
+        'status': 'active',
+        'balance': 12500.00,
+        'availableBalance': 12500.00,
+        'currency': 'EUR',
+        'bankCode': '0036',
+        'mbWayLinked': true,
+        'mbWayPhone': '+351910000000',
+        'mbWayDailyLimit': 1000.0,
+        'mbWayPerTransactionLimit': 500.0,
+        'mbWayDailyUsed': 0.0,
+        'mbWayLastResetDate': FieldValue.serverTimestamp(),
+        'mbWayLinkedAt': FieldValue.serverTimestamp(),
+        'mbWayLookupCount': 0,
+        'mbWayLastLookup': null,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      debugPrint('  Demo account created (EUR 12,500.00)');
+
+      // Step 4: Create cards for demo account
+      // Visa Debit
+      await _db.collection('cards').doc().set({
+        'userId': demoUserId,
+        'accountId': demoAccountId,
+        'cardNumber': '4532015112830366',
+        'lastFourDigits': '0366',
+        'expiryDate': '12/28',
+        'cvv': '123',
+        'type': 'debit',
+        'brand': 'visa',
+        'status': 'active',
+        'holderName': 'DEMO USER',
+        'dailyLimit': 1000.0,
+        'monthlyLimit': 5000.0,
+        'contactlessEnabled': true,
+        'onlinePaymentsEnabled': true,
+        'internationalEnabled': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      debugPrint('  Visa Debit card created');
+
+      // Mastercard Credit
+      await _db.collection('cards').doc().set({
+        'userId': demoUserId,
+        'accountId': demoAccountId,
+        'cardNumber': '5425233430109903',
+        'lastFourDigits': '9903',
+        'expiryDate': '06/29',
+        'cvv': '456',
+        'type': 'credit',
+        'brand': 'mastercard',
+        'status': 'active',
+        'holderName': 'DEMO USER',
+        'dailyLimit': 2500.0,
+        'monthlyLimit': 10000.0,
+        'contactlessEnabled': true,
+        'onlinePaymentsEnabled': true,
+        'internationalEnabled': true,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      debugPrint('  Mastercard Credit card created');
+
+      // Step 5: Create counterparty users for realistic transactions
+      final counterparties = <Map<String, String>>[];
+      final counterpartyData = [
+        {'email': 'ana.review@bjbank.pt', 'name': 'Ana Oliveira', 'phone': '+351920000001'},
+        {'email': 'pedro.review@bjbank.pt', 'name': 'Pedro Costa', 'phone': '+351920000002'},
+        {'email': 'maria.review@bjbank.pt', 'name': 'Maria Santos', 'phone': '+351920000003'},
+      ];
+
+      for (final cp in counterpartyData) {
+        String cpUserId;
+        try {
+          final cpCredential = await _auth.createUserWithEmailAndPassword(
+            email: cp['email']!,
+            password: 'Review123456',
+          );
+          cpUserId = cpCredential.user!.uid;
+          await cpCredential.user!.updateDisplayName(cp['name']!);
+          result.usersCreated++;
+        } catch (e) {
+          if (e.toString().contains('email-already-in-use')) {
+            final existing = await _getExistingUser(cp['email']!);
+            if (existing != null) {
+              cpUserId = existing['userId']!;
+              result.usersSkipped++;
+            } else {
+              continue;
+            }
+          } else {
+            result.errors.add('Error creating ${cp['name']}: $e');
+            continue;
+          }
+        }
+
+        final cpAccountRef = _db.collection('accounts').doc();
+
+        await _db.collection('users').doc(cpUserId).set({
+          'email': cp['email'],
+          'name': cp['name'],
+          'phone': cp['phone'],
+          'iban': 'PT500036000100000000${counterparties.length + 1}0001',
+          'pqcPublicKey': null,
+          'emailVerified': true,
+          'phoneVerified': true,
+          'status': 'active',
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+
+        await cpAccountRef.set({
+          'userId': cpUserId,
+          'iban': 'PT500036000100000000${counterparties.length + 1}0001',
+          'accountNumber': '0000000${counterparties.length + 1}001',
+          'type': 'checking',
+          'status': 'active',
+          'balance': 5000.0,
+          'availableBalance': 5000.0,
+          'currency': 'EUR',
+          'bankCode': '0036',
+          'mbWayLinked': true,
+          'mbWayPhone': cp['phone'],
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+
+        counterparties.add({
+          'userId': cpUserId,
+          'accountId': cpAccountRef.id,
+          'name': cp['name']!,
+        });
+      }
+
+      await _auth.signOut();
+      debugPrint('  ${counterparties.length} counterparty users created');
+
+      // Step 6: Create diverse transactions for demo account
+      final now = DateTime.now();
+      final demoTransactions = [
+        // Incoming salary
+        {
+          'senderId': counterparties.isNotEmpty ? counterparties[0]['userId'] : demoUserId,
+          'senderAccountId': counterparties.isNotEmpty ? counterparties[0]['accountId'] : demoAccountId,
+          'receiverId': demoUserId,
+          'receiverAccountId': demoAccountId,
+          'amount': 2150.00,
+          'description': 'Salary - February 2026',
+          'type': 'income',
+          'daysAgo': 1,
+        },
+        // Transfer sent
+        {
+          'senderId': demoUserId,
+          'senderAccountId': demoAccountId,
+          'receiverId': counterparties.length > 1 ? counterparties[1]['userId'] : demoUserId,
+          'receiverAccountId': counterparties.length > 1 ? counterparties[1]['accountId'] : demoAccountId,
+          'amount': 350.00,
+          'description': 'Rent payment - February',
+          'type': 'transfer',
+          'daysAgo': 2,
+        },
+        // MB WAY received
+        {
+          'senderId': counterparties.length > 2 ? counterparties[2]['userId'] : demoUserId,
+          'senderAccountId': counterparties.length > 2 ? counterparties[2]['accountId'] : demoAccountId,
+          'receiverId': demoUserId,
+          'receiverAccountId': demoAccountId,
+          'amount': 45.00,
+          'description': 'MB WAY - Dinner split',
+          'type': 'mbway',
+          'daysAgo': 2,
+        },
+        // MB WAY sent
+        {
+          'senderId': demoUserId,
+          'senderAccountId': demoAccountId,
+          'receiverId': counterparties.isNotEmpty ? counterparties[0]['userId'] : demoUserId,
+          'receiverAccountId': counterparties.isNotEmpty ? counterparties[0]['accountId'] : demoAccountId,
+          'amount': 15.50,
+          'description': 'MB WAY - Coffee and pastry',
+          'type': 'mbway',
+          'daysAgo': 3,
+        },
+        // Payment
+        {
+          'senderId': demoUserId,
+          'senderAccountId': demoAccountId,
+          'receiverId': counterparties.length > 1 ? counterparties[1]['userId'] : demoUserId,
+          'receiverAccountId': counterparties.length > 1 ? counterparties[1]['accountId'] : demoAccountId,
+          'amount': 89.99,
+          'description': 'Online shopping - Electronics',
+          'type': 'payment',
+          'daysAgo': 4,
+        },
+        // Transfer received
+        {
+          'senderId': counterparties.length > 1 ? counterparties[1]['userId'] : demoUserId,
+          'senderAccountId': counterparties.length > 1 ? counterparties[1]['accountId'] : demoAccountId,
+          'receiverId': demoUserId,
+          'receiverAccountId': demoAccountId,
+          'amount': 120.00,
+          'description': 'Freelance work payment',
+          'type': 'transfer',
+          'daysAgo': 5,
+        },
+        // Expense
+        {
+          'senderId': demoUserId,
+          'senderAccountId': demoAccountId,
+          'receiverId': counterparties.length > 2 ? counterparties[2]['userId'] : demoUserId,
+          'receiverAccountId': counterparties.length > 2 ? counterparties[2]['accountId'] : demoAccountId,
+          'amount': 42.30,
+          'description': 'Grocery store',
+          'type': 'expense',
+          'daysAgo': 5,
+        },
+        // MB WAY received
+        {
+          'senderId': counterparties.isNotEmpty ? counterparties[0]['userId'] : demoUserId,
+          'senderAccountId': counterparties.isNotEmpty ? counterparties[0]['accountId'] : demoAccountId,
+          'receiverId': demoUserId,
+          'receiverAccountId': demoAccountId,
+          'amount': 25.00,
+          'description': 'MB WAY - Movie tickets refund',
+          'type': 'mbway',
+          'daysAgo': 6,
+        },
+        // Transfer sent
+        {
+          'senderId': demoUserId,
+          'senderAccountId': demoAccountId,
+          'receiverId': counterparties.length > 2 ? counterparties[2]['userId'] : demoUserId,
+          'receiverAccountId': counterparties.length > 2 ? counterparties[2]['accountId'] : demoAccountId,
+          'amount': 200.00,
+          'description': 'Gym membership - monthly',
+          'type': 'transfer',
+          'daysAgo': 7,
+        },
+        // Previous month salary
+        {
+          'senderId': counterparties.isNotEmpty ? counterparties[0]['userId'] : demoUserId,
+          'senderAccountId': counterparties.isNotEmpty ? counterparties[0]['accountId'] : demoAccountId,
+          'receiverId': demoUserId,
+          'receiverAccountId': demoAccountId,
+          'amount': 2150.00,
+          'description': 'Salary - January 2026',
+          'type': 'income',
+          'daysAgo': 30,
+        },
+        // Older transfer
+        {
+          'senderId': demoUserId,
+          'senderAccountId': demoAccountId,
+          'receiverId': counterparties.length > 1 ? counterparties[1]['userId'] : demoUserId,
+          'receiverAccountId': counterparties.length > 1 ? counterparties[1]['accountId'] : demoAccountId,
+          'amount': 350.00,
+          'description': 'Rent payment - January',
+          'type': 'transfer',
+          'daysAgo': 31,
+        },
+        // Older MB WAY
+        {
+          'senderId': demoUserId,
+          'senderAccountId': demoAccountId,
+          'receiverId': counterparties.length > 2 ? counterparties[2]['userId'] : demoUserId,
+          'receiverAccountId': counterparties.length > 2 ? counterparties[2]['accountId'] : demoAccountId,
+          'amount': 30.00,
+          'description': 'MB WAY - Birthday gift',
+          'type': 'mbway',
+          'daysAgo': 35,
+        },
+      ];
+
+      for (int i = 0; i < demoTransactions.length; i++) {
+        final tx = demoTransactions[i];
+        try {
+          final transactionRef = _db.collection('transactions').doc();
+          final createdAt = now.subtract(Duration(days: tx['daysAgo'] as int));
+
+          await transactionRef.set({
+            'senderId': tx['senderId'],
+            'senderAccountId': tx['senderAccountId'],
+            'receiverId': tx['receiverId'],
+            'receiverAccountId': tx['receiverAccountId'],
+            'amount': tx['amount'],
+            'description': tx['description'],
+            'type': tx['type'],
+            'status': 'completed',
+            'pqcSignature': _generateMockSignature(),
+            'isEncrypted': true,
+            'createdAt': Timestamp.fromDate(createdAt),
+          });
+
+          result.transactionsCreated++;
+        } catch (e) {
+          result.errors.add('Error creating demo transaction $i: $e');
+        }
+      }
+
+      // Step 7: Add MB WAY recent contacts for demo user
+      if (counterparties.isNotEmpty) {
+        for (final cp in counterparties) {
+          await _db
+              .collection('users')
+              .doc(demoUserId)
+              .collection('mbway_contacts')
+              .doc()
+              .set({
+            'name': cp['name'],
+            'phone': counterpartyData[counterparties.indexOf(cp)]['phone'],
+            'avatarUrl': null,
+            'lastUsed': FieldValue.serverTimestamp(),
+            'useCount': 3,
+          });
+        }
+        debugPrint('  MB WAY contacts added');
+      }
+
+      debugPrint('=== Demo Account Seed Complete ===');
+      debugPrint('  Email: demo@bjbank.com');
+      debugPrint('  Password: BjBank2026!');
+      debugPrint('  Balance: EUR 12,500.00');
+      debugPrint('  Cards: 2 (Visa Debit + Mastercard Credit)');
+      debugPrint('  Transactions: ${result.transactionsCreated}');
+
+      result.success = true;
+    } catch (e) {
+      debugPrint('Demo account seed error: $e');
+      result.errors.add('Fatal error: $e');
+    }
+
+    return result;
+  }
+
   /// Clear all seed data (use with caution!)
   static Future<void> clearAllData() async {
     debugPrint('=== Clearing all Firestore data ===');

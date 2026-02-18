@@ -14,6 +14,7 @@ class SeedScreen extends StatefulWidget {
 
 class _SeedScreenState extends State<SeedScreen> {
   bool _isSeeding = false;
+  bool _isSeedingDemo = false;
   bool _isClearing = false;
   String _status = '';
   List<String> _logs = [];
@@ -43,6 +44,38 @@ class _SeedScreenState extends State<SeedScreen> {
       _status = result.success ? 'Seed concluído com sucesso!' : 'Seed concluído com erros';
       _logs.add('');
       _logs.add('=== Resultado ===');
+      _logs.add('Utilizadores criados: ${result.usersCreated}');
+      _logs.add('Utilizadores existentes: ${result.usersSkipped}');
+      _logs.add('Transações criadas: ${result.transactionsCreated}');
+      if (result.errors.isNotEmpty) {
+        _logs.add('');
+        _logs.add('Erros:');
+        for (var error in result.errors) {
+          _logs.add('  - $error');
+        }
+      }
+    });
+  }
+
+  Future<void> _runSeedDemo() async {
+    setState(() {
+      _isSeedingDemo = true;
+      _status = 'A criar conta demo (Google Play)...';
+      _logs = ['Início do seed demo account...'];
+    });
+
+    final result = await SeedDataService.seedDemoAccount();
+
+    setState(() {
+      _isSeedingDemo = false;
+      _result = result;
+      _status = result.success
+          ? 'Conta demo criada com sucesso!'
+          : 'Seed demo concluído com erros';
+      _logs.add('');
+      _logs.add('=== Resultado ===');
+      _logs.add('Email: demo@bjbank.com');
+      _logs.add('Password: BjBank2026!');
       _logs.add('Utilizadores criados: ${result.usersCreated}');
       _logs.add('Utilizadores existentes: ${result.usersSkipped}');
       _logs.add('Transações criadas: ${result.transactionsCreated}');
@@ -167,8 +200,8 @@ class _SeedScreenState extends State<SeedScreen> {
                   ),
                   SizedBox(height: 8),
                   Text(
-                    'Email: joao.silva@bjbank.pt\n'
-                    'Password: Joao123456',
+                    'Seed users: joao.silva@bjbank.pt / Joao123456\n'
+                    'Demo (Google Play): demo@bjbank.com / BjBank2026!',
                     style: TextStyle(
                       fontFamily: 'monospace',
                       fontSize: 13,
@@ -180,9 +213,34 @@ class _SeedScreenState extends State<SeedScreen> {
 
             const SizedBox(height: BJBankSpacing.lg),
 
-            // Seed button
+            // Demo account button (Google Play)
             FilledButton.icon(
-              onPressed: (_isSeeding || _isClearing) ? null : _runSeed,
+              onPressed: (_isSeeding || _isSeedingDemo || _isClearing) ? null : _runSeedDemo,
+              icon: _isSeedingDemo
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.play_arrow),
+              label: Text(_isSeedingDemo ? 'A criar conta demo...' : 'Criar Conta Demo (Google Play)'),
+              style: FilledButton.styleFrom(
+                minimumSize: const Size.fromHeight(52),
+                backgroundColor: BJBankColors.success,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: BJBankSpacing.sm),
+
+            // Seed all button
+            FilledButton.icon(
+              onPressed: (_isSeeding || _isSeedingDemo || _isClearing) ? null : _runSeed,
               icon: _isSeeding
                   ? const SizedBox(
                       width: 20,
@@ -206,7 +264,7 @@ class _SeedScreenState extends State<SeedScreen> {
 
             // Clear button
             OutlinedButton.icon(
-              onPressed: (_isSeeding || _isClearing) ? null : _clearData,
+              onPressed: (_isSeeding || _isSeedingDemo || _isClearing) ? null : _clearData,
               icon: _isClearing
                   ? const SizedBox(
                       width: 20,
