@@ -1033,23 +1033,55 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         child: Container(
           height: 72,
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildNavItem(0, Icons.home_outlined, Icons.home_rounded, 'Início'),
-              _buildNavItem(1, Icons.receipt_long_outlined, Icons.receipt_long_rounded, 'Histórico'),
-              const SizedBox(width: 64), // Space for FAB
-              _buildNavItem(2, Icons.credit_card_outlined, Icons.credit_card, 'Cartões'),
-              _buildNavItem(3, Icons.settings_outlined, Icons.settings_rounded, 'Config'),
-            ],
+          child: Consumer<AccountProvider>(
+            builder: (context, accountProvider, _) {
+              final cutoff = DateTime.now().subtract(const Duration(hours: 24));
+              final recentCount = accountProvider.transactions
+                  .where((t) => t.date.isAfter(cutoff))
+                  .length;
+              return Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildNavItem(0, Icons.home_outlined, Icons.home_rounded, 'Início'),
+                  _buildNavItem(1, Icons.receipt_long_outlined, Icons.receipt_long_rounded, 'Histórico'),
+                  const SizedBox(width: 64), // Space for FAB
+                  _buildNavItem(2, Icons.credit_card_outlined, Icons.credit_card, 'Cartões'),
+                  _buildNavItem(3, Icons.settings_outlined, Icons.settings_rounded, 'Config',
+                      badgeCount: recentCount),
+                ],
+              );
+            },
           ),
         ),
       ),
     );
   }
 
-  Widget _buildNavItem(int index, IconData icon, IconData selectedIcon, String label) {
+  Widget _buildNavItem(
+    int index,
+    IconData icon,
+    IconData selectedIcon,
+    String label, {
+    int badgeCount = 0,
+  }) {
     final isSelected = _currentNavIndex == index;
+
+    Widget iconWidget = Icon(
+      isSelected ? selectedIcon : icon,
+      size: 22,
+      color: isSelected ? BJBankColors.primary : const Color(0xFF94A3B8),
+    );
+
+    if (badgeCount > 0) {
+      iconWidget = Badge(
+        label: Text(
+          badgeCount > 9 ? '9+' : '$badgeCount',
+          style: const TextStyle(fontSize: 9, color: Colors.white),
+        ),
+        backgroundColor: BJBankColors.error,
+        child: iconWidget,
+      );
+    }
 
     return GestureDetector(
       onTap: () => _onNavItemTapped(index),
@@ -1067,13 +1099,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 color: isSelected ? BJBankColors.primary.withValues(alpha: 0.12) : Colors.transparent,
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: Center(
-                child: Icon(
-                  isSelected ? selectedIcon : icon,
-                  size: 22,
-                  color: isSelected ? BJBankColors.primary : const Color(0xFF94A3B8),
-                ),
-              ),
+              child: Center(child: iconWidget),
             ),
             const SizedBox(height: 4),
             Text(

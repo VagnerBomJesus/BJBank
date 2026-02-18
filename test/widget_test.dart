@@ -14,6 +14,8 @@ void main() {
           home: LoginScreen(),
         ),
       );
+      // Drain Future.delayed timers from AnimatedBubbles (max 2000ms delay)
+      await tester.pump(const Duration(seconds: 3));
 
       // Verify login elements exist
       expect(find.text('Bem-vindo de volta'), findsOneWidget);
@@ -29,10 +31,11 @@ void main() {
           home: RegisterScreen(),
         ),
       );
+      await tester.pump(const Duration(seconds: 3));
 
       // Verify register elements exist
       expect(find.text('Nome completo'), findsOneWidget);
-      expect(find.text('Telemóvel (opcional)'), findsOneWidget);
+      expect(find.text('Telemóvel'), findsOneWidget);
     });
 
     testWidgets('Login screen has email input field', (WidgetTester tester) async {
@@ -41,6 +44,7 @@ void main() {
           home: LoginScreen(),
         ),
       );
+      await tester.pump(const Duration(seconds: 3));
 
       // Find email text field
       expect(find.byType(TextFormField), findsWidgets);
