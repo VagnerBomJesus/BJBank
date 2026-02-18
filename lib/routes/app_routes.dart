@@ -33,6 +33,9 @@ class AppRoutes {
   static const String mbwaySettings = '/settings/mbway';
   static const String mbwayPhoneVerification = '/settings/mbway/verify-phone';
 
+  // Security routes
+  static const String pqcBenchmark = '/security/pqc-benchmark';
+
   // Dev routes
   static const String seedData = '/seed-data';
 

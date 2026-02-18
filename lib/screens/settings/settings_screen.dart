@@ -191,6 +191,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ],
                 const Divider(height: 1, indent: 56),
+                ListTile(
+                  leading: Icon(Icons.science_outlined, color: BJBankColors.quantum),
+                  title: const Text('Benchmark PQC'),
+                  subtitle: const Text('Comparar desempenho pós-quântico vs clássico'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.pushNamed(context, AppRoutes.pqcBenchmark),
+                ),
+                const Divider(height: 1, indent: 56),
                 SwitchListTile(
                   secondary: const Icon(Icons.fingerprint),
                   title: const Text('Biometria'),

@@ -4,12 +4,13 @@
 
 | Métrica | Valor |
 |---------|-------|
-| **Total de Ficheiros Dart** | 68 |
-| **Ecrãs Implementados** | 34 |
-| **Modelos de Dados** | 5 |
-| **Serviços** | 7 |
+| **Total de Ficheiros Dart** | 71 |
+| **Ecrãs Implementados** | 35 |
+| **Modelos de Dados** | 6 |
+| **Serviços** | 9 |
 | **Providers** | 3 |
-| **Progresso Geral** | ~75% |
+| **ADRs** | 3 |
+| **Progresso Geral** | ~80% |
 
 ---
 
@@ -47,14 +48,22 @@
 
 | Funcionalidade | Ficheiro | Estado | Notas |
 |----------------|----------|--------|-------|
-| Geração de par de chaves | `pqc_service.dart` | ✅ 100% | Dilithium 2/3/5 |
+| Geração de par de chaves | `pqc_service.dart` | ✅ 100% | Dilithium 2/3/5 + Kyber 512/768/1024 |
 | Assinatura de transações | `pqc_service.dart` | ✅ 100% | signTransfer() |
 | Verificação de assinaturas | `pqc_service.dart` | ✅ 100% | verifySignature() |
 | Armazenamento seguro de chaves | `pqc_service.dart` | ✅ 100% | Flutter Secure Storage |
 | Informações do algoritmo | `pqc_service.dart` | ✅ 100% | Nível NIST, bits |
 | Badge de segurança PQC | `quantum_safe_badge.dart` | ✅ 100% | UI indicator |
+| **Handshake Híbrido** | `pqc_service.dart` | ⏳ 70% | TLS ECDHE + Kyber768 KEM (simulado) |
+| **Benchmark PQC** | `pqc_benchmark_service.dart` | ⏳ 80% | 18 operações, N=10 iterações |
+| **Ecrã Benchmark** | `pqc_benchmark_screen.dart` | ⏳ 80% | Tabela + barras + handshake + export |
+| **Modelo de Métricas** | `pqc_metrics_model.dart` | ✅ 100% | JSON + Markdown |
+| **ADR-001** | `docs/adr/ADR-001-*.md` | ✅ 100% | Classificação PoC Arquitetural |
+| **ADR-002** | `docs/adr/ADR-002-*.md` | ✅ 100% | Design handshake híbrido |
+| **ADR-003** | `docs/adr/ADR-003-*.md` | ✅ 100% | Metodologia benchmarking |
 
-**Nota:** A implementação atual é uma simulação. Para produção, integrar liboqs via FFI.
+**Nota:** A implementação atual é um **Simulador de Interface PQC = PoC Arquitetural** (ver ADR-001).
+Para produção, integrar liboqs via FFI (interface pública de `PqcService` mantém zero breaking changes).
 
 ### 1.4 Gestão de Perfil e Configurações
 
@@ -255,15 +264,15 @@ FormatCurrency(amount, locale="pt_PT"):
 
 | Camada | Ficheiros | Linhas (aprox.) | % do Total |
 |--------|-----------|-----------------|------------|
-| Screens (UI) | 34 | ~8,000 | 45% |
-| Services | 7 | ~2,500 | 14% |
-| Models | 5 | ~800 | 5% |
+| Screens (UI) | 35 | ~8,600 | 45% |
+| Services | 9 | ~3,200 | 16% |
+| Models | 6 | ~1,100 | 6% |
 | Providers | 3 | ~600 | 3% |
 | Theme | 8 | ~1,500 | 8% |
-| Routes | 3 | ~300 | 2% |
+| Routes | 3 | ~310 | 2% |
 | Widgets | 2 | ~400 | 2% |
 | Config/Main | 3 | ~200 | 1% |
-| **Total** | **68** | **~14,000** | **100%** |
+| **Total** | **71** | **~15,700** | **100%** |
 
 ### 5.2 Complexidade
 
@@ -352,11 +361,19 @@ FormatCurrency(amount, locale="pt_PT"):
 2026 Q1 ✅ MVP CONCLUÍDO
 ├── Autenticação completa
 ├── Transferências IBAN/MB WAY
-├── PQC simulado
-└── UI/UX polida
+├── PQC simulado (PoC Arquitetural)
+├── UI/UX polida
+└── Sprint 2026 Q1 ✅ CONCLUÍDO (2026-02-18):
+    ├── ADR-001: Classificação científica PoC Arquitetural
+    ├── ADR-002: Design handshake híbrido TLS + Kyber768
+    ├── ADR-003: Metodologia benchmarking PQC
+    ├── PqcMetrics + PqcHybridHandshake + PqcHybridHandshakeResult
+    ├── PqcBenchmarkService (18 operações, N=10, mediana+P95)
+    ├── PqcBenchmarkScreen (benchmark + export JSON/Markdown)
+    └── Dados NIST/SUPERCOP completos (RSA/ECDSA/ECDH vs Dilithium/Kyber)
 
 2026 Q2 🔄 EM PROGRESSO
-├── Integração liboqs
+├── Integração liboqs (FFI real — ver ADR-001 roadmap)
 ├── Testes automatizados
 ├── Push notifications
 └── Certificate pinning

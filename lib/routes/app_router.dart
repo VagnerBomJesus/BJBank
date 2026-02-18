@@ -24,6 +24,7 @@ import '../screens/analysis/analysis_screen.dart';
 import '../screens/deposit/deposit_screen.dart';
 import '../screens/deposit/bank_selection_screen.dart';
 import '../screens/deposit/linked_accounts_screen.dart';
+import '../screens/security/pqc_benchmark_screen.dart';
 import 'app_routes.dart';
 
 /// BJBank App Router
@@ -170,6 +171,13 @@ class AppRouter {
         final initialPhone = settings.arguments as String?;
         return _buildSlideRoute(
           MbWayPhoneVerificationScreen(initialPhone: initialPhone),
+          settings,
+        );
+
+      // Security routes
+      case AppRoutes.pqcBenchmark:
+        return _buildSlideRoute(
+          const PqcBenchmarkScreen(),
           settings,
         );
 
