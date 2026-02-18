@@ -61,6 +61,7 @@
 | **ADR-001** | `docs/adr/ADR-001-*.md` | ✅ 100% | Classificação PoC Arquitetural |
 | **ADR-002** | `docs/adr/ADR-002-*.md` | ✅ 100% | Design handshake híbrido |
 | **ADR-003** | `docs/adr/ADR-003-*.md` | ✅ 100% | Metodologia benchmarking |
+| **Testes PQC** | `test/pqc_test.dart` | ✅ 100% | 40 testes unitários (100% pass) |
 
 **Nota:** A implementação atual é um **Simulador de Interface PQC = PoC Arquitetural** (ver ADR-001).
 Para produção, integrar liboqs via FFI (interface pública de `PqcService` mantém zero breaking changes).
@@ -125,7 +126,7 @@ Para produção, integrar liboqs via FFI (interface pública de `PqcService` man
 
 | Funcionalidade | Ficheiro | Estado | O que falta |
 |----------------|----------|--------|-------------|
-| Lista de notificações | `inbox_screen.dart` | 40% | UI básica, sem dados |
+| Lista de notificações | `inbox_screen.dart` | ✅ 85% | 3 tabs: Atividade (tx), Segurança (PQC status), Sistema |
 | Badge de notificação | `home_screen.dart` | 50% | Ícone presente, sem contagem real |
 | Push notifications | - | 0% | Firebase Cloud Messaging |
 | Notificações de transação | - | 0% | Triggers Firestore |
@@ -134,8 +135,8 @@ Para produção, integrar liboqs via FFI (interface pública de `PqcService` man
 
 | Funcionalidade | Ficheiro | Estado | O que falta |
 |----------------|----------|--------|-------------|
-| Lista de documentos | `documents_screen.dart` | 30% | UI placeholder |
-| Download PDF | - | 0% | Geração de extratos |
+| Lista de documentos | `documents_screen.dart` | ✅ 100% | Transações por mês, filtro ano/mês, badge PQC, exportar extrato |
+| Download PDF | - | 0% | Geração de extratos PDF |
 | Comprovativo de transferência | - | 0% | PDF export |
 
 ---
