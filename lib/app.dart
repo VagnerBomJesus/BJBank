@@ -10,6 +10,8 @@ import 'providers/bill_provider.dart';
 import 'providers/mbway_provider.dart';
 import 'providers/investment_provider.dart';
 import 'providers/loan_provider.dart';
+import 'providers/savings_goal_provider.dart';
+import 'providers/budget_provider.dart';
 import 'routes/app_router.dart';
 import 'routes/app_routes.dart';
 import 'theme/app_theme.dart';
@@ -79,6 +81,24 @@ class BJBankApp extends StatelessWidget {
               loanProvider?.initialize(authProvider.userId!);
             }
             return loanProvider ?? LoanProvider();
+          },
+        ),
+        ChangeNotifierProxyProvider<AuthProvider, SavingsGoalProvider>(
+          create: (_) => SavingsGoalProvider(),
+          update: (_, authProvider, savingsGoalProvider) {
+            if (authProvider.userId != null) {
+              savingsGoalProvider?.initialize(authProvider.userId!);
+            }
+            return savingsGoalProvider ?? SavingsGoalProvider();
+          },
+        ),
+        ChangeNotifierProxyProvider<AuthProvider, BudgetProvider>(
+          create: (_) => BudgetProvider(),
+          update: (_, authProvider, budgetProvider) {
+            if (authProvider.userId != null) {
+              budgetProvider?.initialize(authProvider.userId!);
+            }
+            return budgetProvider ?? BudgetProvider();
           },
         ),
       ],
