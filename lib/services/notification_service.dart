@@ -208,6 +208,120 @@ class NotificationService {
     }
   }
 
+  /// Setup Firestore listener for transaction notifications
+  static void setupTransactionTriggers(String userId) {
+    try {
+      if (kDebugMode) {
+        print('📍 Setting up transaction notification triggers for $userId');
+      }
+      // TODO: Implement Firestore listener for transactions
+      // Will listen to /users/{userId}/transactions collection
+      // Send notification when new transaction is added
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Error setting up transaction triggers: $e');
+      }
+    }
+  }
+
+  /// Setup Firestore listener for security notifications
+  static void setupSecurityAlerts(String userId) {
+    try {
+      if (kDebugMode) {
+        print('🔐 Setting up security notification alerts for $userId');
+      }
+      // TODO: Implement Firestore listener for security events
+      // Will listen to /users/{userId}/securityEvents collection
+      // Send notification on:
+      // - Failed login attempts
+      // - New device login
+      // - Permission changes
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Error setting up security alerts: $e');
+      }
+    }
+  }
+
+  /// Setup Firestore listener for bill reminders
+  static void setupBillReminders(String userId) {
+    try {
+      if (kDebugMode) {
+        print('📋 Setting up bill reminder triggers for $userId');
+      }
+      // TODO: Implement Firestore listener for bills
+      // Will listen to /users/{userId}/bills collection
+      // Send reminder notification when bill due date is approaching
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Error setting up bill reminders: $e');
+      }
+    }
+  }
+
+  /// Setup Firestore listener for loan payment reminders
+  static void setupLoanPaymentReminders(String userId) {
+    try {
+      if (kDebugMode) {
+        print('💰 Setting up loan payment reminder triggers for $userId');
+      }
+      // TODO: Implement Firestore listener for loans
+      // Will listen to /users/{userId}/loans collection
+      // Send reminder notification when payment is due
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Error setting up loan payment reminders: $e');
+      }
+    }
+  }
+
+  /// Initialize all notification triggers for user
+  static void setupAllTriggers(String userId) {
+    setupTransactionTriggers(userId);
+    setupSecurityAlerts(userId);
+    setupBillReminders(userId);
+    setupLoanPaymentReminders(userId);
+    if (kDebugMode) {
+      print('✅ All notification triggers initialized for $userId');
+    }
+  }
+
+  /// Handle deep linking from notification tap
+  static Future<bool> handleNotificationDeepLink(
+    Map<String, dynamic> data,
+  ) async {
+    try {
+      final type = data['type'] ?? 'generic';
+      final deepLink = data['deepLink'];
+
+      if (deepLink == null) {
+        if (kDebugMode) {
+          print('⚠️  No deepLink in notification data');
+        }
+        return false;
+      }
+
+      if (kDebugMode) {
+        print('🔗 Handling deep link: $deepLink (type: $type)');
+      }
+
+      // TODO: Implement deep linking based on notification type
+      // Example deepLinks:
+      // - "app://transaction/{transactionId}"
+      // - "app://bill/{billId}"
+      // - "app://loan/{loanId}"
+      // - "app://security/alerts"
+      // - "app://goals/{goalId}"
+
+      return true;
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Error handling notification deep link: $e');
+      }
+      return false;
+    }
+  }
+
   /// Cleanup
   void dispose() {
     _messageStreamController.close();
