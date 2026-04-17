@@ -7,6 +7,10 @@
 [![License](https://img.shields.io/badge/License-Academic%20Research-blue)]()
 [![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)]()
 
+<div align="center">
+  <img src="https://github.com/VagnerBomJesus/BJBank/blob/main/assets/logo_bjbank.png?raw=true" alt="BJBank Logo" width="200"/>
+</div>
+
 ---
 
 ## 📋 Índice
@@ -353,8 +357,11 @@ Este é um projeto académico de pesquisa. Para fins de extensão ou pesquisa fu
 
 ### Referências
 - [NIST PQC Standardization](https://csrc.nist.gov/projects/post-quantum-cryptography)
-- [libOQS Documentation](https://liboqs.org/)
-- [Flutter Best Practices](https://flutter.dev/docs)
+- [Open Quantum Safe](https://openquantumsafe.org/)
+- [libOQS - GitHub Repository](https://github.com/open-quantum-safe/liboqs)
+- [Flutter Documentation](https://docs.flutter.dev/)
+- [Flutter Best Practices](https://docs.flutter.dev/)
+- [Firebase Documentation](https://firebase.google.com/docs)
 - [Firebase Security](https://firebase.google.com/docs/security)
 
 ---

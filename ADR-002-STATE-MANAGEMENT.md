@@ -414,8 +414,9 @@ testWidgets('Consumer rebuilds on provider change', (tester) async {
 
 1. [Provider Documentation](https://pub.dev/packages/provider)
 2. [ChangeNotifier API](https://api.flutter.dev/flutter/foundation/ChangeNotifier-class.html)
-3. [State Management Guide](https://flutter.dev/docs/development/data-and-backend/state-mgmt)
-4. [Riverpod Documentation](https://riverpod.dev/)
+3. [Flutter Documentation](https://docs.flutter.dev/)
+4. [State Management Guide](https://docs.flutter.dev/data-and-backend/state-mgmt)
+5. [Riverpod Documentation](https://riverpod.dev/)
 
 ---
 

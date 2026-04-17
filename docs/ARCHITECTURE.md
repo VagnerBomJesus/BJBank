@@ -1000,8 +1000,10 @@ CachedNetworkImage(
 
 ## References
 
-- [Flutter Architecture](https://flutter.dev/docs/development/architecture)
+- [Flutter Documentation](https://docs.flutter.dev/)
+- [Flutter Architecture](https://docs.flutter.dev/resources/architectural-overview)
 - [Provider Documentation](https://pub.dev/packages/provider)
+- [Firebase Documentation](https://firebase.google.com/docs)
 - [Firebase Best Practices](https://firebase.google.com/docs/best-practices)
 - [Dart Design Patterns](https://dart.dev/guides)
 

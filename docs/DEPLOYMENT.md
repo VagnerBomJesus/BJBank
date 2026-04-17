@@ -834,9 +834,11 @@ firebase deploy --only firestore:rules --project=bjbank-production
 
 ## References
 
-- [Flutter Build Documentation](https://flutter.dev/docs/deployment)
+- [Flutter Documentation](https://docs.flutter.dev/)
+- [Flutter Build Documentation](https://docs.flutter.dev/deployment)
 - [Google Play Console Help](https://support.google.com/googleplay/android-developer)
 - [App Store Connect Help](https://help.apple.com/app-store-connect)
+- [Firebase Documentation](https://firebase.google.com/docs)
 - [Firebase Deployment Guide](https://firebase.google.com/docs/apps/manage-apps)
 
 ---

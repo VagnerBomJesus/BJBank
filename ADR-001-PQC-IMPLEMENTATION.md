@@ -274,9 +274,10 @@ Session Overhead       | < 5%      | Negligible
 
 1. [NIST PQC Standardization](https://csrc.nist.gov/projects/post-quantum-cryptography)
 2. [FIPS 203: Kyber](https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.203.pdf)
-3. [libOQS Documentation](https://liboqs.org/)
-4. [Hybrid Post-Quantum Cryptography](https://www.ietf.org/rfc/draft-ietf-tls-hybrid-design.html)
-5. [FIPS 186-4: ECDSA](https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.186-4.pdf)
+3. [Open Quantum Safe](https://openquantumsafe.org/)
+4. [libOQS - GitHub Repository](https://github.com/open-quantum-safe/liboqs)
+5. [Hybrid Post-Quantum Cryptography](https://www.ietf.org/rfc/draft-ietf-tls-hybrid-design.html)
+6. [FIPS 186-4: ECDSA](https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.186-4.pdf)
 
 ---
 
