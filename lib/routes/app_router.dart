@@ -23,9 +23,6 @@ import '../screens/settings/privacy_policy_screen.dart';
 import '../screens/settings/mbway_settings_screen.dart';
 import '../screens/settings/mbway_phone_verification_screen.dart';
 import '../screens/analysis/analysis_screen.dart';
-import '../screens/deposit/deposit_screen.dart';
-import '../screens/deposit/bank_selection_screen.dart';
-import '../screens/deposit/linked_accounts_screen.dart';
 import '../screens/security/pqc_benchmark_screen.dart';
 import 'app_routes.dart';
 
@@ -192,25 +189,6 @@ class AppRouter {
       case AppRoutes.pqcBenchmark:
         return _buildSlideRoute(
           const PqcBenchmarkScreen(),
-          settings,
-        );
-
-      // Deposit routes (Open Banking)
-      case AppRoutes.deposit:
-        return _buildSlideRoute(
-          const DepositScreen(),
-          settings,
-        );
-
-      case AppRoutes.bankSelection:
-        return _buildSlideRoute(
-          const BankSelectionScreen(),
-          settings,
-        );
-
-      case AppRoutes.linkedAccounts:
-        return _buildSlideRoute(
-          const LinkedAccountsScreen(),
           settings,
         );
 

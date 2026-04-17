@@ -47,12 +47,4 @@ class AppRoutes {
   static const String pay = '/pay';
   static const String qrCode = '/qr-code';
 
-  // Deposit routes (Open Banking)
-  static const String deposit = '/deposit';
-  static const String bankSelection = '/deposit/bank-selection';
-  static const String bankAuth = '/deposit/bank-auth';
-  static const String linkedAccounts = '/deposit/linked-accounts';
-  static const String depositAmount = '/deposit/amount';
-  static const String depositConfirmation = '/deposit/confirmation';
-  static const String depositReceipt = '/deposit/receipt';
 }

@@ -13,14 +13,12 @@ class QuickActions extends StatelessWidget {
     this.onTransferTap,
     this.onPayTap,
     this.onQrCodeTap,
-    this.onDepositTap,
   });
 
   final VoidCallback? onMbWayTap;
   final VoidCallback? onTransferTap;
   final VoidCallback? onPayTap;
   final VoidCallback? onQrCodeTap;
-  final VoidCallback? onDepositTap;
 
   @override
   Widget build(BuildContext context) {
@@ -54,15 +52,6 @@ class QuickActions extends StatelessWidget {
                   label: AppStrings.homeTransfer,
                   color: BJBankColors.success,
                   onTap: onTransferTap,
-                ),
-              ),
-              const SizedBox(width: BJBankSpacing.sm),
-              Expanded(
-                child: _QuickActionCard(
-                  icon: Icons.add_circle_outline_rounded,
-                  label: AppStrings.homeDeposit,
-                  color: BJBankColors.tertiary,
-                  onTap: onDepositTap,
                 ),
               ),
               const SizedBox(width: BJBankSpacing.sm),

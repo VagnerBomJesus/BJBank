@@ -595,12 +595,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
             _buildCircularServiceButton(
-              icon: Icons.add_circle_outline_rounded,
-              label: 'Depositar',
-              color: const Color(0xFF059669),
-              onTap: () => Navigator.pushNamed(context, AppRoutes.deposit),
-            ),
-            _buildCircularServiceButton(
               icon: Icons.account_balance_rounded,
               label: 'Serviços',
               color: const Color(0xFF6366F1),
@@ -1166,15 +1160,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   onTap: () {
                     Navigator.pop(context);
                     Navigator.pushNamed(context, AppRoutes.mbway);
-                  },
-                ),
-                _buildQuickActionCircleItem(
-                  icon: Icons.add_circle_outline_rounded,
-                  label: 'Depositar',
-                  color: const Color(0xFF059669),
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.pushNamed(context, AppRoutes.deposit);
                   },
                 ),
                 _buildQuickActionCircleItem(

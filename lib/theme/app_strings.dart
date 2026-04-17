@@ -149,22 +149,4 @@ class AppStrings {
   /// Returns PIN error message with remaining attempts
   static String pinIncorrectAttempts(int remaining) =>
       'PIN incorreto. $remaining tentativas restantes.';
-
-  // ─── Deposit / Open Banking ───
-  static const String depositTitle = 'Depositar';
-  static const String depositSubtitle = 'Adicione dinheiro via Open Banking';
-  static const String depositConnectBank = 'Conectar Banco';
-  static const String depositSelectBank = 'Selecionar Banco';
-  static const String depositLinkedAccounts = 'Contas Conectadas';
-  static const String depositNoAccounts = 'Nenhuma conta conectada';
-  static const String depositConnectFirst = 'Conecte um banco para depositar';
-  static const String depositAmount = 'Valor do Deposito';
-  static const String depositConfirm = 'Confirmar Deposito';
-  static const String depositSuccess = 'Deposito Concluido!';
-  static const String depositProcessing = 'Deposito em Processamento';
-  static const String depositHistory = 'Historico de Depositos';
-  static const String depositSecure = 'Transacao Segura';
-  static const String depositPsd2Info = 'Protegida por PSD2 e criptografia PQC';
-  static const String depositQuickAmounts = 'Valores rapidos';
-  static const String homeDeposit = 'Depositar';
 }

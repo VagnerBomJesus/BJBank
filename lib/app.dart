@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/account_provider.dart';
 import 'providers/settings_provider.dart';
-import 'providers/deposit_provider.dart';
 import 'providers/card_provider.dart';
 import 'providers/transfer_provider.dart';
 import 'providers/bill_provider.dart';
@@ -28,7 +27,6 @@ class BJBankApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AuthProvider()..initialize()),
         ChangeNotifierProvider(create: (_) => AccountProvider()),
         ChangeNotifierProvider(create: (_) => SettingsProvider()..initialize()),
-        ChangeNotifierProvider(create: (_) => DepositProvider()),
         ChangeNotifierProxyProvider<AuthProvider, CardProvider>(
           create: (_) => CardProvider(),
           update: (_, authProvider, cardProvider) {
