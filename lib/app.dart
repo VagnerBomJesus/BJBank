@@ -4,6 +4,7 @@ import 'providers/auth_provider.dart';
 import 'providers/account_provider.dart';
 import 'providers/settings_provider.dart';
 import 'providers/deposit_provider.dart';
+import 'providers/card_provider.dart';
 import 'routes/app_router.dart';
 import 'routes/app_routes.dart';
 import 'theme/app_theme.dart';
@@ -21,6 +22,15 @@ class BJBankApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AccountProvider()),
         ChangeNotifierProvider(create: (_) => SettingsProvider()..initialize()),
         ChangeNotifierProvider(create: (_) => DepositProvider()),
+        ChangeNotifierProxyProvider<AuthProvider, CardProvider>(
+          create: (_) => CardProvider(),
+          update: (_, authProvider, cardProvider) {
+            if (authProvider.userId != null) {
+              cardProvider?.initialize(authProvider.userId!);
+            }
+            return cardProvider ?? CardProvider();
+          },
+        ),
       ],
       child: MaterialApp(
         title: 'BJBank',
