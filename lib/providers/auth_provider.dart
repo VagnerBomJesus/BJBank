@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
 import '../services/firestore_service.dart';
+import '../services/notification_service.dart';
 
 /// Auth Provider for BJBank
 /// Manages authentication state across the app
@@ -39,12 +40,34 @@ class AuthProvider extends ChangeNotifier {
     _userSubscription = _firestoreService.streamUser(userId).listen(
       (user) {
         _user = user;
+        // Subscribe to user-specific notification topic
+        _subscribeToNotifications(userId);
         notifyListeners();
       },
       onError: (error) {
         debugPrint('Error streaming user: $error');
       },
     );
+  }
+
+  /// Subscribe to notification topics for the user
+  void _subscribeToNotifications(String userId) async {
+    // Subscribe to user-specific topic
+    await NotificationService.subscribeToTopic('user_$userId');
+    // Subscribe to transaction notifications
+    await NotificationService.subscribeToTopic('transactions');
+    // Subscribe to security notifications
+    await NotificationService.subscribeToTopic('security');
+    // Subscribe to system notifications
+    await NotificationService.subscribeToTopic('system');
+  }
+
+  /// Unsubscribe from notification topics
+  void _unsubscribeFromNotifications(String userId) async {
+    await NotificationService.unsubscribeFromTopic('user_$userId');
+    await NotificationService.unsubscribeFromTopic('transactions');
+    await NotificationService.unsubscribeFromTopic('security');
+    await NotificationService.unsubscribeFromTopic('system');
   }
 
   /// Login
@@ -107,6 +130,13 @@ class AuthProvider extends ChangeNotifier {
 
   /// Logout
   Future<void> logout() async {
+    // Unsubscribe from notifications before logout
+    if (_user?.id != null) {
+      _unsubscribeFromNotifications(_user!.id);
+    }
+    // Delete FCM token
+    await NotificationService.deleteToken();
+    // Perform logout
     await AuthService.logout();
     _userSubscription?.cancel();
     _user = null;

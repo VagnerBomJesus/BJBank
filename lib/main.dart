@@ -5,6 +5,7 @@ import 'package:oqs/oqs.dart';
 import 'firebase_options.dart';
 import 'app.dart';
 import 'services/pqc_service.dart';
+import 'services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -52,6 +53,17 @@ void main() async {
     debugPrint('PQC Service initialized successfully');
   } catch (e) {
     debugPrint('PQC Service initialization failed: $e');
+  }
+
+  // Setup background message handler for Firebase Cloud Messaging
+  setupBackgroundMessageHandler();
+
+  // Initialize Firebase Cloud Messaging (Push Notifications)
+  try {
+    await NotificationService.initialize();
+    debugPrint('Firebase Cloud Messaging initialized successfully');
+  } catch (e) {
+    debugPrint('Firebase Cloud Messaging initialization failed: $e');
   }
 
   runApp(const BJBankApp());
