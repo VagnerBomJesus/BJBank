@@ -183,17 +183,6 @@ Progresso por Fase:
 PROGRESSO TOTAL:              ████████████████████ 100%
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-SCOPE DO PROJETO
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-✅ Implementado:  RF01 - RF13 (Funcionalidades Core Banking)
-❌ Excluído:      RF14 (Integração com API Bancária Externa)
-
-Decisão: RF14 deliberadamente não incluído no escopo.
-Razão: Funcionalidade não essencial para MVP. Integração com APIs externas
-requer credenciais, setup de backend complexo e conformidade regulatória.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 TECNOLOGIAS PRINCIPAIS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
