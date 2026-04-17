@@ -4,11 +4,19 @@ import '../models/card_model.dart';
 import '../services/card_service.dart';
 
 /// Card Provider for managing card state across the app
+///
+/// Manages:
+/// - Real-time card updates via Firestore streaming
+/// - Card creation, update, deletion
+/// - Card blocking/unblocking
+/// - Card limits management
+/// - Card statistics
 class CardProvider extends ChangeNotifier {
   final CardService _cardService = CardService();
 
   List<CardModel> _cards = [];
   CardModel? _selectedCard;
+  CardStatistics? _statistics;
   bool _isLoading = false;
   String? _errorMessage;
   StreamSubscription? _cardsSubscription;
@@ -17,6 +25,7 @@ class CardProvider extends ChangeNotifier {
   // Getters
   List<CardModel> get cards => _cards;
   CardModel? get selectedCard => _selectedCard;
+  CardStatistics? get statistics => _statistics;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   bool get hasCards => _cards.isNotEmpty;
@@ -26,22 +35,30 @@ class CardProvider extends ChangeNotifier {
       _cards.where((card) => card.status == CardStatus.active).toList();
   List<CardModel> get blockedCards =>
       _cards.where((card) => card.status == CardStatus.blocked).toList();
-  CardModel? get primaryCard => activeCards.isNotEmpty ? activeCards.first : null;
+  List<CardModel> get physicalCards =>
+      _cards.where((card) => card.type == CardType.physical).toList();
+  List<CardModel> get virtualCards =>
+      _cards.where((card) => card.type == CardType.virtual).toList();
+  CardModel? get primaryCard {
+    if (activeCards.isEmpty) return null;
+    return activeCards.reduce((a, b) => a.limit > b.limit ? a : b);
+  }
 
   /// Initialize provider and listen to cards for user
   void initialize(String userId) {
     _currentUserId = userId;
     _listenToCards(userId);
+    _loadStatistics(userId);
   }
 
   /// Listen to real-time card updates
   void _listenToCards(String userId) {
     _cardsSubscription?.cancel();
-    _cardsSubscription = _cardService.streamCardsForUser(userId).listen(
+    _cardsSubscription = _cardService.streamCards(userId).listen(
       (cards) {
         _cards = cards;
         // Clear error message when successfully loaded
-        if (_cards.isNotEmpty || _errorMessage != null) {
+        if (_cards.isNotEmpty && _errorMessage != null) {
           _errorMessage = null;
         }
         notifyListeners();
@@ -54,15 +71,18 @@ class CardProvider extends ChangeNotifier {
     );
   }
 
+  /// Load card statistics
+  Future<void> _loadStatistics(String userId) async {
+    try {
+      _statistics = await _cardService.getCardStatistics(userId);
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error loading card statistics: $e');
+    }
+  }
+
   /// Create a new card
-  Future<bool> createCard({
-    required String accountId,
-    required CardType type,
-    required CardBrand brand,
-    String? holderName,
-    double dailyLimit = 1000.0,
-    double monthlyLimit = 5000.0,
-  }) async {
+  Future<bool> createCard(CardModel card) async {
     if (_currentUserId == null) {
       _errorMessage = 'Utilizador não autenticado';
       notifyListeners();
@@ -74,31 +94,17 @@ class CardProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final card = await _cardService.createCard(
-        userId: _currentUserId!,
-        accountId: accountId,
-        type: type,
-        brand: brand,
-        holderName: holderName,
-        dailyLimit: dailyLimit,
-        monthlyLimit: monthlyLimit,
-      );
+      await _cardService.createCard(card);
 
       _isLoading = false;
-
-      if (card != null) {
-        _cards.add(card);
-        _selectedCard = card;
-        notifyListeners();
-        return true;
-      } else {
-        _errorMessage = 'Erro ao criar cartão';
-        notifyListeners();
-        return false;
-      }
+      _cards.add(card);
+      _selectedCard = card;
+      await _loadStatistics(_currentUserId!);
+      notifyListeners();
+      return true;
     } catch (e) {
       _isLoading = false;
-      _errorMessage = 'Erro: ${e.toString()}';
+      _errorMessage = 'Erro ao criar cartão: ${e.toString()}';
       notifyListeners();
       return false;
     }
@@ -111,13 +117,14 @@ class CardProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final cards = await _cardService.getCardsForUser(userId);
+      final cards = await _cardService.getCards(userId);
       _cards = cards;
+      await _loadStatistics(userId);
       _isLoading = false;
       notifyListeners();
     } catch (e) {
       _isLoading = false;
-      _errorMessage = 'Erro ao carregar cartões';
+      _errorMessage = 'Erro ao carregar cartões: ${e.toString()}';
       notifyListeners();
     }
   }
@@ -128,43 +135,61 @@ class CardProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Block/Unblock card
-  Future<bool> updateCardStatus(String cardId, CardStatus status) async {
+  /// Block a card
+  Future<bool> blockCard(String cardId) async {
     if (_currentUserId == null) return false;
 
     _isLoading = true;
+    _errorMessage = null;
     notifyListeners();
 
     try {
-      final success = await _cardService.updateCardStatus(
-        _currentUserId!,
-        cardId,
-        status,
-      );
+      await _cardService.blockCard(_currentUserId!, cardId);
+
+      final index = _cards.indexWhere((card) => card.id == cardId);
+      if (index != -1) {
+        _cards[index] = _cards[index].copyWith(status: CardStatus.blocked);
+        notifyListeners();
+      }
 
       _isLoading = false;
-
-      if (success) {
-        final index = _cards.indexWhere((card) => card.id == cardId);
-        if (index != -1) {
-          _cards[index] = _cards[index].copyWith(status: status);
-          notifyListeners();
-        }
-        return true;
-      } else {
-        _errorMessage = 'Erro ao atualizar cartão';
-        notifyListeners();
-        return false;
-      }
+      return true;
     } catch (e) {
       _isLoading = false;
-      _errorMessage = 'Erro: ${e.toString()}';
+      _errorMessage = 'Erro ao bloquear cartão: ${e.toString()}';
       notifyListeners();
       return false;
     }
   }
 
-  /// Update card limits
+  /// Unblock a card
+  Future<bool> unblockCard(String cardId) async {
+    if (_currentUserId == null) return false;
+
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      await _cardService.unblockCard(_currentUserId!, cardId);
+
+      final index = _cards.indexWhere((card) => card.id == cardId);
+      if (index != -1) {
+        _cards[index] = _cards[index].copyWith(status: CardStatus.active);
+        notifyListeners();
+      }
+
+      _isLoading = false;
+      return true;
+    } catch (e) {
+      _isLoading = false;
+      _errorMessage = 'Erro ao desbloquear cartão: ${e.toString()}';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Update card spending limits (daily and monthly)
   Future<bool> updateCardLimits(
     String cardId,
     double? dailyLimit,
@@ -177,44 +202,35 @@ class CardProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final success = await _cardService.updateCardLimits(
-        _currentUserId!,
-        cardId,
-        dailyLimit,
-        monthlyLimit,
-      );
-
-      _isLoading = false;
-
-      if (success) {
-        final index = _cards.indexWhere((card) => card.id == cardId);
-        if (index != -1) {
-          _cards[index] = _cards[index].copyWith(
-            dailyLimit: dailyLimit ?? _cards[index].dailyLimit,
-            monthlyLimit: monthlyLimit ?? _cards[index].monthlyLimit,
-          );
-          notifyListeners();
-        }
-        return true;
-      } else {
-        _errorMessage = 'Erro ao atualizar limites';
+      final index = _cards.indexWhere((card) => card.id == cardId);
+      if (index == -1) {
+        _errorMessage = 'Cartão não encontrado';
+        _isLoading = false;
         notifyListeners();
         return false;
       }
+
+      final updatedCard = _cards[index].copyWith(
+        dailyLimit: dailyLimit ?? _cards[index].dailyLimit,
+        monthlyLimit: monthlyLimit ?? _cards[index].monthlyLimit,
+      );
+
+      await _cardService.updateCard(_currentUserId!, cardId, updatedCard);
+
+      _cards[index] = updatedCard;
+      _isLoading = false;
+      notifyListeners();
+      return true;
     } catch (e) {
       _isLoading = false;
-      _errorMessage = 'Erro: ${e.toString()}';
+      _errorMessage = 'Erro ao atualizar limites: ${e.toString()}';
       notifyListeners();
       return false;
     }
   }
 
-  /// Toggle card feature
-  Future<bool> toggleCardFeature(
-    String cardId,
-    String feature,
-    bool enabled,
-  ) async {
+  /// Update main card limit
+  Future<bool> updateCardLimit(String cardId, double newLimit) async {
     if (_currentUserId == null) return false;
 
     _isLoading = true;
@@ -222,57 +238,133 @@ class CardProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final success = await _cardService.toggleCardFeature(
-        _currentUserId!,
-        cardId,
-        feature,
-        enabled,
-      );
+      await _cardService.updateCardLimit(_currentUserId!, cardId, newLimit);
+
+      final index = _cards.indexWhere((card) => card.id == cardId);
+      if (index != -1) {
+        _cards[index] = _cards[index].copyWith(limit: newLimit);
+        notifyListeners();
+      }
 
       _isLoading = false;
-
-      if (success) {
-        final index = _cards.indexWhere((card) => card.id == cardId);
-        if (index != -1) {
-          final updates = <String, dynamic>{};
-
-          switch (feature) {
-            case 'contactlessEnabled':
-              updates['contactlessEnabled'] = enabled;
-              break;
-            case 'onlinePaymentsEnabled':
-              updates['onlinePaymentsEnabled'] = enabled;
-              break;
-            case 'internationalEnabled':
-              updates['internationalEnabled'] = enabled;
-              break;
-          }
-
-          _cards[index] = _cards[index].copyWith(
-            contactlessEnabled: updates['contactlessEnabled'] ??
-                _cards[index].contactlessEnabled,
-            onlinePaymentsEnabled: updates['onlinePaymentsEnabled'] ??
-                _cards[index].onlinePaymentsEnabled,
-            internationalEnabled: updates['internationalEnabled'] ??
-                _cards[index].internationalEnabled,
-          );
-          notifyListeners();
-        }
-        return true;
-      } else {
-        _errorMessage = 'Erro ao atualizar recurso do cartão';
-        notifyListeners();
-        return false;
-      }
+      return true;
     } catch (e) {
       _isLoading = false;
-      _errorMessage = 'Erro: ${e.toString()}';
+      _errorMessage = 'Erro ao atualizar limite: ${e.toString()}';
       notifyListeners();
       return false;
     }
   }
 
-  /// Delete/Cancel card
+  /// Lock card for online purchases
+  Future<bool> lockCardForOnline(String cardId) async {
+    if (_currentUserId == null) return false;
+
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      await _cardService.lockForOnline(_currentUserId!, cardId);
+
+      final index = _cards.indexWhere((card) => card.id == cardId);
+      if (index != -1) {
+        _cards[index] = _cards[index].copyWith(lockedForOnline: true);
+        notifyListeners();
+      }
+
+      _isLoading = false;
+      return true;
+    } catch (e) {
+      _isLoading = false;
+      _errorMessage = 'Erro ao bloquear para compras online: ${e.toString()}';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Unlock card for online purchases
+  Future<bool> unlockCardForOnline(String cardId) async {
+    if (_currentUserId == null) return false;
+
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      await _cardService.unlockForOnline(_currentUserId!, cardId);
+
+      final index = _cards.indexWhere((card) => card.id == cardId);
+      if (index != -1) {
+        _cards[index] = _cards[index].copyWith(lockedForOnline: false);
+        notifyListeners();
+      }
+
+      _isLoading = false;
+      return true;
+    } catch (e) {
+      _isLoading = false;
+      _errorMessage = 'Erro ao desbloquear para compras online: ${e.toString()}';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Lock card for international purchases
+  Future<bool> lockCardForInternational(String cardId) async {
+    if (_currentUserId == null) return false;
+
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      await _cardService.lockForInternational(_currentUserId!, cardId);
+
+      final index = _cards.indexWhere((card) => card.id == cardId);
+      if (index != -1) {
+        _cards[index] = _cards[index].copyWith(lockedForInternational: true);
+        notifyListeners();
+      }
+
+      _isLoading = false;
+      return true;
+    } catch (e) {
+      _isLoading = false;
+      _errorMessage = 'Erro ao bloquear para compras internacionais: ${e.toString()}';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Unlock card for international purchases
+  Future<bool> unlockCardForInternational(String cardId) async {
+    if (_currentUserId == null) return false;
+
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      await _cardService.unlockForInternational(_currentUserId!, cardId);
+
+      final index = _cards.indexWhere((card) => card.id == cardId);
+      if (index != -1) {
+        _cards[index] = _cards[index].copyWith(lockedForInternational: false);
+        notifyListeners();
+      }
+
+      _isLoading = false;
+      return true;
+    } catch (e) {
+      _isLoading = false;
+      _errorMessage = 'Erro ao desbloquear para compras internacionais: ${e.toString()}';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Delete/Cancel card (soft delete - marks as cancelled)
   Future<bool> deleteCard(String cardId) async {
     if (_currentUserId == null) return false;
 
@@ -281,30 +373,74 @@ class CardProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final success = await _cardService.deleteCard(_currentUserId!, cardId);
+      await _cardService.deleteCard(_currentUserId!, cardId);
+
+      final index = _cards.indexWhere((card) => card.id == cardId);
+      if (index != -1) {
+        _cards[index] = _cards[index].copyWith(status: CardStatus.cancelled);
+        if (_selectedCard?.id == cardId) {
+          _selectedCard = null;
+        }
+        notifyListeners();
+      }
 
       _isLoading = false;
-
-      if (success) {
-        final index = _cards.indexWhere((card) => card.id == cardId);
-        if (index != -1) {
-          _cards[index] = _cards[index].copyWith(status: CardStatus.cancelled);
-          if (_selectedCard?.id == cardId) {
-            _selectedCard = null;
-          }
-          notifyListeners();
-        }
-        return true;
-      } else {
-        _errorMessage = 'Erro ao remover cartão';
-        notifyListeners();
-        return false;
-      }
+      return true;
     } catch (e) {
       _isLoading = false;
-      _errorMessage = 'Erro: ${e.toString()}';
+      _errorMessage = 'Erro ao remover cartão: ${e.toString()}';
       notifyListeners();
       return false;
+    }
+  }
+
+  /// Update spent amount for a card
+  Future<bool> updateSpentAmount(String cardId, double amount) async {
+    if (_currentUserId == null) return false;
+
+    try {
+      await _cardService.updateSpentAmount(_currentUserId!, cardId, amount);
+
+      final index = _cards.indexWhere((card) => card.id == cardId);
+      if (index != -1) {
+        final newSpentAmount = _cards[index].spentAmount + amount;
+        _cards[index] = _cards[index].copyWith(spentAmount: newSpentAmount);
+        notifyListeners();
+      }
+
+      return true;
+    } catch (e) {
+      debugPrint('Error updating spent amount: $e');
+      return false;
+    }
+  }
+
+  /// Reset spent amount for a card
+  Future<bool> resetSpentAmount(String cardId) async {
+    if (_currentUserId == null) return false;
+
+    try {
+      await _cardService.resetSpentAmount(_currentUserId!, cardId);
+
+      final index = _cards.indexWhere((card) => card.id == cardId);
+      if (index != -1) {
+        _cards[index] = _cards[index].copyWith(spentAmount: 0);
+        notifyListeners();
+      }
+
+      return true;
+    } catch (e) {
+      debugPrint('Error resetting spent amount: $e');
+      return false;
+    }
+  }
+
+  /// Get card by ID
+  CardModel? getCard(String cardId) {
+    try {
+      return _cards.firstWhere((card) => card.id == cardId);
+    } catch (e) {
+      return null;
     }
   }
 

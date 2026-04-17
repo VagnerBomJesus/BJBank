@@ -1,356 +1,373 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'dart:math';
 
 /// Card Type Enum
 enum CardType {
-  debit,      // Cartão de Débito
-  credit,     // Cartão de Crédito
-  prepaid,    // Cartão Pré-pago
-  virtual,    // Cartão Virtual
-}
-
-/// Card Brand Enum
-enum CardBrand {
-  visa,
-  mastercard,
-  maestro,
+  physical,  // Physical card
+  virtual,   // Virtual card
 }
 
 /// Card Status Enum
 enum CardStatus {
-  active,
-  blocked,
-  expired,
-  cancelled,
+  active,     // Card is active and usable
+  blocked,    // Card is blocked (user action)
+  expired,    // Card has expired
+  cancelled,  // Card has been cancelled
 }
 
-/// Card Model for BJBank
+/// Card Model
+///
+/// Represents a bank card (credit, debit, or virtual).
+/// Stores card details and metadata.
+///
+/// Security:
+/// - cardNumber is encrypted in Firestore
+/// - cvv is encrypted in Firestore
+/// - Never stored in plain text locally
+///
+/// Example:
+/// ```dart
+/// final card = CardModel(
+///   id: 'card_001',
+///   userId: 'user_123',
+///   cardNumber: '****5678',
+///   cardHolder: 'João Silva',
+///   expiryDate: '12/2028',
+///   cvv: '***',
+///   limit: 5000,
+///   spentAmount: 1234,
+///   type: CardType.physical,
+///   status: CardStatus.active,
+/// );
+/// ```
 class CardModel {
+  /// Unique card ID
+  final String id;
+
+  /// User ID that owns this card
+  final String userId;
+
+  /// Card number (last 4 digits visible)
+  /// In Firestore: encrypted
+  /// In memory: masked as "****1234"
+  final String cardNumber;
+
+  /// Card holder name
+  final String cardHolder;
+
+  /// Expiry date (MM/YYYY format)
+  final String expiryDate;
+
+  /// CVV/CVC (masked as "***")
+  /// In Firestore: encrypted
+  final String cvv;
+
+  /// Card limit in currency units
+  final double limit;
+
+  /// Amount already spent in current period
+  final double spentAmount;
+
+  /// Card type (physical, virtual)
+  final CardType type;
+
+  /// Card status (active, blocked, expired, cancelled)
+  final CardStatus status;
+
+  /// Card creation timestamp
+  final DateTime createdAt;
+
+  /// Last update timestamp
+  final DateTime updatedAt;
+
+  /// Optional card brand (Visa, Mastercard, etc.)
+  final String? brand;
+
+  /// Optional card color/theme
+  final String? cardColor;
+
+  /// Is card locked for online purchases
+  final bool lockedForOnline;
+
+  /// Is card locked for international purchases
+  final bool lockedForInternational;
+
+  /// Daily spending limit (optional)
+  final double? dailyLimit;
+
+  /// Monthly spending limit (optional)
+  final double? monthlyLimit;
+
   const CardModel({
     required this.id,
     required this.userId,
-    required this.accountId,
     required this.cardNumber,
-    required this.lastFourDigits,
+    required this.cardHolder,
     required this.expiryDate,
     required this.cvv,
+    required this.limit,
+    required this.spentAmount,
     required this.type,
-    required this.brand,
-    this.status = CardStatus.active,
-    this.holderName = '',
-    this.dailyLimit = 1000.0,
-    this.monthlyLimit = 5000.0,
-    this.contactlessEnabled = true,
-    this.onlinePaymentsEnabled = true,
-    this.internationalEnabled = false,
-    this.createdAt,
+    required this.status,
+    required this.createdAt,
+    required this.updatedAt,
+    this.brand,
+    this.cardColor,
+    this.lockedForOnline = false,
+    this.lockedForInternational = false,
+    this.dailyLimit,
+    this.monthlyLimit,
   });
 
-  final String id;
-  final String userId;
-  final String accountId;
-  final String cardNumber;       // Full card number (encrypted in production)
-  final String lastFourDigits;   // For display
-  final String expiryDate;       // MM/YY format
-  final String cvv;              // 3 digits (encrypted in production)
-  final CardType type;
-  final CardBrand brand;
-  final CardStatus status;
-  final String holderName;
-  final double dailyLimit;
-  final double monthlyLimit;
-  final bool contactlessEnabled;
-  final bool onlinePaymentsEnabled;
-  final bool internationalEnabled;
-  final DateTime? createdAt;
+  /// Get available balance
+  double get availableBalance => limit - spentAmount;
 
-  /// Create CardModel from Firestore document
-  factory CardModel.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
-    return CardModel(
-      id: doc.id,
-      userId: data['userId'] ?? '',
-      accountId: data['accountId'] ?? '',
-      cardNumber: data['cardNumber'] ?? '',
-      lastFourDigits: data['lastFourDigits'] ?? '',
-      expiryDate: data['expiryDate'] ?? '',
-      cvv: data['cvv'] ?? '',
-      type: _parseType(data['type']),
-      brand: _parseBrand(data['brand']),
-      status: _parseStatus(data['status']),
-      holderName: data['holderName'] ?? '',
-      dailyLimit: (data['dailyLimit'] ?? 1000.0).toDouble(),
-      monthlyLimit: (data['monthlyLimit'] ?? 5000.0).toDouble(),
-      contactlessEnabled: data['contactlessEnabled'] ?? true,
-      onlinePaymentsEnabled: data['onlinePaymentsEnabled'] ?? true,
-      internationalEnabled: data['internationalEnabled'] ?? false,
-      createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
-    );
+  /// Check if card is expired
+  bool get isExpired {
+    final parts = expiryDate.split('/');
+    if (parts.length != 2) return false;
+
+    final month = int.tryParse(parts[0]) ?? 0;
+    final year = int.tryParse(parts[1]) ?? 0;
+
+    final now = DateTime.now();
+    final currentYear = now.year % 100; // Last 2 digits
+    final currentMonth = now.month;
+
+    if (year < currentYear) return true;
+    if (year == currentYear && month < currentMonth) return true;
+
+    return false;
   }
 
-  /// Convert to Firestore map
-  Map<String, dynamic> toFirestore() {
-    return {
-      'userId': userId,
-      'accountId': accountId,
-      'cardNumber': cardNumber,
-      'lastFourDigits': lastFourDigits,
-      'expiryDate': expiryDate,
-      'cvv': cvv,
-      'type': type.name,
-      'brand': brand.name,
-      'status': status.name,
-      'holderName': holderName,
-      'dailyLimit': dailyLimit,
-      'monthlyLimit': monthlyLimit,
-      'contactlessEnabled': contactlessEnabled,
-      'onlinePaymentsEnabled': onlinePaymentsEnabled,
-      'internationalEnabled': internationalEnabled,
-      'createdAt': createdAt != null
-          ? Timestamp.fromDate(createdAt!)
-          : FieldValue.serverTimestamp(),
-    };
+  /// Check if card is valid (not expired, not cancelled)
+  bool get isValid => status == CardStatus.active && !isExpired;
+
+  /// Check if card can be used for transactions
+  bool get isUsable => isValid && availableBalance > 0;
+
+  /// Format card number for display
+  /// Example: "4532 **** **** 1234"
+  String formatCardNumber() {
+    final visiblePart = cardNumber.replaceAll('*', '');
+    if (visiblePart.isEmpty) return '****';
+
+    final lastFour = visiblePart.length >= 4
+        ? visiblePart.substring(visiblePart.length - 4)
+        : visiblePart;
+
+    return '****$lastFour';
+  }
+
+  /// Get masked card number
+  /// Example: "****5678"
+  String getMaskedCardNumber() => formatCardNumber();
+
+  /// Get percentage of limit spent
+  double get spentPercentage => spentAmount / limit;
+
+  /// Get spending percentage as formatted string
+  String getSpentPercentageString() => '${(spentPercentage * 100).toStringAsFixed(1)}%';
+
+  /// Get card brand icon name (if available)
+  String? getBrandIcon() => brand?.toLowerCase();
+
+  /// Get status color (for UI)
+  String getStatusColor() {
+    switch (status) {
+      case CardStatus.active:
+        return '#4CAF50'; // Green
+      case CardStatus.blocked:
+        return '#F44336'; // Red
+      case CardStatus.expired:
+        return '#FFC107'; // Amber
+      case CardStatus.cancelled:
+        return '#9E9E9E'; // Grey
+    }
+  }
+
+  /// Get status label in Portuguese
+  String getStatusLabel() {
+    switch (status) {
+      case CardStatus.active:
+        return 'Ativa';
+      case CardStatus.blocked:
+        return 'Bloqueada';
+      case CardStatus.expired:
+        return 'Expirada';
+      case CardStatus.cancelled:
+        return 'Cancelada';
+    }
+  }
+
+  /// Get card type label in Portuguese
+  String getTypeLabel() {
+    switch (type) {
+      case CardType.physical:
+        return 'Física';
+      case CardType.virtual:
+        return 'Virtual';
+    }
   }
 
   /// Create a copy with updated fields
   CardModel copyWith({
     String? id,
     String? userId,
-    String? accountId,
     String? cardNumber,
-    String? lastFourDigits,
+    String? cardHolder,
     String? expiryDate,
     String? cvv,
+    double? limit,
+    double? spentAmount,
     CardType? type,
-    CardBrand? brand,
     CardStatus? status,
-    String? holderName,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    String? brand,
+    String? cardColor,
+    bool? lockedForOnline,
+    bool? lockedForInternational,
     double? dailyLimit,
     double? monthlyLimit,
-    bool? contactlessEnabled,
-    bool? onlinePaymentsEnabled,
-    bool? internationalEnabled,
-    DateTime? createdAt,
   }) {
     return CardModel(
       id: id ?? this.id,
       userId: userId ?? this.userId,
-      accountId: accountId ?? this.accountId,
       cardNumber: cardNumber ?? this.cardNumber,
-      lastFourDigits: lastFourDigits ?? this.lastFourDigits,
+      cardHolder: cardHolder ?? this.cardHolder,
       expiryDate: expiryDate ?? this.expiryDate,
       cvv: cvv ?? this.cvv,
+      limit: limit ?? this.limit,
+      spentAmount: spentAmount ?? this.spentAmount,
       type: type ?? this.type,
-      brand: brand ?? this.brand,
       status: status ?? this.status,
-      holderName: holderName ?? this.holderName,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      brand: brand ?? this.brand,
+      cardColor: cardColor ?? this.cardColor,
+      lockedForOnline: lockedForOnline ?? this.lockedForOnline,
+      lockedForInternational: lockedForInternational ?? this.lockedForInternational,
       dailyLimit: dailyLimit ?? this.dailyLimit,
       monthlyLimit: monthlyLimit ?? this.monthlyLimit,
-      contactlessEnabled: contactlessEnabled ?? this.contactlessEnabled,
-      onlinePaymentsEnabled: onlinePaymentsEnabled ?? this.onlinePaymentsEnabled,
-      internationalEnabled: internationalEnabled ?? this.internationalEnabled,
-      createdAt: createdAt ?? this.createdAt,
     );
   }
 
-  static CardType _parseType(String? type) {
-    switch (type) {
-      case 'debit':
-        return CardType.debit;
-      case 'credit':
-        return CardType.credit;
-      case 'prepaid':
-        return CardType.prepaid;
-      case 'virtual':
-        return CardType.virtual;
-      default:
-        return CardType.debit;
-    }
+  /// Convert to JSON for Firestore
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'userId': userId,
+        'cardNumber': cardNumber, // Encrypted in Firestore
+        'cardHolder': cardHolder,
+        'expiryDate': expiryDate,
+        'cvv': cvv, // Encrypted in Firestore
+        'limit': limit,
+        'spentAmount': spentAmount,
+        'type': type.name,
+        'status': status.name,
+        'createdAt': Timestamp.fromDate(createdAt),
+        'updatedAt': Timestamp.fromDate(updatedAt),
+        'brand': brand,
+        'cardColor': cardColor,
+        'lockedForOnline': lockedForOnline,
+        'lockedForInternational': lockedForInternational,
+        'dailyLimit': dailyLimit,
+        'monthlyLimit': monthlyLimit,
+      };
+
+  /// Create from Firestore JSON
+  factory CardModel.fromJson(Map<String, dynamic> json) {
+    return CardModel(
+      id: json['id'] ?? '',
+      userId: json['userId'] ?? '',
+      cardNumber: json['cardNumber'] ?? '****',
+      cardHolder: json['cardHolder'] ?? '',
+      expiryDate: json['expiryDate'] ?? '',
+      cvv: json['cvv'] ?? '***',
+      limit: (json['limit'] as num?)?.toDouble() ?? 0,
+      spentAmount: (json['spentAmount'] as num?)?.toDouble() ?? 0,
+      type: CardType.values.byName(json['type'] ?? 'physical'),
+      status: CardStatus.values.byName(json['status'] ?? 'active'),
+      createdAt: json['createdAt'] is Timestamp
+          ? (json['createdAt'] as Timestamp).toDate()
+          : DateTime.parse(json['createdAt'] ?? DateTime.now().toIso8601String()),
+      updatedAt: json['updatedAt'] is Timestamp
+          ? (json['updatedAt'] as Timestamp).toDate()
+          : DateTime.parse(json['updatedAt'] ?? DateTime.now().toIso8601String()),
+      brand: json['brand'],
+      cardColor: json['cardColor'],
+      lockedForOnline: json['lockedForOnline'] ?? false,
+      lockedForInternational: json['lockedForInternational'] ?? false,
+      dailyLimit: (json['dailyLimit'] as num?)?.toDouble(),
+      monthlyLimit: (json['monthlyLimit'] as num?)?.toDouble(),
+    );
   }
 
-  static CardBrand _parseBrand(String? brand) {
-    switch (brand) {
-      case 'visa':
-        return CardBrand.visa;
-      case 'mastercard':
-        return CardBrand.mastercard;
-      case 'maestro':
-        return CardBrand.maestro;
-      default:
-        return CardBrand.visa;
-    }
+  /// Create from Firestore DocumentSnapshot
+  factory CardModel.fromFirestore(DocumentSnapshot doc) {
+    return CardModel.fromJson(doc.data() as Map<String, dynamic>);
   }
-
-  static CardStatus _parseStatus(String? status) {
-    switch (status) {
-      case 'active':
-        return CardStatus.active;
-      case 'blocked':
-        return CardStatus.blocked;
-      case 'expired':
-        return CardStatus.expired;
-      case 'cancelled':
-        return CardStatus.cancelled;
-      default:
-        return CardStatus.active;
-    }
-  }
-
-  /// Get card type display name
-  String get typeDisplayName {
-    switch (type) {
-      case CardType.debit:
-        return 'Cartão de Débito';
-      case CardType.credit:
-        return 'Cartão de Crédito';
-      case CardType.prepaid:
-        return 'Cartão Pré-pago';
-      case CardType.virtual:
-        return 'Cartão Virtual';
-    }
-  }
-
-  /// Get card brand display name
-  String get brandDisplayName {
-    switch (brand) {
-      case CardBrand.visa:
-        return 'Visa';
-      case CardBrand.mastercard:
-        return 'Mastercard';
-      case CardBrand.maestro:
-        return 'Maestro';
-    }
-  }
-
-  /// Get masked card number for display
-  String get maskedNumber {
-    return '•••• •••• •••• $lastFourDigits';
-  }
-
-  /// Get formatted card number with spaces
-  String get formattedNumber {
-    final buffer = StringBuffer();
-    for (var i = 0; i < cardNumber.length; i++) {
-      if (i > 0 && i % 4 == 0) buffer.write(' ');
-      buffer.write(cardNumber[i]);
-    }
-    return buffer.toString();
-  }
-
-  /// Check if card is usable
-  bool get isActive => status == CardStatus.active;
 
   @override
-  String toString() {
-    return 'CardModel(id: $id, type: $typeDisplayName, number: $maskedNumber)';
+  String toString() => 'CardModel(id: $id, type: $type, status: $status, balance: ${availableBalance.toStringAsFixed(2)})';
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+
+    return other is CardModel && other.id == id && other.userId == userId;
   }
+
+  @override
+  int get hashCode => id.hashCode ^ userId.hashCode;
 }
 
-/// Card Number Generator
-/// Generates valid card numbers using Luhn algorithm
-class CardNumberGenerator {
-  static final Random _random = Random.secure();
+/// Card Statistics
+class CardStatistics {
+  /// Total cards count
+  final int totalCards;
 
-  /// Generate a valid Visa card number (starts with 4)
-  static String generateVisaNumber() {
-    return _generateCardNumber('4');
+  /// Active cards count
+  final int activeCards;
+
+  /// Blocked cards count
+  final int blockedCards;
+
+  /// Total spending across all cards
+  final double totalSpent;
+
+  /// Total available balance across all cards
+  final double totalAvailable;
+
+  /// Most used card (highest spending)
+  final CardModel? mostUsedCard;
+
+  /// Least used card (lowest spending)
+  final CardModel? leastUsedCard;
+
+  const CardStatistics({
+    required this.totalCards,
+    required this.activeCards,
+    required this.blockedCards,
+    required this.totalSpent,
+    required this.totalAvailable,
+    this.mostUsedCard,
+    this.leastUsedCard,
+  });
+
+  /// Get spending percentage
+  double get spendingPercentage {
+    final total = totalSpent + totalAvailable;
+    if (total == 0) return 0;
+    return (totalSpent / total) * 100;
   }
 
-  /// Generate a valid Mastercard number (starts with 51-55 or 2221-2720)
-  static String generateMastercardNumber() {
-    final prefix = _random.nextBool()
-        ? '5${_random.nextInt(5) + 1}' // 51-55
-        : '222${_random.nextInt(6) + 1}'; // 2221-2226
-    return _generateCardNumber(prefix);
-  }
-
-  /// Generate a valid Maestro number (starts with 5018, 5020, 5038, 6304)
-  static String generateMaestroNumber() {
-    final prefixes = ['5018', '5020', '5038', '6304'];
-    final prefix = prefixes[_random.nextInt(prefixes.length)];
-    return _generateCardNumber(prefix, length: 16);
-  }
-
-  /// Generate card number with Luhn-valid check digit
-  static String _generateCardNumber(String prefix, {int length = 16}) {
-    // Generate random digits (except last one which is check digit)
-    final digitsNeeded = length - prefix.length - 1;
-    final buffer = StringBuffer(prefix);
-
-    for (var i = 0; i < digitsNeeded; i++) {
-      buffer.write(_random.nextInt(10));
-    }
-
-    // Calculate and append Luhn check digit
-    final checkDigit = _calculateLuhnCheckDigit(buffer.toString());
-    buffer.write(checkDigit);
-
-    return buffer.toString();
-  }
-
-  /// Calculate Luhn check digit
-  static int _calculateLuhnCheckDigit(String number) {
-    int sum = 0;
-    bool alternate = true;
-
-    for (int i = number.length - 1; i >= 0; i--) {
-      int digit = int.parse(number[i]);
-
-      if (alternate) {
-        digit *= 2;
-        if (digit > 9) digit -= 9;
-      }
-
-      sum += digit;
-      alternate = !alternate;
-    }
-
-    return (10 - (sum % 10)) % 10;
-  }
-
-  /// Validate card number using Luhn algorithm
-  static bool isValidLuhn(String number) {
-    int sum = 0;
-    bool alternate = false;
-
-    for (int i = number.length - 1; i >= 0; i--) {
-      int digit = int.parse(number[i]);
-
-      if (alternate) {
-        digit *= 2;
-        if (digit > 9) digit -= 9;
-      }
-
-      sum += digit;
-      alternate = !alternate;
-    }
-
-    return sum % 10 == 0;
-  }
-
-  /// Generate CVV (3 digits)
-  static String generateCVV() {
-    return '${_random.nextInt(900) + 100}';
-  }
-
-  /// Generate expiry date (3-5 years from now)
-  static String generateExpiryDate() {
-    final now = DateTime.now();
-    final yearsToAdd = _random.nextInt(3) + 3; // 3-5 years
-    final expiryYear = (now.year + yearsToAdd) % 100;
-    final expiryMonth = _random.nextInt(12) + 1;
-    return '${expiryMonth.toString().padLeft(2, '0')}/${expiryYear.toString().padLeft(2, '0')}';
-  }
-
-  /// Generate card number based on brand
-  static String generateByBrand(CardBrand brand) {
-    switch (brand) {
-      case CardBrand.visa:
-        return generateVisaNumber();
-      case CardBrand.mastercard:
-        return generateMastercardNumber();
-      case CardBrand.maestro:
-        return generateMaestroNumber();
-    }
-  }
+  Map<String, dynamic> toJson() => {
+        'totalCards': totalCards,
+        'activeCards': activeCards,
+        'blockedCards': blockedCards,
+        'totalSpent': totalSpent,
+        'totalAvailable': totalAvailable,
+        'mostUsedCard': mostUsedCard?.toJson(),
+        'leastUsedCard': leastUsedCard?.toJson(),
+      };
 }
