@@ -8,6 +8,7 @@ import 'providers/card_provider.dart';
 import 'providers/transfer_provider.dart';
 import 'providers/bill_provider.dart';
 import 'providers/mbway_provider.dart';
+import 'providers/investment_provider.dart';
 import 'routes/app_router.dart';
 import 'routes/app_routes.dart';
 import 'theme/app_theme.dart';
@@ -59,6 +60,15 @@ class BJBankApp extends StatelessWidget {
               mbwayProvider?.initialize(authProvider.userId!);
             }
             return mbwayProvider ?? MbWayProvider();
+          },
+        ),
+        ChangeNotifierProxyProvider<AuthProvider, InvestmentProvider>(
+          create: (_) => InvestmentProvider(),
+          update: (_, authProvider, investmentProvider) {
+            if (authProvider.userId != null) {
+              investmentProvider?.initialize(authProvider.userId!);
+            }
+            return investmentProvider ?? InvestmentProvider();
           },
         ),
       ],
