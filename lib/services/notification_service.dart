@@ -1,17 +1,22 @@
 import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 
 /// Notification Service
-/// Handles Firebase Cloud Messaging for push notifications
+/// Handles Firebase Cloud Messaging for push notifications and Firestore triggers
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
   static final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
+  static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   final StreamController<RemoteMessage> _messageStreamController =
       StreamController<RemoteMessage>.broadcast();
   final StreamController<Map<String, dynamic>> _notificationStreamController =
       StreamController<Map<String, dynamic>>.broadcast();
+
+  // Stream subscriptions for Firestore listeners
+  static final Map<String, StreamSubscription> _firestoreSubscriptions = {};
 
   NotificationService._internal();
 
@@ -214,9 +219,49 @@ class NotificationService {
       if (kDebugMode) {
         print('📍 Setting up transaction notification triggers for $userId');
       }
-      // TODO: Implement Firestore listener for transactions
-      // Will listen to /users/{userId}/transactions collection
-      // Send notification when new transaction is added
+
+      // Cancel existing subscription
+      _firestoreSubscriptions['transactions_$userId']?.cancel();
+
+      // Listen to transactions collection
+      _firestoreSubscriptions['transactions_$userId'] = _firestore
+          .collection('users/$userId/transactions')
+          .orderBy('createdAt', descending: true)
+          .limit(1)
+          .snapshots()
+          .listen(
+        (snapshot) {
+          for (final doc in snapshot.docChanges) {
+            if (doc.type == DocumentChangeType.added) {
+              final data = doc.doc.data() as Map<String, dynamic>;
+              final fromName = data['senderName'] ?? 'Transferência';
+              final amount = data['amount'] ?? 0;
+              final status = data['status'] ?? 'pending';
+
+              _notifyUser(
+                title: 'Nova Transação',
+                body: '$fromName enviou €${amount.toStringAsFixed(2)}',
+                data: {
+                  'type': 'transaction',
+                  'transactionId': doc.doc.id,
+                  'deepLink': 'app://transaction/${doc.doc.id}',
+                  'amount': amount.toString(),
+                  'status': status,
+                },
+              );
+            }
+          }
+        },
+        onError: (error) {
+          if (kDebugMode) {
+            print('❌ Error in transaction listener: $error');
+          }
+        },
+      );
+
+      if (kDebugMode) {
+        print('✅ Transaction triggers initialized');
+      }
     } catch (e) {
       if (kDebugMode) {
         print('❌ Error setting up transaction triggers: $e');
@@ -230,12 +275,56 @@ class NotificationService {
       if (kDebugMode) {
         print('🔐 Setting up security notification alerts for $userId');
       }
-      // TODO: Implement Firestore listener for security events
-      // Will listen to /users/{userId}/securityEvents collection
-      // Send notification on:
-      // - Failed login attempts
-      // - New device login
-      // - Permission changes
+
+      // Cancel existing subscription
+      _firestoreSubscriptions['security_$userId']?.cancel();
+
+      // Listen to security events collection
+      _firestoreSubscriptions['security_$userId'] = _firestore
+          .collection('users/$userId/securityEvents')
+          .orderBy('timestamp', descending: true)
+          .limit(1)
+          .snapshots()
+          .listen(
+        (snapshot) {
+          for (final doc in snapshot.docChanges) {
+            if (doc.type == DocumentChangeType.added) {
+              final data = doc.doc.data() as Map<String, dynamic>;
+              final event = data['event'] ?? 'unknown';
+              final severity = data['severity'] ?? 'medium';
+
+              final (title, icon) = switch (event) {
+                'failed_login' => ('🔐 Falha de Login', '🔓'),
+                'new_device_login' => ('📱 Novo Dispositivo', '📱'),
+                'permission_change' => ('⚙️ Alteração de Permissão', '⚙️'),
+                'pqc_signature_failed' => ('⚠️ Assinatura PQC Falhou', '⚠️'),
+                _ => ('🔐 Alerta de Segurança', '🔐'),
+              };
+
+              _notifyUser(
+                title: title,
+                body: 'Atividade inusitada detectada na sua conta',
+                data: {
+                  'type': 'security',
+                  'event': event,
+                  'severity': severity,
+                  'deepLink': 'app://security/alerts',
+                  'timestamp': data['timestamp']?.toString() ?? '',
+                },
+              );
+            }
+          }
+        },
+        onError: (error) {
+          if (kDebugMode) {
+            print('❌ Error in security listener: $error');
+          }
+        },
+      );
+
+      if (kDebugMode) {
+        print('✅ Security alerts initialized');
+      }
     } catch (e) {
       if (kDebugMode) {
         print('❌ Error setting up security alerts: $e');
@@ -249,9 +338,54 @@ class NotificationService {
       if (kDebugMode) {
         print('📋 Setting up bill reminder triggers for $userId');
       }
-      // TODO: Implement Firestore listener for bills
-      // Will listen to /users/{userId}/bills collection
-      // Send reminder notification when bill due date is approaching
+
+      // Cancel existing subscription
+      _firestoreSubscriptions['bills_$userId']?.cancel();
+
+      // Listen to bills collection
+      _firestoreSubscriptions['bills_$userId'] = _firestore
+          .collection('users/$userId/bills')
+          .where('status', isNotEqualTo: 'paid')
+          .snapshots()
+          .listen(
+        (snapshot) {
+          final now = DateTime.now();
+
+          for (final doc in snapshot.docs) {
+            final data = doc.data();
+            final dueDate = (data['dueDate'] as Timestamp).toDate();
+            final billName = data['billName'] ?? 'Fatura';
+            final amount = data['amount'] ?? 0;
+
+            // Send reminder if due date is within next 3 days
+            final daysUntilDue =
+                dueDate.difference(now).inDays;
+
+            if (daysUntilDue > 0 && daysUntilDue <= 3) {
+              _notifyUser(
+                title: '📋 Lembrete de Fatura',
+                body: '$billName vence em $daysUntilDue dias (€${amount.toStringAsFixed(2)})',
+                data: {
+                  'type': 'bill',
+                  'billId': doc.id,
+                  'deepLink': 'app://bill/${doc.id}',
+                  'daysUntilDue': daysUntilDue.toString(),
+                  'amount': amount.toString(),
+                },
+              );
+            }
+          }
+        },
+        onError: (error) {
+          if (kDebugMode) {
+            print('❌ Error in bill listener: $error');
+          }
+        },
+      );
+
+      if (kDebugMode) {
+        print('✅ Bill reminders initialized');
+      }
     } catch (e) {
       if (kDebugMode) {
         print('❌ Error setting up bill reminders: $e');
@@ -265,9 +399,57 @@ class NotificationService {
       if (kDebugMode) {
         print('💰 Setting up loan payment reminder triggers for $userId');
       }
-      // TODO: Implement Firestore listener for loans
-      // Will listen to /users/{userId}/loans collection
-      // Send reminder notification when payment is due
+
+      // Cancel existing subscription
+      _firestoreSubscriptions['loans_$userId']?.cancel();
+
+      // Listen to loans collection
+      _firestoreSubscriptions['loans_$userId'] = _firestore
+          .collection('users/$userId/loans')
+          .where('status', isNotEqualTo: 'paid_off')
+          .snapshots()
+          .listen(
+        (snapshot) {
+          final now = DateTime.now();
+
+          for (final doc in snapshot.docs) {
+            final data = doc.data();
+            final nextPaymentDate =
+                (data['nextPaymentDate'] as Timestamp?)?.toDate();
+            final loanName = data['loanName'] ?? 'Empréstimo';
+            final monthlyPayment = data['monthlyPayment'] ?? 0;
+
+            if (nextPaymentDate != null) {
+              // Send reminder if payment due is within next 5 days
+              final daysUntilPayment =
+                  nextPaymentDate.difference(now).inDays;
+
+              if (daysUntilPayment > 0 && daysUntilPayment <= 5) {
+                _notifyUser(
+                  title: '💰 Pagamento de Empréstimo',
+                  body: '$loanName vence em $daysUntilPayment dias (€${monthlyPayment.toStringAsFixed(2)})',
+                  data: {
+                    'type': 'loan',
+                    'loanId': doc.id,
+                    'deepLink': 'app://loan/${doc.id}',
+                    'daysUntilPayment': daysUntilPayment.toString(),
+                    'monthlyPayment': monthlyPayment.toString(),
+                  },
+                );
+              }
+            }
+          }
+        },
+        onError: (error) {
+          if (kDebugMode) {
+            print('❌ Error in loan listener: $error');
+          }
+        },
+      );
+
+      if (kDebugMode) {
+        print('✅ Loan payment reminders initialized');
+      }
     } catch (e) {
       if (kDebugMode) {
         print('❌ Error setting up loan payment reminders: $e');
@@ -284,6 +466,27 @@ class NotificationService {
     if (kDebugMode) {
       print('✅ All notification triggers initialized for $userId');
     }
+  }
+
+  /// Send local notification (for testing/debugging)
+  static void _notifyUser({
+    required String title,
+    required String body,
+    required Map<String, dynamic> data,
+  }) {
+    if (kDebugMode) {
+      print('📤 Sending notification: $title');
+      print('   Body: $body');
+      print('   Data: $data');
+    }
+
+    // Emit to stream for UI update
+    _instance._notificationStreamController.sink.add({
+      'title': title,
+      'body': body,
+      'data': data,
+      'timestamp': DateTime.now(),
+    });
   }
 
   /// Handle deep linking from notification tap
@@ -305,13 +508,13 @@ class NotificationService {
         print('🔗 Handling deep link: $deepLink (type: $type)');
       }
 
-      // TODO: Implement deep linking based on notification type
+      // TODO: Integrate with GoRouter or Navigator.of(context).pushNamed()
       // Example deepLinks:
-      // - "app://transaction/{transactionId}"
-      // - "app://bill/{billId}"
-      // - "app://loan/{loanId}"
-      // - "app://security/alerts"
-      // - "app://goals/{goalId}"
+      // - "app://transaction/{transactionId}" → TransactionDetailsScreen
+      // - "app://bill/{billId}" → BillDetailsScreen
+      // - "app://loan/{loanId}" → LoanDetailsScreen
+      // - "app://security/alerts" → SecurityAlertsScreen
+      // - "app://goals/{goalId}" → GoalDetailsScreen
 
       return true;
     } catch (e) {
@@ -319,6 +522,31 @@ class NotificationService {
         print('❌ Error handling notification deep link: $e');
       }
       return false;
+    }
+  }
+
+  /// Cleanup all Firestore listeners for user
+  static void cleanupTriggers(String userId) {
+    try {
+      if (kDebugMode) {
+        print('🧹 Cleaning up notification triggers for $userId');
+      }
+
+      _firestoreSubscriptions['transactions_$userId']?.cancel();
+      _firestoreSubscriptions['security_$userId']?.cancel();
+      _firestoreSubscriptions['bills_$userId']?.cancel();
+      _firestoreSubscriptions['loans_$userId']?.cancel();
+
+      _firestoreSubscriptions.removeWhere((key, _) =>
+          key.endsWith('_$userId'));
+
+      if (kDebugMode) {
+        print('✅ Notification triggers cleaned up');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Error cleaning up triggers: $e');
+      }
     }
   }
 
