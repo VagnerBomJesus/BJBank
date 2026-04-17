@@ -4,6 +4,21 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 enum CardType {
   physical,  // Physical card
   virtual,   // Virtual card
+  debit,     // Debit card
+  credit,    // Credit card
+  prepaid,   // Prepaid card
+}
+
+/// Card Brand Enum
+enum CardBrand {
+  visa,           // Visa
+  mastercard,     // Mastercard
+  maestro,        // Maestro
+  amex,           // American Express
+  discover,       // Discover
+  unionpay,       // UnionPay
+  dinersclub,     // Diners Club
+  unknown,        // Unknown brand
 }
 
 /// Card Status Enum
@@ -206,8 +221,46 @@ class CardModel {
         return 'Física';
       case CardType.virtual:
         return 'Virtual';
+      case CardType.debit:
+        return 'Débito';
+      case CardType.credit:
+        return 'Crédito';
+      case CardType.prepaid:
+        return 'Pré-pago';
     }
   }
+
+  /// Get type display name
+  String get typeDisplayName => getTypeLabel();
+
+  /// Get brand display name
+  String get brandDisplayName => brand ?? 'Desconhecido';
+
+  /// Get masked account number (****1234)
+  String get maskedNumber => formatCardNumber();
+
+  /// Get formatted card number
+  String get formattedNumber => formatCardNumber();
+
+  /// Get cardholder name
+  String get holderName => cardHolder;
+
+  /// Get last four digits of card
+  String get lastFourDigits {
+    final visiblePart = cardNumber.replaceAll('*', '');
+    return visiblePart.length >= 4
+        ? visiblePart.substring(visiblePart.length - 4)
+        : visiblePart;
+  }
+
+  /// Check if contactless is enabled (opposite of locked)
+  bool get contactlessEnabled => !lockedForOnline;
+
+  /// Check if online payments are enabled (opposite of locked)
+  bool get onlinePaymentsEnabled => !lockedForOnline;
+
+  /// Check if international purchases are enabled (opposite of locked)
+  bool get internationalEnabled => !lockedForInternational;
 
   /// Create a copy with updated fields
   CardModel copyWith({
@@ -273,6 +326,9 @@ class CardModel {
         'dailyLimit': dailyLimit,
         'monthlyLimit': monthlyLimit,
       };
+
+  /// Convert to Firestore format (alias for toJson)
+  Map<String, dynamic> toFirestore() => toJson();
 
   /// Create from Firestore JSON
   factory CardModel.fromJson(Map<String, dynamic> json) {

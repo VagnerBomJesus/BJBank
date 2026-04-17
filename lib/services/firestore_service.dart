@@ -662,27 +662,27 @@ class FirestoreService {
 
       // Generate unique card number
       final cardNumber = await _generateUniqueCardNumber(brand);
-      final lastFourDigits = cardNumber.substring(cardNumber.length - 4);
-      final cvv = CardNumberGenerator.generateCVV();
-      final expiryDate = CardNumberGenerator.generateExpiryDate();
+      final cvv = '***'; // Masked for security
+      final expiryDate = _generateExpiryDate();
 
       final card = CardModel(
         id: cardRef.id,
         userId: userId,
-        accountId: accountId,
         cardNumber: cardNumber,
-        lastFourDigits: lastFourDigits,
+        cardHolder: holderName.toUpperCase(),
         expiryDate: expiryDate,
         cvv: cvv,
         type: type,
-        brand: brand,
         status: CardStatus.active,
-        holderName: holderName.toUpperCase(),
+        limit: type == CardType.credit ? 10000.0 : 5000.0,
+        spentAmount: 0.0,
+        brand: brand.name,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
         dailyLimit: type == CardType.credit ? 2500.0 : 1000.0,
         monthlyLimit: type == CardType.credit ? 10000.0 : 5000.0,
-        contactlessEnabled: true,
-        onlinePaymentsEnabled: true,
-        internationalEnabled: false,
+        lockedForOnline: false,
+        lockedForInternational: false,
       );
 
       await cardRef.set(card.toFirestore());
@@ -699,7 +699,7 @@ class FirestoreService {
     int attempts = 0;
 
     do {
-      cardNumber = CardNumberGenerator.generateByBrand(brand);
+      cardNumber = _generateCardNumberByBrand(brand);
       final query = await _cardsCollection
           .where('cardNumber', isEqualTo: cardNumber)
           .limit(1)
@@ -712,7 +712,33 @@ class FirestoreService {
     } while (attempts < 100);
 
     // Should never happen with 16-digit card numbers, but fallback
-    return CardNumberGenerator.generateByBrand(brand);
+    return _generateCardNumberByBrand(brand);
+  }
+
+  /// Generate card number by brand
+  String _generateCardNumberByBrand(CardBrand brand) {
+    final prefix = switch (brand) {
+      CardBrand.visa => '4',
+      CardBrand.mastercard => '5',
+      CardBrand.amex => '3',
+      CardBrand.discover => '6',
+      CardBrand.maestro => '5',
+      CardBrand.unionpay => '6',
+      CardBrand.dinersclub => '3',
+      CardBrand.unknown => '4',
+    };
+
+    // Generate random 15 remaining digits
+    final random = DateTime.now().millisecondsSinceEpoch.toString();
+    return prefix + random.substring(0, 15).padRight(15, '0');
+  }
+
+  /// Generate expiry date (MM/YYYY)
+  String _generateExpiryDate() {
+    final now = DateTime.now();
+    final expiryYear = (now.year + 5).toString().substring(2);
+    final month = now.month.toString().padLeft(2, '0');
+    return '$month/$expiryYear';
   }
 
   /// Get user cards

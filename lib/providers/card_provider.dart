@@ -364,6 +364,42 @@ class CardProvider extends ChangeNotifier {
     }
   }
 
+  /// Toggle card feature (generic toggle for various card features)
+  Future<bool> toggleCardFeature(String cardId, String feature) async {
+    final card = _cards.firstWhere(
+      (c) => c.id == cardId,
+      orElse: () => CardModel(
+        id: '',
+        userId: '',
+        cardNumber: '',
+        cardHolder: '',
+        expiryDate: '',
+        cvv: '',
+        limit: 0,
+        spentAmount: 0,
+        type: CardType.physical,
+        status: CardStatus.active,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      ),
+    );
+
+    if (card.id.isEmpty) return false;
+
+    return switch (feature) {
+      'online' => card.lockedForOnline
+          ? unlockCardForOnline(cardId)
+          : lockCardForOnline(cardId),
+      'international' => card.lockedForInternational
+          ? unlockCardForInternational(cardId)
+          : lockCardForInternational(cardId),
+      'contactless' => card.lockedForOnline
+          ? unlockCardForOnline(cardId)
+          : lockCardForOnline(cardId),
+      _ => false,
+    };
+  }
+
   /// Delete/Cancel card (soft delete - marks as cancelled)
   Future<bool> deleteCard(String cardId) async {
     if (_currentUserId == null) return false;

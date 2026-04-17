@@ -81,7 +81,6 @@ class _CardSettingsDialogState extends State<CardSettingsDialog> {
     final success = await cardProvider.toggleCardFeature(
       widget.card.id,
       feature,
-      newValue,
     );
 
     if (!success && mounted) {

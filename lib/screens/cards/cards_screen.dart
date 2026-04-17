@@ -81,6 +81,8 @@ class _CardsScreenState extends State<CardsScreen> {
         return BJBankColors.tertiary;
       case CardType.virtual:
         return BJBankColors.secondary;
+      case CardType.physical:
+        return BJBankColors.primary;
     }
   }
 
@@ -94,6 +96,8 @@ class _CardsScreenState extends State<CardsScreen> {
         return BJBankColors.tertiaryDark;
       case CardType.virtual:
         return BJBankColors.secondaryDark;
+      case CardType.physical:
+        return BJBankColors.primaryDark;
     }
   }
 
@@ -409,7 +413,7 @@ class _CardsScreenState extends State<CardsScreen> {
                           ),
                         ],
                       ),
-                      _buildBrandLogo(card.brand),
+                      _buildBrandLogo(_parseBrand(card.brand)),
                     ],
                   ),
 
@@ -563,6 +567,18 @@ class _CardsScreenState extends State<CardsScreen> {
     );
   }
 
+  CardBrand _parseBrand(String? brandStr) {
+    if (brandStr == null || brandStr.isEmpty) return CardBrand.unknown;
+    try {
+      return CardBrand.values.firstWhere(
+        (b) => b.name == brandStr.toLowerCase(),
+        orElse: () => CardBrand.unknown,
+      );
+    } catch (_) {
+      return CardBrand.unknown;
+    }
+  }
+
   Widget _buildBrandLogo(CardBrand brand) {
     switch (brand) {
       case CardBrand.visa:
@@ -622,6 +638,51 @@ class _CardsScreenState extends State<CardsScreen> {
               ),
             ),
           ],
+        );
+      case CardBrand.amex:
+        return const Text(
+          'AMEX',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        );
+      case CardBrand.discover:
+        return const Text(
+          'Discover',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        );
+      case CardBrand.unionpay:
+        return const Text(
+          'UnionPay',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        );
+      case CardBrand.dinersclub:
+        return const Text(
+          'Diners',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        );
+      case CardBrand.unknown:
+        return const Text(
+          'Card',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
         );
     }
   }
@@ -810,12 +871,12 @@ class _CardsScreenState extends State<CardsScreen> {
           _buildDetailRow(
             icon: Icons.trending_up_outlined,
             label: 'Limite Diário',
-            value: '€ ${currentCard.dailyLimit.toStringAsFixed(2)}',
+            value: '€ ${(currentCard.dailyLimit ?? 0).toStringAsFixed(2)}',
           ),
           _buildDetailRow(
             icon: Icons.date_range_outlined,
             label: 'Limite Mensal',
-            value: '€ ${currentCard.monthlyLimit.toStringAsFixed(2)}',
+            value: '€ ${(currentCard.monthlyLimit ?? 0).toStringAsFixed(2)}',
           ),
           const SizedBox(height: BJBankSpacing.lg),
           const Divider(),
@@ -1720,6 +1781,10 @@ class _RequestCardSheetState extends State<_RequestCardSheet> {
       case CardType.virtual:
         label = 'Virtual';
         icon = Icons.phone_android;
+        break;
+      case CardType.physical:
+        label = 'Física';
+        icon = Icons.credit_card;
         break;
     }
 
