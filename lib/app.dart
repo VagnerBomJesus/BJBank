@@ -5,6 +5,7 @@ import 'providers/account_provider.dart';
 import 'providers/settings_provider.dart';
 import 'providers/deposit_provider.dart';
 import 'providers/card_provider.dart';
+import 'providers/transfer_provider.dart';
 import 'routes/app_router.dart';
 import 'routes/app_routes.dart';
 import 'theme/app_theme.dart';
@@ -29,6 +30,15 @@ class BJBankApp extends StatelessWidget {
               cardProvider?.initialize(authProvider.userId!);
             }
             return cardProvider ?? CardProvider();
+          },
+        ),
+        ChangeNotifierProxyProvider<AuthProvider, TransferProvider>(
+          create: (_) => TransferProvider(),
+          update: (_, authProvider, transferProvider) {
+            if (authProvider.userId != null) {
+              transferProvider?.initialize(authProvider.userId!);
+            }
+            return transferProvider ?? TransferProvider();
           },
         ),
       ],
