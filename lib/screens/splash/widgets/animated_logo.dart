@@ -29,7 +29,7 @@ class AnimatedLogo extends StatelessWidget {
               width: 120,
               height: 120,
               decoration: BoxDecoration(
-                color: BJBankColors.onPrimary.withOpacity(0.15),
+                color: BJBankColors.onPrimary.withValues(alpha:0.15),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
@@ -52,7 +52,7 @@ class AnimatedLogo extends StatelessWidget {
             Text(
               'Quantum Security',
               style: BJBankTypography.bodyMedium.copyWith(
-                color: BJBankColors.onPrimary.withOpacity(0.8),
+                color: BJBankColors.onPrimary.withValues(alpha:0.8),
                 letterSpacing: 2,
               ),
             ),

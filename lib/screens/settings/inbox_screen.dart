@@ -86,7 +86,7 @@ class _ActivityTab extends StatelessWidget {
     return ListView.separated(
       padding: const EdgeInsets.all(BJBankSpacing.md),
       itemCount: recent.length,
-      separatorBuilder: (_, __) => const Divider(height: 1),
+      separatorBuilder: (context, index) => const Divider(height: 1),
       itemBuilder: (context, i) => _buildNotificationTile(context, recent[i]),
     );
   }
@@ -367,7 +367,7 @@ class _SystemTab extends StatelessWidget {
     return ListView.separated(
       padding: const EdgeInsets.all(BJBankSpacing.md),
       itemCount: _messages.length,
-      separatorBuilder: (_, __) => const SizedBox(height: BJBankSpacing.sm),
+      separatorBuilder: (context, index) => const SizedBox(height: BJBankSpacing.sm),
       itemBuilder: (context, i) => _buildCard(context, _messages[i]),
     );
   }

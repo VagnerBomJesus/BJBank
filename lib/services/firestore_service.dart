@@ -301,19 +301,6 @@ class FirestoreService {
     }
   }
 
-  /// Update account balance (internal use)
-  Future<void> _updateAccountBalance(
-    String accountId,
-    double newBalance,
-    double newAvailableBalance,
-  ) async {
-    await _accountsCollection.doc(accountId).update({
-      'balance': newBalance,
-      'availableBalance': newAvailableBalance,
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
-  }
-
   /// Link MB WAY to account (simple version)
   Future<void> linkMbWay(String accountId, String phone) async {
     try {
@@ -1037,13 +1024,6 @@ class FirestoreService {
     // Stream sent transactions
     final sentStream = _transactionsCollection
         .where('senderId', isEqualTo: userId)
-        .orderBy('createdAt', descending: true)
-        .limit(50)
-        .snapshots();
-
-    // Stream received transactions
-    final receivedStream = _transactionsCollection
-        .where('receiverId', isEqualTo: userId)
         .orderBy('createdAt', descending: true)
         .limit(50)
         .snapshots();

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../models/pqc_metrics_model.dart';
 import '../../services/pqc_benchmark_service.dart';
+import '../../services/pqc_service.dart';
 import '../../theme/colors.dart';
 import '../../theme/spacing.dart';
 
@@ -169,25 +170,34 @@ class _PqcBenchmarkScreenState extends State<PqcBenchmarkScreen> {
               ],
             ),
             const SizedBox(height: BJBankSpacing.sm),
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: BJBankSpacing.sm,
-                vertical: BJBankSpacing.xxs,
-              ),
-              decoration: BoxDecoration(
-                color: Colors.orange.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: Colors.orange.withValues(alpha: 0.4)),
-              ),
-              child: const Text(
-                'Modo: Simulação (PoC Arquitetural) — ver ADR-001',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Colors.orange,
-                  fontWeight: FontWeight.w500,
+            Builder(builder: (context) {
+              final mode = PqcService.currentMode;
+              final badgeText = mode == PqcImplementationMode.production
+                  ? 'Modo: Produção (liboqs real)'
+                  : 'Modo: Simulação (PoC Arquitetural) — ver ADR-001';
+              final badgeColor = mode == PqcImplementationMode.production
+                  ? BJBankColors.success
+                  : BJBankColors.warning;
+              return Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: BJBankSpacing.sm,
+                  vertical: BJBankSpacing.xxs,
                 ),
-              ),
-            ),
+                decoration: BoxDecoration(
+                  color: badgeColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: badgeColor.withValues(alpha: 0.4)),
+                ),
+                child: Text(
+                  badgeText,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: badgeColor,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              );
+            }),
             const SizedBox(height: BJBankSpacing.sm),
             const Text(
               'Mede latências de serialização para Dilithium2/3/5 e Kyber512/768/1024 '

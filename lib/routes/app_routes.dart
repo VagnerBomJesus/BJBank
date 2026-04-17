@@ -30,6 +30,8 @@ class AppRoutes {
   static const String analysis = '/analysis';
   static const String accountDetails = '/account-details';
   static const String privacy = '/privacy';
+  static const String termsOfService = '/terms-of-service';
+  static const String privacyPolicy = '/privacy-policy';
   static const String mbwaySettings = '/settings/mbway';
   static const String mbwayPhoneVerification = '/settings/mbway/verify-phone';
 

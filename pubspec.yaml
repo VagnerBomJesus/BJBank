@@ -65,6 +65,9 @@ dependencies:
   # State Management
   provider: ^6.1.2
 
+  # PQC via liboqs FFI (Open Quantum Safe)
+  oqs: ^3.1.0
+
   # FFI for PQC (liboqs)
   ffi: ^2.1.0
 

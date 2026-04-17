@@ -132,7 +132,7 @@ class _DepositAmountScreenState extends State<DepositAmountScreen> {
                     child: Image.network(
                       account.institutionLogo!,
                       fit: BoxFit.contain,
-                      errorBuilder: (_, __, ___) => const Icon(
+                      errorBuilder: (context, error, stackTrace) => const Icon(
                         Icons.account_balance,
                         color: BJBankColors.primary,
                         size: 20,

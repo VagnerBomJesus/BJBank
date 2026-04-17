@@ -230,7 +230,7 @@ class _HistoryScreenState extends State<HistoryScreen>
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: BJBankColors.surfaceVariant.withOpacity(0.5),
+              color: BJBankColors.surfaceVariant.withValues(alpha:0.5),
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -278,10 +278,10 @@ class _HistoryScreenState extends State<HistoryScreen>
             ),
             child: Container(
               decoration: BoxDecoration(
-                color: BJBankColors.surfaceVariant.withOpacity(0.5),
+                color: BJBankColors.surfaceVariant.withValues(alpha:0.5),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: BJBankColors.outline.withOpacity(0.1),
+                  color: BJBankColors.outline.withValues(alpha:0.1),
                   width: 1,
                 ),
               ),
@@ -296,11 +296,11 @@ class _HistoryScreenState extends State<HistoryScreen>
                 decoration: InputDecoration(
                   hintText: 'Pesquisar por nome ou categoria...',
                   hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: BJBankColors.onSurfaceVariant.withOpacity(0.6),
+                        color: BJBankColors.onSurfaceVariant.withValues(alpha:0.6),
                       ),
                   prefixIcon: Icon(
                     Icons.search,
-                    color: BJBankColors.onSurfaceVariant.withOpacity(0.6),
+                    color: BJBankColors.onSurfaceVariant.withValues(alpha:0.6),
                     size: 22,
                   ),
                   suffixIcon: _searchQuery.isNotEmpty
@@ -406,8 +406,8 @@ class _HistoryScreenState extends State<HistoryScreen>
         ),
         decoration: BoxDecoration(
           color: isSelected
-              ? chipColor.withOpacity(0.15)
-              : BJBankColors.surfaceVariant.withOpacity(0.3),
+              ? chipColor.withValues(alpha:0.15)
+              : BJBankColors.surfaceVariant.withValues(alpha:0.3),
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
             color: isSelected ? chipColor : Colors.transparent,
@@ -461,13 +461,13 @@ class _HistoryScreenState extends State<HistoryScreen>
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            BJBankColors.primary.withOpacity(0.08),
-            BJBankColors.secondary.withOpacity(0.05),
+            BJBankColors.primary.withValues(alpha:0.08),
+            BJBankColors.secondary.withValues(alpha:0.05),
           ],
         ),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: BJBankColors.primary.withOpacity(0.1),
+          color: BJBankColors.primary.withValues(alpha:0.1),
           width: 1,
         ),
       ),
@@ -486,7 +486,7 @@ class _HistoryScreenState extends State<HistoryScreen>
           Container(
             width: 1,
             height: 40,
-            color: BJBankColors.outline.withOpacity(0.2),
+            color: BJBankColors.outline.withValues(alpha:0.2),
           ),
           Expanded(
             child: _buildSummaryItem(
@@ -517,7 +517,7 @@ class _HistoryScreenState extends State<HistoryScreen>
           width: 36,
           height: 36,
           decoration: BoxDecoration(
-            color: iconColor.withOpacity(0.15),
+            color: iconColor.withValues(alpha:0.15),
             shape: BoxShape.circle,
           ),
           child: Icon(icon, color: iconColor, size: 20),
@@ -583,7 +583,7 @@ class _HistoryScreenState extends State<HistoryScreen>
               vertical: BJBankSpacing.xs,
             ),
             decoration: BoxDecoration(
-              color: BJBankColors.surfaceVariant.withOpacity(0.5),
+              color: BJBankColors.surfaceVariant.withValues(alpha:0.5),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
@@ -598,7 +598,7 @@ class _HistoryScreenState extends State<HistoryScreen>
           Expanded(
             child: Container(
               height: 1,
-              color: BJBankColors.outline.withOpacity(0.1),
+              color: BJBankColors.outline.withValues(alpha:0.1),
             ),
           ),
         ],
@@ -621,13 +621,13 @@ class _HistoryScreenState extends State<HistoryScreen>
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: BJBankColors.onSurface.withOpacity(0.04),
+              color: BJBankColors.onSurface.withValues(alpha:0.04),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
           ],
           border: Border.all(
-            color: BJBankColors.outline.withOpacity(0.08),
+            color: BJBankColors.outline.withValues(alpha:0.08),
             width: 1,
           ),
         ),
@@ -638,7 +638,7 @@ class _HistoryScreenState extends State<HistoryScreen>
               width: 52,
               height: 52,
               decoration: BoxDecoration(
-                color: transaction.iconColor.withOpacity(0.12),
+                color: transaction.iconColor.withValues(alpha:0.12),
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -669,7 +669,7 @@ class _HistoryScreenState extends State<HistoryScreen>
                       Icon(
                         Icons.access_time_rounded,
                         size: 12,
-                        color: BJBankColors.onSurfaceVariant.withOpacity(0.6),
+                        color: BJBankColors.onSurfaceVariant.withValues(alpha:0.6),
                       ),
                       const SizedBox(width: 4),
                       Text(
@@ -685,7 +685,7 @@ class _HistoryScreenState extends State<HistoryScreen>
                           height: 4,
                           decoration: BoxDecoration(
                             color:
-                                BJBankColors.onSurfaceVariant.withOpacity(0.3),
+                                BJBankColors.onSurfaceVariant.withValues(alpha:0.3),
                             shape: BoxShape.circle,
                           ),
                         ),
@@ -730,14 +730,14 @@ class _HistoryScreenState extends State<HistoryScreen>
                         Icon(
                           Icons.shield_outlined,
                           size: 12,
-                          color: BJBankColors.primary.withOpacity(0.7),
+                          color: BJBankColors.primary.withValues(alpha:0.7),
                         ),
                         const SizedBox(width: 2),
                         Text(
                           'PQC',
                           style:
                               Theme.of(context).textTheme.labelSmall?.copyWith(
-                                    color: BJBankColors.primary.withOpacity(0.7),
+                                    color: BJBankColors.primary.withValues(alpha:0.7),
                                     fontWeight: FontWeight.w500,
                                     fontSize: 10,
                                   ),
@@ -833,7 +833,7 @@ class _HistoryScreenState extends State<HistoryScreen>
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: BJBankColors.outline.withOpacity(0.3),
+                  color: BJBankColors.outline.withValues(alpha:0.3),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -936,8 +936,8 @@ class _HistoryScreenState extends State<HistoryScreen>
         ),
         decoration: BoxDecoration(
           color: isSelected
-              ? color.withOpacity(0.1)
-              : BJBankColors.surfaceVariant.withOpacity(0.3),
+              ? color.withValues(alpha:0.1)
+              : BJBankColors.surfaceVariant.withValues(alpha:0.3),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isSelected ? color : Colors.transparent,
@@ -950,7 +950,7 @@ class _HistoryScreenState extends State<HistoryScreen>
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: color.withOpacity(0.15),
+                color: color.withValues(alpha:0.15),
                 shape: BoxShape.circle,
               ),
               child: Icon(icon, color: color, size: 20),
@@ -998,7 +998,7 @@ class _HistoryScreenState extends State<HistoryScreen>
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: BJBankColors.outline.withOpacity(0.3),
+                    color: BJBankColors.outline.withValues(alpha:0.3),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -1011,7 +1011,7 @@ class _HistoryScreenState extends State<HistoryScreen>
                         width: 80,
                         height: 80,
                         decoration: BoxDecoration(
-                          color: transaction.iconColor.withOpacity(0.12),
+                          color: transaction.iconColor.withValues(alpha:0.12),
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
@@ -1051,7 +1051,7 @@ class _HistoryScreenState extends State<HistoryScreen>
                           vertical: BJBankSpacing.xs,
                         ),
                         decoration: BoxDecoration(
-                          color: BJBankColors.success.withOpacity(0.1),
+                          color: BJBankColors.success.withValues(alpha:0.1),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Row(
@@ -1197,7 +1197,7 @@ class _HistoryScreenState extends State<HistoryScreen>
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: BJBankColors.surfaceVariant.withOpacity(0.5),
+              color: BJBankColors.surfaceVariant.withValues(alpha:0.5),
               shape: BoxShape.circle,
             ),
             child: Icon(

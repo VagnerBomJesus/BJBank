@@ -86,7 +86,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
           // Year selector
           Expanded(
             child: DropdownButtonFormField<int>(
-              value: _selectedYear,
+              initialValue: _selectedYear,
               decoration: const InputDecoration(
                 labelText: 'Ano',
                 isDense: true,
@@ -110,7 +110,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
           Expanded(
             flex: 2,
             child: DropdownButtonFormField<int?>(
-              value: _selectedMonth,
+              initialValue: _selectedMonth,
               decoration: const InputDecoration(
                 labelText: 'Mês',
                 isDense: true,

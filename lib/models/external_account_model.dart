@@ -218,7 +218,7 @@ class ExternalAccountModel {
     // Return first word if name is too long
     final words = institutionName.split(' ');
     return words.first.length > 15
-        ? words.first.substring(0, 12) + '...'
+        ? '${words.first.substring(0, 12)}...'
         : words.first;
   }
 

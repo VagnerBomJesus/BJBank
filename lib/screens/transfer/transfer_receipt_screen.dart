@@ -59,7 +59,7 @@ class TransferReceiptScreen extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: BJBankColors.success.withOpacity(0.1),
+                  color: BJBankColors.success.withValues(alpha:0.1),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
@@ -134,7 +134,7 @@ class TransferReceiptScreen extends StatelessWidget {
                               vertical: BJBankSpacing.xxs,
                             ),
                             decoration: BoxDecoration(
-                              color: BJBankColors.quantum.withOpacity(0.1),
+                              color: BJBankColors.quantum.withValues(alpha:0.1),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Row(

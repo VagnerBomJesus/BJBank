@@ -55,7 +55,7 @@ class BankCard extends StatelessWidget {
                         child: Image.network(
                           institution.logo!,
                           fit: BoxFit.contain,
-                          errorBuilder: (_, __, ___) => _buildFallbackIcon(),
+                          errorBuilder: (context, error, stackTrace) => _buildFallbackIcon(),
                         ),
                       )
                     : _buildFallbackIcon(),

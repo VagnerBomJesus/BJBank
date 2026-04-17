@@ -213,7 +213,7 @@ class _BankSelectionScreenState extends State<BankSelectionScreen> {
                           vertical: BJBankSpacing.sm,
                         ),
                         itemCount: filteredBanks.length,
-                        separatorBuilder: (_, __) =>
+                        separatorBuilder: (context, index) =>
                             const SizedBox(height: BJBankSpacing.sm),
                         itemBuilder: (context, index) {
                           final bank = filteredBanks[index];

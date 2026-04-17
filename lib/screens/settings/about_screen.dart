@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../theme/colors.dart';
 import '../../theme/spacing.dart';
+import '../../routes/app_routes.dart';
 
 /// About Screen - BJBank academic info, PQC classification, research context
 class AboutScreen extends StatelessWidget {
@@ -249,14 +250,14 @@ class AboutScreen extends StatelessWidget {
                   leading: const Icon(Icons.article_outlined),
                   title: const Text('Termos de Serviço'),
                   trailing: const Icon(Icons.chevron_right),
-                  onTap: () {},
+                  onTap: () => Navigator.pushNamed(context, AppRoutes.termsOfService),
                 ),
                 const Divider(height: 1, indent: 56),
                 ListTile(
                   leading: const Icon(Icons.privacy_tip_outlined),
                   title: const Text('Política de Privacidade'),
                   trailing: const Icon(Icons.chevron_right),
-                  onTap: () {},
+                  onTap: () => Navigator.pushNamed(context, AppRoutes.privacyPolicy),
                 ),
               ],
             ),

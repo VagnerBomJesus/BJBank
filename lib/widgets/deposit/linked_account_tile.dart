@@ -66,7 +66,7 @@ class LinkedAccountTile extends StatelessWidget {
                             child: Image.network(
                               account.institutionLogo!,
                               fit: BoxFit.contain,
-                              errorBuilder: (_, __, ___) => _buildFallbackIcon(),
+                              errorBuilder: (context, error, stackTrace) => _buildFallbackIcon(),
                             ),
                           )
                         : _buildFallbackIcon(),

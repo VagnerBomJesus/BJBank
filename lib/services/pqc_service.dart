@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'dart:math';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:oqs/oqs.dart';
 import '../models/pqc_metrics_model.dart';
 
 /// PQC Algorithm Types
@@ -93,8 +93,32 @@ class PqcService {
   factory PqcService() => _instance;
   PqcService._internal();
 
+  // liboqs availability — set by main.dart after LibOQSLoader.setup()
+  static bool isLiboqsAvailable = false;
+
+  /// Returns the active implementation mode at runtime.
+  static PqcImplementationMode get currentMode => isLiboqsAvailable
+      ? PqcImplementationMode.production
+      : PqcImplementationMode.simulation;
+
   // Cached key pair
   PqcKeyPair? _cachedKeyPair;
+
+  // ── Algorithm mapping helpers ──────────────────────────────────────────────
+
+  static String _toSigAlgName(PqcAlgorithm alg) => switch (alg) {
+        PqcAlgorithm.dilithium2 => 'ML-DSA-44',
+        PqcAlgorithm.dilithium3 => 'ML-DSA-65',
+        PqcAlgorithm.dilithium5 => 'ML-DSA-87',
+        _ => 'ML-DSA-65',
+      };
+
+  static String _toKemAlgName(PqcAlgorithm alg) => switch (alg) {
+        PqcAlgorithm.kyber512 => 'ML-KEM-512',
+        PqcAlgorithm.kyber768 => 'ML-KEM-768',
+        PqcAlgorithm.kyber1024 => 'ML-KEM-1024',
+        _ => 'ML-KEM-768',
+      };
 
   /// Initialize PQC service
   Future<void> initialize() async {
@@ -117,38 +141,44 @@ class PqcService {
     }
   }
 
-  /// Generate new CRYSTALS-Dilithium key pair
-  /// Simulated implementation - replace with liboqs FFI in production
+  /// Generate new CRYSTALS-Dilithium key pair.
+  /// Uses liboqs (ML-DSA) when available; falls back to simulation otherwise.
   Future<PqcKeyPair> generateKeyPair({
     PqcAlgorithm algorithm = PqcAlgorithm.dilithium3,
   }) async {
-    debugPrint('Generating PQC key pair (${algorithm.name})...');
+    debugPrint('Generating PQC key pair (${algorithm.name}) — ${currentMode.name}...');
 
-    // Simulate key generation delay
-    await Future.delayed(const Duration(milliseconds: 500));
+    late PqcKeyPair keyPair;
 
-    // Generate simulated keys (in production, use liboqs)
-    final random = Random.secure();
-
-    // Dilithium public key size varies by security level
-    final publicKeySize = _getPublicKeySize(algorithm);
-    final privateKeySize = _getPrivateKeySize(algorithm);
-
-    final publicKeyBytes = Uint8List(publicKeySize);
-    final privateKeyBytes = Uint8List(privateKeySize);
-
-    for (var i = 0; i < publicKeySize; i++) {
-      publicKeyBytes[i] = random.nextInt(256);
+    if (isLiboqsAvailable) {
+      final sig = Signature.create(_toSigAlgName(algorithm));
+      final kp = sig.generateKeyPair();
+      keyPair = PqcKeyPair(
+        publicKey: base64Encode(kp.publicKey),
+        privateKey: base64Encode(kp.secretKey),
+        algorithm: algorithm,
+      );
+      sig.dispose();
+    } else {
+      // Simulation: random bytes with NIST-correct sizes
+      await Future.delayed(const Duration(milliseconds: 500));
+      final random = Random.secure();
+      final publicKeySize = _getPublicKeySize(algorithm);
+      final privateKeySize = _getPrivateKeySize(algorithm);
+      final publicKeyBytes = Uint8List(publicKeySize);
+      final privateKeyBytes = Uint8List(privateKeySize);
+      for (var i = 0; i < publicKeySize; i++) {
+        publicKeyBytes[i] = random.nextInt(256);
+      }
+      for (var i = 0; i < privateKeySize; i++) {
+        privateKeyBytes[i] = random.nextInt(256);
+      }
+      keyPair = PqcKeyPair(
+        publicKey: base64Encode(publicKeyBytes),
+        privateKey: base64Encode(privateKeyBytes),
+        algorithm: algorithm,
+      );
     }
-    for (var i = 0; i < privateKeySize; i++) {
-      privateKeyBytes[i] = random.nextInt(256);
-    }
-
-    final keyPair = PqcKeyPair(
-      publicKey: base64Encode(publicKeyBytes),
-      privateKey: base64Encode(privateKeyBytes),
-      algorithm: algorithm,
-    );
 
     // Store securely
     await _storage.write(
@@ -181,38 +211,40 @@ class PqcService {
   /// Get or generate key pair
   Future<PqcKeyPair> getOrGenerateKeyPair() async {
     var keyPair = await getKeyPair();
-    if (keyPair == null) {
-      keyPair = await generateKeyPair();
-    }
+    keyPair ??= await generateKeyPair();
     return keyPair;
   }
 
-  /// Sign transaction data using CRYSTALS-Dilithium
-  /// Simulated implementation - replace with liboqs FFI in production
+  /// Sign transaction data using CRYSTALS-Dilithium (ML-DSA).
+  /// Uses liboqs when available; falls back to simulation otherwise.
   Future<PqcSignature> signTransaction({
     required String transactionData,
     required PqcKeyPair keyPair,
   }) async {
-    debugPrint('Signing transaction with ${keyPair.algorithm.name}...');
+    debugPrint('Signing transaction with ${keyPair.algorithm.name} — ${currentMode.name}...');
 
-    // Simulate signing delay
-    await Future.delayed(const Duration(milliseconds: 200));
-
-    // Create data hash (simplified)
-    final dataBytes = utf8.encode(transactionData);
     final timestamp = DateTime.now();
+    late Uint8List signatureBytes;
 
-    // Simulate Dilithium signature (in production, use liboqs)
-    final signatureSize = _getSignatureSize(keyPair.algorithm);
-    final signatureBytes = Uint8List(signatureSize);
-
-    // Mix private key with data for deterministic-looking signature
-    final privateKeyBytes = base64Decode(keyPair.privateKey);
-    for (var i = 0; i < signatureSize; i++) {
-      signatureBytes[i] = (privateKeyBytes[i % privateKeyBytes.length] ^
-              dataBytes[i % dataBytes.length] ^
-              timestamp.millisecondsSinceEpoch) &
-          0xFF;
+    if (isLiboqsAvailable) {
+      final sig = Signature.create(_toSigAlgName(keyPair.algorithm));
+      final message = Uint8List.fromList(utf8.encode(transactionData));
+      final sk = base64Decode(keyPair.privateKey);
+      signatureBytes = sig.sign(message, sk);
+      sig.dispose();
+    } else {
+      // Simulation: XOR-mixed bytes
+      await Future.delayed(const Duration(milliseconds: 200));
+      final dataBytes = utf8.encode(transactionData);
+      final signatureSize = _getSignatureSize(keyPair.algorithm);
+      signatureBytes = Uint8List(signatureSize);
+      final privateKeyBytes = base64Decode(keyPair.privateKey);
+      for (var i = 0; i < signatureSize; i++) {
+        signatureBytes[i] = (privateKeyBytes[i % privateKeyBytes.length] ^
+                dataBytes[i % dataBytes.length] ^
+                timestamp.millisecondsSinceEpoch) &
+            0xFF;
+      }
     }
 
     final signature = PqcSignature(
@@ -226,39 +258,38 @@ class PqcService {
     return signature;
   }
 
-  /// Verify signature using CRYSTALS-Dilithium
-  /// Simulated implementation - replace with liboqs FFI in production
+  /// Verify signature using CRYSTALS-Dilithium (ML-DSA).
+  /// Uses liboqs when available; falls back to simulation otherwise.
   Future<bool> verifySignature({
     required PqcSignature signature,
     required String publicKey,
   }) async {
-    debugPrint('Verifying signature...');
-
-    // Simulate verification delay
-    await Future.delayed(const Duration(milliseconds: 100));
-
-    // In production, this would use liboqs to verify
-    // For simulation, we just check that signature is not empty
-    // and matches expected format
+    debugPrint('Verifying signature — ${currentMode.name}...');
 
     try {
-      final sigBytes = base64Decode(signature.signature);
-      final pubKeyBytes = base64Decode(publicKey);
-
-      // Basic validation
-      if (sigBytes.isEmpty || pubKeyBytes.isEmpty) {
-        return false;
+      if (isLiboqsAvailable) {
+        final sig = Signature.create(_toSigAlgName(signature.algorithm));
+        final message = Uint8List.fromList(utf8.encode(signature.data));
+        final sigBytes = base64Decode(signature.signature);
+        final pk = base64Decode(publicKey);
+        final valid = sig.verify(message, sigBytes, pk);
+        sig.dispose();
+        debugPrint('Signature verified: $valid');
+        return valid;
+      } else {
+        // Simulation: structural validation (size check)
+        await Future.delayed(const Duration(milliseconds: 100));
+        final sigBytes = base64Decode(signature.signature);
+        final pubKeyBytes = base64Decode(publicKey);
+        if (sigBytes.isEmpty || pubKeyBytes.isEmpty) return false;
+        final expectedSize = _getSignatureSize(signature.algorithm);
+        if (sigBytes.length != expectedSize) {
+          debugPrint('Signature size mismatch');
+          return false;
+        }
+        debugPrint('Signature verified successfully (simulation)');
+        return true;
       }
-
-      // Check signature size matches algorithm
-      final expectedSize = _getSignatureSize(signature.algorithm);
-      if (sigBytes.length != expectedSize) {
-        debugPrint('Signature size mismatch');
-        return false;
-      }
-
-      debugPrint('Signature verified successfully');
-      return true;
     } catch (e) {
       debugPrint('Signature verification failed: $e');
       return false;
@@ -403,7 +434,7 @@ class PqcService {
       operation: 'KeyGen',
       wallTime: sw.elapsed,
       outputSizeBytes: _getPublicKeySize(algorithm) + _getPrivateKeySize(algorithm),
-      mode: PqcImplementationMode.simulation,
+      mode: currentMode,
       measuredAt: DateTime.now(),
     );
   }
@@ -604,14 +635,27 @@ class PqcHybridHandshake {
     phase1Start.stop();
     final classicalPhaseMs = phase1Start.elapsedMicroseconds / 1000.0;
 
-    // Phase 2: Simulated Kyber KEM (KeyGen + Encaps, ~25ms serialization overhead)
+    // Phase 2: Kyber KEM (KeyGen + Encaps + Decaps)
     final phase2Start = Stopwatch()..start();
-    final pkSize = pqcService.getPublicKeySize(kemAlgorithm);
-    final ctSize = pqcService.getCiphertextSize(kemAlgorithm);
-    await Future.delayed(const Duration(milliseconds: 25));
-    final kyberSecret = Uint8List(32);
-    for (var i = 0; i < 32; i++) {
-      kyberSecret[i] = rng.nextInt(256);
+    late int pkSize;
+    late int ctSize;
+
+    if (PqcService.isLiboqsAvailable) {
+      final kem = KEM.create(PqcService._toKemAlgName(kemAlgorithm))!;
+      final kemKp = kem.generateKeyPair();
+      final encapsResult = kem.encapsulate(kemKp.publicKey);
+      kem.decapsulate(encapsResult.ciphertext, kemKp.secretKey);
+      pkSize = kemKp.publicKey.length;
+      ctSize = encapsResult.ciphertext.length;
+      kem.dispose();
+    } else {
+      pkSize = pqcService.getPublicKeySize(kemAlgorithm);
+      ctSize = pqcService.getCiphertextSize(kemAlgorithm);
+      await Future.delayed(const Duration(milliseconds: 25));
+      final kyberSecret = Uint8List(32);
+      for (var i = 0; i < 32; i++) {
+        kyberSecret[i] = rng.nextInt(256);
+      }
     }
     phase2Start.stop();
     final kemPhaseMs = phase2Start.elapsedMicroseconds / 1000.0;
@@ -635,7 +679,9 @@ class PqcHybridHandshake {
       kemPublicKeySizeBytes: pkSize,
       kemCiphertextSizeBytes: ctSize,
       combinedSecretSizeBytes: 32,
-      mode: PqcImplementationMode.hybridSimulation,
+      mode: PqcService.isLiboqsAvailable
+          ? PqcImplementationMode.production
+          : PqcImplementationMode.hybridSimulation,
       executedAt: DateTime.now(),
     );
   }

@@ -52,7 +52,7 @@ class LinkedAccountsScreen extends StatelessWidget {
             child: ListView.separated(
               padding: const EdgeInsets.all(BJBankSpacing.md),
               itemCount: provider.linkedAccounts.length,
-              separatorBuilder: (_, __) =>
+              separatorBuilder: (context, index) =>
                   const SizedBox(height: BJBankSpacing.sm),
               itemBuilder: (context, index) {
                 final account = provider.linkedAccounts[index];

@@ -267,7 +267,6 @@ void main() {
       // Wait — Dilithium3 is SLOWER in cycles but ECDSA's verify is much slower.
       // The 38% claim in ADR-001 refers to Dilithium3 KeyGen (203K) vs ECDSA sign (330K).
       // Let's verify the ECDSA sign > Dilithium3 KeyGen ratio.
-      final ecdsa = data['ECDSA-256']!;
       const dilithium3KeyGenCycles = 203472;
       const ecdsa256SignCycles = 250000; // from SUPERCOP
       expect(

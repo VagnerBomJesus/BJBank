@@ -17,7 +17,7 @@ class SecurityBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(BJBankSpacing.xxs),
       decoration: BoxDecoration(
-        color: BJBankColors.quantum.withOpacity(0.15),
+        color: BJBankColors.quantum.withValues(alpha:0.15),
         shape: BoxShape.circle,
       ),
       child: Icon(

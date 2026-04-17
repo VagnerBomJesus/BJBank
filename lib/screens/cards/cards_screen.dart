@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -223,7 +222,7 @@ class _CardsScreenState extends State<CardsScreen> {
         width: 48,
         height: 48,
         decoration: BoxDecoration(
-          color: BJBankColors.primary.withOpacity(0.1),
+          color: BJBankColors.primary.withValues(alpha:0.1),
           shape: BoxShape.circle,
         ),
         child: Icon(
@@ -246,13 +245,13 @@ class _CardsScreenState extends State<CardsScreen> {
               width: 120,
               height: 120,
               decoration: BoxDecoration(
-                color: BJBankColors.primary.withOpacity(0.1),
+                color: BJBankColors.primary.withValues(alpha:0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 Icons.credit_card_off_outlined,
                 size: 56,
-                color: BJBankColors.primary.withOpacity(0.6),
+                color: BJBankColors.primary.withValues(alpha:0.6),
               ),
             ),
             const SizedBox(height: BJBankSpacing.xl),
@@ -334,7 +333,7 @@ class _CardsScreenState extends State<CardsScreen> {
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
-              color: cardColor.withOpacity(0.4),
+              color: cardColor.withValues(alpha:0.4),
               blurRadius: 20,
               offset: const Offset(0, 10),
             ),
@@ -351,7 +350,7 @@ class _CardsScreenState extends State<CardsScreen> {
                 height: 180,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Colors.white.withOpacity(0.1),
+                  color: Colors.white.withValues(alpha:0.1),
                 ),
               ),
             ),
@@ -363,7 +362,7 @@ class _CardsScreenState extends State<CardsScreen> {
                 height: 150,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Colors.white.withOpacity(0.05),
+                  color: Colors.white.withValues(alpha:0.05),
                 ),
               ),
             ),
@@ -383,7 +382,7 @@ class _CardsScreenState extends State<CardsScreen> {
                           Text(
                             'BJBank',
                             style: TextStyle(
-                              color: Colors.white.withOpacity(0.95),
+                              color: Colors.white.withValues(alpha:0.95),
                               fontSize: 22,
                               fontWeight: FontWeight.bold,
                               letterSpacing: 1,
@@ -396,7 +395,7 @@ class _CardsScreenState extends State<CardsScreen> {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
+                              color: Colors.white.withValues(alpha:0.2),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
@@ -443,7 +442,7 @@ class _CardsScreenState extends State<CardsScreen> {
                       if (card.contactlessEnabled)
                         Icon(
                           Icons.contactless,
-                          color: Colors.white.withOpacity(0.8),
+                          color: Colors.white.withValues(alpha:0.8),
                           size: 28,
                         ),
                     ],
@@ -475,7 +474,7 @@ class _CardsScreenState extends State<CardsScreen> {
                           Text(
                             'TITULAR',
                             style: TextStyle(
-                              color: Colors.white.withOpacity(0.6),
+                              color: Colors.white.withValues(alpha:0.6),
                               fontSize: 9,
                               letterSpacing: 1,
                             ),
@@ -500,7 +499,7 @@ class _CardsScreenState extends State<CardsScreen> {
                           Text(
                             'VALIDADE',
                             style: TextStyle(
-                              color: Colors.white.withOpacity(0.6),
+                              color: Colors.white.withValues(alpha:0.6),
                               fontSize: 9,
                               letterSpacing: 1,
                             ),
@@ -526,7 +525,7 @@ class _CardsScreenState extends State<CardsScreen> {
             if (isLocked)
               Container(
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.6),
+                  color: Colors.black.withValues(alpha:0.6),
                   borderRadius: BorderRadius.circular(24),
                 ),
                 child: Center(
@@ -536,7 +535,7 @@ class _CardsScreenState extends State<CardsScreen> {
                       Container(
                         padding: const EdgeInsets.all(BJBankSpacing.md),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
+                          color: Colors.white.withValues(alpha:0.2),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(
@@ -593,7 +592,7 @@ class _CardsScreenState extends State<CardsScreen> {
                 width: 24,
                 height: 24,
                 decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.9),
+                  color: Colors.orange.withValues(alpha:0.9),
                   shape: BoxShape.circle,
                 ),
               ),
@@ -641,7 +640,7 @@ class _CardsScreenState extends State<CardsScreen> {
             decoration: BoxDecoration(
               color: _currentCardIndex == index
                   ? _getCardColor(_cards[index])
-                  : BJBankColors.outline.withOpacity(0.3),
+                  : BJBankColors.outline.withValues(alpha:0.3),
               borderRadius: BorderRadius.circular(4),
             ),
           );
@@ -714,7 +713,7 @@ class _CardsScreenState extends State<CardsScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: BJBankSpacing.md),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: color.withValues(alpha:0.1),
           borderRadius: BorderRadius.circular(16),
         ),
         child: Column(
@@ -750,7 +749,7 @@ class _CardsScreenState extends State<CardsScreen> {
         borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
         boxShadow: [
           BoxShadow(
-            color: BJBankColors.onSurface.withOpacity(0.05),
+            color: BJBankColors.onSurface.withValues(alpha:0.05),
             blurRadius: 10,
             offset: const Offset(0, -4),
           ),
@@ -766,7 +765,7 @@ class _CardsScreenState extends State<CardsScreen> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: BJBankColors.outline.withOpacity(0.3),
+                color: BJBankColors.outline.withValues(alpha:0.3),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -851,15 +850,15 @@ class _CardsScreenState extends State<CardsScreen> {
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  BJBankColors.quantum.withOpacity(0.1),
-                  BJBankColors.shield.withOpacity(0.05),
+                  BJBankColors.quantum.withValues(alpha:0.1),
+                  BJBankColors.shield.withValues(alpha:0.05),
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: BJBankColors.quantum.withOpacity(0.2),
+                color: BJBankColors.quantum.withValues(alpha:0.2),
               ),
             ),
             child: Row(
@@ -867,7 +866,7 @@ class _CardsScreenState extends State<CardsScreen> {
                 Container(
                   padding: const EdgeInsets.all(BJBankSpacing.sm),
                   decoration: BoxDecoration(
-                    color: BJBankColors.quantum.withOpacity(0.15),
+                    color: BJBankColors.quantum.withValues(alpha:0.15),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
@@ -920,7 +919,7 @@ class _CardsScreenState extends State<CardsScreen> {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: BJBankColors.surfaceVariant.withOpacity(0.5),
+              color: BJBankColors.surfaceVariant.withValues(alpha:0.5),
               shape: BoxShape.circle,
             ),
             child: Icon(icon, color: BJBankColors.onSurfaceVariant, size: 20),
@@ -960,8 +959,8 @@ class _CardsScreenState extends State<CardsScreen> {
             height: 32,
             decoration: BoxDecoration(
               color: enabled
-                  ? BJBankColors.success.withOpacity(0.15)
-                  : BJBankColors.outline.withOpacity(0.1),
+                  ? BJBankColors.success.withValues(alpha:0.15)
+                  : BJBankColors.outline.withValues(alpha:0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -979,8 +978,8 @@ class _CardsScreenState extends State<CardsScreen> {
             ),
             decoration: BoxDecoration(
               color: enabled
-                  ? BJBankColors.success.withOpacity(0.1)
-                  : BJBankColors.outline.withOpacity(0.1),
+                  ? BJBankColors.success.withValues(alpha:0.1)
+                  : BJBankColors.outline.withValues(alpha:0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
@@ -1064,7 +1063,7 @@ class _CardsScreenState extends State<CardsScreen> {
                     width: 40,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: BJBankColors.outline.withOpacity(0.3),
+                      color: BJBankColors.outline.withValues(alpha:0.3),
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -1117,7 +1116,7 @@ class _CardsScreenState extends State<CardsScreen> {
                         Container(
                           padding: const EdgeInsets.all(BJBankSpacing.md),
                           decoration: BoxDecoration(
-                            color: BJBankColors.warning.withOpacity(0.1),
+                            color: BJBankColors.warning.withValues(alpha:0.1),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Row(
@@ -1159,7 +1158,7 @@ class _CardsScreenState extends State<CardsScreen> {
       margin: const EdgeInsets.only(bottom: BJBankSpacing.md),
       padding: const EdgeInsets.all(BJBankSpacing.md),
       decoration: BoxDecoration(
-        color: BJBankColors.surfaceVariant.withOpacity(0.3),
+        color: BJBankColors.surfaceVariant.withValues(alpha:0.3),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -1168,7 +1167,7 @@ class _CardsScreenState extends State<CardsScreen> {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: BJBankColors.primary.withOpacity(0.1),
+              color: BJBankColors.primary.withValues(alpha:0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(icon, color: BJBankColors.primary, size: 22),
@@ -1241,7 +1240,7 @@ class _CardsScreenState extends State<CardsScreen> {
               width: 64,
               height: 64,
               decoration: BoxDecoration(
-                color: BJBankColors.error.withOpacity(0.1),
+                color: BJBankColors.error.withValues(alpha:0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -1386,7 +1385,7 @@ class _CardSettingsSheetState extends State<_CardSettingsSheet> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: BJBankColors.outline.withOpacity(0.3),
+                  color: BJBankColors.outline.withValues(alpha:0.3),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -1469,7 +1468,7 @@ class _CardSettingsSheetState extends State<_CardSettingsSheet> {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: BJBankColors.primary.withOpacity(0.1),
+              color: BJBankColors.primary.withValues(alpha:0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(icon, color: BJBankColors.primary),
@@ -1493,7 +1492,7 @@ class _CardSettingsSheetState extends State<_CardSettingsSheet> {
           Switch(
             value: value,
             onChanged: onChanged,
-            activeColor: BJBankColors.primary,
+            activeThumbColor: BJBankColors.primary,
           ),
         ],
       ),
@@ -1576,7 +1575,7 @@ class _RequestCardSheetState extends State<_RequestCardSheet> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: BJBankColors.outline.withOpacity(0.3),
+                  color: BJBankColors.outline.withValues(alpha:0.3),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -1645,7 +1644,7 @@ class _RequestCardSheetState extends State<_RequestCardSheet> {
                     Container(
                       padding: const EdgeInsets.all(BJBankSpacing.md),
                       decoration: BoxDecoration(
-                        color: BJBankColors.info.withOpacity(0.1),
+                        color: BJBankColors.info.withValues(alpha:0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Row(
@@ -1737,8 +1736,8 @@ class _RequestCardSheetState extends State<_RequestCardSheet> {
         ),
         decoration: BoxDecoration(
           color: isSelected
-              ? BJBankColors.primary.withOpacity(0.15)
-              : BJBankColors.surfaceVariant.withOpacity(0.3),
+              ? BJBankColors.primary.withValues(alpha:0.15)
+              : BJBankColors.surfaceVariant.withValues(alpha:0.3),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isSelected ? BJBankColors.primary : Colors.transparent,
@@ -1788,8 +1787,8 @@ class _RequestCardSheetState extends State<_RequestCardSheet> {
         ),
         decoration: BoxDecoration(
           color: isSelected
-              ? BJBankColors.primary.withOpacity(0.15)
-              : BJBankColors.surfaceVariant.withOpacity(0.3),
+              ? BJBankColors.primary.withValues(alpha:0.15)
+              : BJBankColors.surfaceVariant.withValues(alpha:0.3),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isSelected ? BJBankColors.primary : Colors.transparent,
@@ -1868,7 +1867,7 @@ class _ChipPatternPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.black.withOpacity(0.1)
+      ..color = Colors.black.withValues(alpha:0.1)
       ..strokeWidth = 1
       ..style = PaintingStyle.stroke;
 

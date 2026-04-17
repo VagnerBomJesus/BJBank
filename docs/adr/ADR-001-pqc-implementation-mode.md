@@ -88,6 +88,7 @@ mantêm as mesmas assinaturas.
 | **dart_oqs package** | API Dart nativa | Não publicado/maduro em 2026-02 | Rejeitado (indisponível) |
 | **BouncyCastle Dart port** | Puro Dart | Kyber/Dilithium ainda não portados completamente | Rejeitado (incompleto) |
 | **Simulador de Interface (escolhido)** | Pipeline completo; UX real; tamanhos NIST | Sem operações matemáticas reais | **Aceite** |
+| **Implementação Real** | oqs package (liboqs) | ML-KEM + ML-DSA reais | ✅ Implementado |
 
 ---
 

@@ -18,6 +18,8 @@ import '../screens/settings/documents_screen.dart';
 import '../screens/settings/invite_friends_screen.dart';
 import '../screens/settings/account_details_screen.dart';
 import '../screens/settings/privacy_screen.dart';
+import '../screens/settings/terms_of_service_screen.dart';
+import '../screens/settings/privacy_policy_screen.dart';
 import '../screens/settings/mbway_settings_screen.dart';
 import '../screens/settings/mbway_phone_verification_screen.dart';
 import '../screens/analysis/analysis_screen.dart';
@@ -158,6 +160,18 @@ class AppRouter {
       case AppRoutes.privacy:
         return _buildSlideRoute(
           const PrivacyScreen(),
+          settings,
+        );
+
+      case AppRoutes.termsOfService:
+        return _buildSlideRoute(
+          const TermsOfServiceScreen(),
+          settings,
+        );
+
+      case AppRoutes.privacyPolicy:
+        return _buildSlideRoute(
+          const PrivacyPolicyScreen(),
           settings,
         );
 

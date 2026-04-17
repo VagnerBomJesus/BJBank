@@ -33,10 +33,10 @@ class QuantumSafeBadge extends StatelessWidget {
         vertical: BJBankSpacing.xs,
       ),
       decoration: BoxDecoration(
-        color: BJBankColors.quantum.withOpacity(0.15),
+        color: BJBankColors.quantum.withValues(alpha:0.15),
         borderRadius: BJBankBorderRadius.fullRadius,
         border: Border.all(
-          color: BJBankColors.quantum.withOpacity(0.3),
+          color: BJBankColors.quantum.withValues(alpha:0.3),
           width: 1,
         ),
       ),
@@ -68,7 +68,7 @@ class QuantumSafeBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(BJBankSpacing.xs),
       decoration: BoxDecoration(
-        color: BJBankColors.quantum.withOpacity(0.15),
+        color: BJBankColors.quantum.withValues(alpha:0.15),
         borderRadius: BJBankBorderRadius.fullRadius,
       ),
       child: Icon(
@@ -94,7 +94,7 @@ class EncryptedBadge extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(compact ? BJBankSpacing.xxs : BJBankSpacing.xs),
       decoration: BoxDecoration(
-        color: BJBankColors.encrypted.withOpacity(0.15),
+        color: BJBankColors.encrypted.withValues(alpha:0.15),
         borderRadius: BJBankBorderRadius.fullRadius,
       ),
       child: Icon(
@@ -120,7 +120,7 @@ class VerifiedBadge extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(compact ? BJBankSpacing.xxs : BJBankSpacing.xs),
       decoration: BoxDecoration(
-        color: BJBankColors.verified.withOpacity(0.15),
+        color: BJBankColors.verified.withValues(alpha:0.15),
         borderRadius: BJBankBorderRadius.fullRadius,
       ),
       child: Icon(

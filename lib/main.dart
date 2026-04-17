@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:oqs/oqs.dart';
 import 'firebase_options.dart';
 import 'app.dart';
 import 'services/pqc_service.dart';
@@ -32,6 +33,16 @@ void main() async {
   } catch (e) {
     debugPrint('Firebase initialization failed: $e');
     // Continue without Firebase for development
+  }
+
+  // Initialize liboqs (Open Quantum Safe native library)
+  try {
+    LibOQSLoader.loadLibrary();
+    PqcService.isLiboqsAvailable = true;
+    debugPrint('liboqs initialized — modo produção PQC activo');
+  } catch (e) {
+    debugPrint('liboqs não disponível, modo simulação: $e');
+    PqcService.isLiboqsAvailable = false;
   }
 
   // Initialize PQC Service
