@@ -240,7 +240,7 @@ All notable changes to this project are documented below. The format is based on
   - Linear progress bar
   - Segmented progress tracker
 - TransactionTypeBadge (13 types)
-  - Transfer (↔️)
+  - Transfer (Two-way)
   - Deposit (📥)
   - Withdrawal (📤)
   - Payment (💳)
@@ -480,32 +480,32 @@ See LICENSE file for details.
 
 ```
 v0.1.0 (Initial development start)
-  → Core Firebase integration
-  → Basic authentication
-  → Dashboard prototype
+  • Core Firebase integration
+  • Basic authentication
+  • Dashboard prototype
 
 v0.5.0 (Phase 1 midpoint)
-  → Complete auth system
-  → Transaction history
-  → Multiple accounts support
+  • Complete auth system
+  • Transaction history
+  • Multiple accounts support
 
 v0.8.0 (Phase 1 complete)
-  → PQC cryptography
-  → Transfers & bills
-  → Advanced filtering
+  • PQC cryptography
+  • Transfers & bills
+  • Advanced filtering
 
 v0.9.0 (Phase 2-3 integration)
-  → Loan management
-  → Investment portfolio
-  → Budget tracking
+  • Loan management
+  • Investment portfolio
+  • Budget tracking
 
-v1.0.0 (RELEASE CANDIDATE → PRODUCTION)
-  → Card management
-  → Push notifications
-  → QR code payments
-  → Badge system
-  → Complete documentation
-  → 100% feature coverage
+v1.0.0 (RELEASE CANDIDATE to PRODUCTION)
+  • Card management
+  • Push notifications
+  • QR code payments
+  • Badge system
+  • Complete documentation
+  • 100% feature coverage
 ```
 
 ---
