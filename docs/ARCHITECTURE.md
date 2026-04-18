@@ -119,10 +119,10 @@ Screens/
 ```
 
 **Constraints**:
-- ❌ No business logic in screens
-- ❌ No direct Firebase calls
-- ❌ No API calls
-- ✅ Only UI logic and Consumer widgets
+- [NOT ALLOWED] Business logic in screens
+- [NOT ALLOWED] Direct Firebase calls
+- [NOT ALLOWED] API calls
+- [CORRECT] Only UI logic and Consumer widgets
 
 ### 2.2 State Management Layer
 
