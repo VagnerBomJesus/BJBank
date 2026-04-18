@@ -89,43 +89,93 @@
 
 ## Architecture
 
+### System Layers
+
+The application follows a **6-layer architecture** for clean separation of concerns:
+
 ```
-┌─────────────────────────────────────────┐
-│         Flutter Frontend (UI)           │
-│  • Material Design 3                    │
-│  • Dark Theme                           │
-│  • Real-time Updates                    │
-└──────────────┬──────────────────────────┘
-               │
-┌──────────────▼──────────────────────────┐
-│     State Management (Provider)         │
-│  • 12 Providers                         │
-│  • ChangeNotifier Pattern               │
-│  • Consumer & ProxyProvider             │
-└──────────────┬──────────────────────────┘
-               │
-┌──────────────▼──────────────────────────┐
-│        Services Layer                   │
-│  • 20 Services                          │
-│  • Business Logic                       │
-│  • External Integrations                │
-└──────────────┬──────────────────────────┘
-               │
-┌──────────────▼──────────────────────────┐
-│     Firebase Backend                    │
-│  • Authentication                       │
-│  • Firestore (Real-time DB)             │
-│  • Cloud Messaging (FCM)                │
-│  • Storage                              │
-└──────────────┬──────────────────────────┘
-               │
-┌──────────────▼──────────────────────────┐
-│    Security & Cryptography              │
-│  • PQC (Kyber + EC hybrid)              │
-│  • HMAC-SHA256                          │
-│  • Secure Storage                       │
-│  • libOQS (native)                      │
-└─────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│ Layer 1: User Interface (Flutter Widgets)                   │
+│ - 33+ screens, 9+ custom widgets                            │
+│ - Material Design 3, Dark theme support                     │
+│ - Real-time updates via Consumer widgets                    │
+└─────────────────────┬───────────────────────────────────────┘
+                      │
+┌─────────────────────▼───────────────────────────────────────┐
+│ Layer 2: State Management (Provider Pattern)                │
+│ - 12 specialized providers (ChangeNotifier)                 │
+│ - Consumer & ProxyProvider widget subscription              │
+│ - Real-time stream listeners (Firestore)                    │
+└─────────────────────┬───────────────────────────────────────┘
+                      │
+┌─────────────────────▼───────────────────────────────────────┐
+│ Layer 3: Business Logic (20 Services)                       │
+│ - Authentication, Database, Messaging                       │
+│ - Financial operations (transfers, payments, investments)   │
+│ - Security & cryptography operations                        │
+└─────────────────────┬───────────────────────────────────────┘
+                      │
+┌─────────────────────▼───────────────────────────────────────┐
+│ Layer 4: Data Access (Firebase & Local Storage)             │
+│ - Cloud Firestore (real-time database)                      │
+│ - Secure Storage (encrypted credentials)                    │
+│ - Offline persistence                                       │
+└─────────────────────┬───────────────────────────────────────┘
+                      │
+┌─────────────────────▼───────────────────────────────────────┐
+│ Layer 5: Security & Cryptography                            │
+│ - Post-Quantum Cryptography (Kyber + ECDH)                  │
+│ - HMAC-SHA256 message authentication                        │
+│ - Encrypted secure storage                                  │
+│ - libOQS native library bindings                            │
+└─────────────────────┬───────────────────────────────────────┘
+                      │
+┌─────────────────────▼───────────────────────────────────────┐
+│ Layer 6: External Services                                  │
+│ - Firebase Cloud (Authentication, Messaging, Storage)       │
+│ - HTTPS/TLS 1.3 encrypted communication                     │
+│ - Third-party integrations (MB WAY, QR codes)               │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Provider Architecture
+
+12 specialized providers manage domain-specific state:
+
+```
+                     AuthProvider (Root)
+                            │
+        ┌───────────────────┼───────────────────┐
+        │                   │                   │
+    AccountProvider     CardProvider      TransferProvider
+        │                   │                   │
+    BillProvider       LoanProvider     InvestmentProvider
+        │                   │                   │
+  SavingsGoalProvider  BudgetProvider   MbWayProvider
+        │                   │                   │
+  NotificationProvider  SettingsProvider
+
+Each provider:
+- Manages domain-specific state (list, loading, error)
+- Listens to Firestore real-time streams
+- Notifies consumers on state changes
+- Handles initialization via AuthProvider
+```
+
+### Data Flow Example
+
+```
+User Action → Screen → Provider.method() → Service → Firebase
+                           ↓
+                    (Call API/Database)
+                           ↓
+                   Update _items state
+                           ↓
+                   notifyListeners()
+                           ↓
+                   Consumer rebuilds
+                           ↓
+                     UI refreshes
 ```
 
 ---
