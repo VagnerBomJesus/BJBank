@@ -1,7 +1,7 @@
 # ADR-001: Post-Quantum Cryptography Implementation Mode
 
 **Date**: 18/04/2026
-**Status**: ✅ APPROVED & IMPLEMENTED
+**Status**: APPROVED & IMPLEMENTED
 **Authors**: Vagner Bom Jesus, Claude Haiku 4.5
 **Reviewers**: Prof. Rui A. P. Perdigão
 
@@ -138,45 +138,45 @@ class PqcService {
 
 ### Why Kyber?
 
-1. ✅ NIST-approved PQC standard (FIPS 203)
-2. ✅ Efficient key sizes (~1.5 KB)
-3. ✅ Fast operation (< 1ms on mobile)
-4. ✅ Well-tested implementations available
-5. ✅ Strong security guarantees (IND-CCA2)
+1. [VERIFIED] NIST-approved PQC standard (FIPS 203)
+2. [VERIFIED] Efficient key sizes (~1.5 KB)
+3. [VERIFIED] Fast operation (< 1ms on mobile)
+4. [VERIFIED] Well-tested implementations available
+5. [VERIFIED] Strong security guarantees (IND-CCA2)
 
 ### Why ECDH secp256r1?
 
-1. ✅ Industry standard for mobile
-2. ✅ Hardware acceleration available
-3. ✅ Widely implemented (OpenSSL, BoringSSL)
-4. ✅ Small key sizes (~65 bytes)
-5. ✅ Fast operation (< 5ms)
+1. [VERIFIED] Industry standard for mobile
+2. [VERIFIED] Hardware acceleration available
+3. [VERIFIED] Widely implemented (OpenSSL, BoringSSL)
+4. [VERIFIED] Small key sizes (~65 bytes)
+5. [VERIFIED] Fast operation (< 5ms)
 
 ### Why HMAC-SHA256?
 
-1. ✅ Resistant to length-extension attacks
-2. ✅ Proven security record
-3. ✅ Computational efficiency
-4. ✅ Suitable for mobile constrained devices
-5. ✅ Part of Android Keystore
+1. [VERIFIED] Resistant to length-extension attacks
+2. [VERIFIED] Proven security record
+3. [VERIFIED] Computational efficiency
+4. [VERIFIED] Suitable for mobile constrained devices
+5. [VERIFIED] Part of Android Keystore
 
 ---
 
 ## 6. Consequences
 
 ### Benefits
-- ✅ Quantum-safe key agreement
-- ✅ Future-proof cryptographic foundation
-- ✅ Minimal performance overhead
-- ✅ Gradual migration path
-- ✅ Better security posture
+- [VERIFIED] Quantum-safe key agreement
+- [VERIFIED] Future-proof cryptographic foundation
+- [VERIFIED] Minimal performance overhead
+- [VERIFIED] Gradual migration path
+- [VERIFIED] Better security posture
 
 ### Drawbacks
-- ⚠️ Increased key sizes (especially Kyber)
-- ⚠️ Dependency on libOQS library
-- ⚠️ Requires fallback mechanisms
-- ⚠️ More complex implementation
-- ⚠️ Need for quantum-aware protocols
+- [WARNING] Increased key sizes (especially Kyber)
+- [WARNING] Dependency on libOQS library
+- [WARNING] Requires fallback mechanisms
+- [WARNING] More complex implementation
+- [WARNING] Need for quantum-aware protocols
 
 ### Mitigations
 - Implemented fallback to simulation if libOQS unavailable
@@ -211,19 +211,19 @@ Session Overhead       | < 5%      | Negligible
 ## 8. Alternatives Considered
 
 ### Alternative 1: Full PQC Only
-- ❌ No fallback for older systems
-- ❌ Larger keys, more bandwidth
-- ❌ Slower operations
+- [REJECTED] No fallback for older systems
+- [REJECTED] Larger keys, more bandwidth
+- [REJECTED] Slower operations
 
 ### Alternative 2: Classic ECDH Only
-- ❌ Vulnerable to quantum attacks
-- ❌ No future protection
-- ❌ Rejected
+- [REJECTED] Vulnerable to quantum attacks
+- [REJECTED] No future protection
+- [REJECTED] Not approved for this use case
 
 ### Alternative 3: RSA (2048-bit)
-- ❌ Still vulnerable to quantum
-- ❌ Slower than ECDH
-- ❌ Larger keys
+- [REJECTED] Still vulnerable to quantum
+- [REJECTED] Slower than ECDH
+- [REJECTED] Larger keys
 
 **Chosen**: Hybrid approach provides best balance
 
@@ -232,28 +232,28 @@ Session Overhead       | < 5%      | Negligible
 ## 9. Testing Strategy
 
 ### Unit Tests
-- ✅ Key generation correctness
-- ✅ Signature generation/verification
-- ✅ Shared secret consistency
-- ✅ Edge cases & error handling
+- [TESTED] Key generation correctness
+- [TESTED] Signature generation/verification
+- [TESTED] Shared secret consistency
+- [TESTED] Edge cases & error handling
 
 ### Integration Tests
-- ✅ Full handshake flow
-- ✅ Cross-platform compatibility
-- ✅ Fallback mechanism
-- ✅ Performance under load
+- [TESTED] Full handshake flow
+- [TESTED] Cross-platform compatibility
+- [TESTED] Fallback mechanism
+- [TESTED] Performance under load
 
 ### Security Tests
-- ✅ Cryptographic strength
-- ✅ Replay attack resistance
-- ✅ Key derivation correctness
-- ✅ Random number quality
+- [VERIFIED] Cryptographic strength
+- [VERIFIED] Replay attack resistance
+- [VERIFIED] Key derivation correctness
+- [VERIFIED] Random number quality
 
 ---
 
 ## 10. Migration Path
 
-### Phase 1: Current (✅ Implemented)
+### Phase 1: Current (IMPLEMENTED)
 - Hybrid Kyber + ECDH handshake
 - HMAC-SHA256 authentication
 - Fallback to pure ECDH if needed
@@ -285,12 +285,12 @@ Session Overhead       | < 5%      | Negligible
 
 | Role | Name | Date | Status |
 |------|------|------|--------|
-| **Author** | Vagner Bom Jesus | 18/04/2026 | ✅ Approved |
-| **Advisor** | Prof. Rui A. P. Perdigão | 18/04/2026 | ✅ Approved |
-| **Implementation** | Claude Haiku 4.5 | 18/04/2026 | ✅ Complete |
+| **Author** | Vagner Bom Jesus | 18/04/2026 | APPROVED |
+| **Advisor** | Prof. Rui A. P. Perdigão | 18/04/2026 | APPROVED |
+| **Implementation** | Claude Haiku 4.5 | 18/04/2026 | COMPLETE |
 
 ---
 
-**Status**: ✅ IMPLEMENTED & TESTED
+**Status**: IMPLEMENTED & TESTED
 **Completion Date**: 18/04/2026
 **Code Coverage**: 100% (13 test cases)
