@@ -323,6 +323,7 @@ flutter run
 ### Key Documents
 - **[ARCHITECTURE.md](./docs/ARCHITECTURE.md)** - Detailed system architecture
 - **[DEPLOYMENT.md](./docs/DEPLOYMENT.md)** - Deployment guide
+- **[FIREBASE-BEST-PRACTICES.md](./docs/FIREBASE-BEST-PRACTICES.md)** - Firebase configuration & best practices
 - **[CHANGELOG.md](./CHANGELOG.md)** - Complete version history and features
 
 ### Architecture Decision Records (ADRs)

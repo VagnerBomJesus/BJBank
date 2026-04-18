@@ -397,6 +397,8 @@ xcodebuild -exportArchive \
 
 ## 5. Firebase Setup
 
+For comprehensive Firebase best practices, security rules, and environment configuration, see **[FIREBASE-BEST-PRACTICES.md](./FIREBASE-BEST-PRACTICES.md)**.
+
 ### 5.1 Firestore Configuration
 
 **Create Collections** (via Firebase Console):
