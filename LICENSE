@@ -1,0 +1,108 @@
+# BJBank - Academic Research License
+
+## Project Information
+
+**Project Name**: BJBank - Post-Quantum Cryptography in Mobile Banking
+**Type**: Master's Dissertation
+**Author**: Vagner Bom Jesus
+**Advisor**: Prof. Rui A. P. Perdigão
+**Institution**: Instituto Politécnico da Guarda (IPG)
+**Completion Date**: 18 April 2026
+
+---
+
+## License Terms
+
+This project is developed for **academic research purposes only** as part of a Master's Dissertation at Instituto Politécnico da Guarda.
+
+### Permitted Uses
+- Academic research and study
+- Educational purposes
+- Code reference and learning
+- Non-commercial projects
+- Derivative works for academic purposes
+
+### Restrictions
+- Commercial use without permission
+- Removal or alteration of copyright notices
+- Use in competing banking applications
+- Redistribution as proprietary software
+
+### Academic Attribution
+
+Any use, study, or reference of this project must include proper attribution to:
+- **Author**: Vagner Bom Jesus
+- **Advisor**: Prof. Rui A. P. Perdigão
+- **Institution**: Instituto Politécnico da Guarda
+- **Project**: BJBank - Post-Quantum Cryptography in Mobile Banking
+
+### Contact for Permissions
+
+For commercial use, redistribution, or any other inquiries beyond academic research:
+- **Author**: Vagner Bom Jesus (vagneripg@gmail.com)
+- **Advisor**: Prof. Rui A. P. Perdigão
+- **Institution**: Instituto Politécnico da Guarda
+
+---
+
+## Disclaimer
+
+This software is provided "AS IS" for academic and research purposes. The authors make no warranties regarding:
+- Fitness for commercial production
+- Security for handling real financial data
+- Performance at scale
+- Compatibility with production systems
+
+This is an **educational implementation** demonstrating post-quantum cryptography concepts. It is NOT suitable for production banking systems without extensive security audits and modifications.
+
+---
+
+## Third-Party Components
+
+This project incorporates the following third-party libraries:
+
+### Open Source Libraries
+- **Flutter**: BSD 3-Clause License
+- **Dart**: BSD 3-Clause License
+- **Firebase SDK**: Apache 2.0 License
+- **libOQS**: MIT License
+- **Provider**: MIT License
+
+See `pubspec.yaml` for complete dependency list and licenses.
+
+### Academic References
+
+This project is based on research from:
+- NIST Post-Quantum Cryptography Standardization Project
+- Open Quantum Safe Organization
+- Academic papers on hybrid cryptographic systems
+- Flutter and Firebase official documentation
+
+---
+
+## Citation
+
+If you reference or build upon this work for academic purposes, please cite:
+
+```
+@mastersthesis{bom2026bjbank,
+  author = {Vagner Bom Jesus},
+  title = {Post-Quantum Cryptography in Mobile Banking Applications},
+  school = {Instituto Politécnico da Guarda},
+  year = {2026},
+  advisor = {Prof. Rui A. P. Perdigão}
+}
+```
+
+---
+
+## Copyright Notice
+
+Copyright © 2026 Vagner Bom Jesus
+
+This work is protected by copyright. Unauthorized reproduction, distribution, or modification is strictly prohibited except where permitted by applicable law or by written permission from the author.
+
+---
+
+**Last Updated**: 18 April 2026
+**Status**: Academic Research Project - Production Implementation for Educational Purposes
