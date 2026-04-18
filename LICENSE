@@ -1,108 +1,432 @@
-# BJBank - Academic Research License
+BJBank Academic Research License (v1.0)
+========================================
 
-## Project Information
+PREAMBLE
 
-**Project Name**: BJBank - Post-Quantum Cryptography in Mobile Banking
-**Type**: Master's Dissertation
-**Author**: Vagner Bom Jesus
-**Advisor**: Prof. Rui A. P. Perdigão
-**Institution**: Instituto Politécnico da Guarda (IPG)
-**Completion Date**: 18 April 2026
+This software, BJBank - Post-Quantum Cryptography in Mobile Banking, is released under a custom Academic Research License specifically designed for educational and research purposes related to cryptography, mobile security, and banking applications.
+
+This license permits academic use while protecting the integrity of the research and preventing unauthorized commercial exploitation.
 
 ---
 
-## License Terms
+PROJECT INFORMATION
 
-This project is developed for **academic research purposes only** as part of a Master's Dissertation at Instituto Politécnico da Guarda.
-
-### Permitted Uses
-- Academic research and study
-- Educational purposes
-- Code reference and learning
-- Non-commercial projects
-- Derivative works for academic purposes
-
-### Restrictions
-- Commercial use without permission
-- Removal or alteration of copyright notices
-- Use in competing banking applications
-- Redistribution as proprietary software
-
-### Academic Attribution
-
-Any use, study, or reference of this project must include proper attribution to:
-- **Author**: Vagner Bom Jesus
-- **Advisor**: Prof. Rui A. P. Perdigão
-- **Institution**: Instituto Politécnico da Guarda
-- **Project**: BJBank - Post-Quantum Cryptography in Mobile Banking
-
-### Contact for Permissions
-
-For commercial use, redistribution, or any other inquiries beyond academic research:
-- **Author**: Vagner Bom Jesus (vagneripg@gmail.com)
-- **Advisor**: Prof. Rui A. P. Perdigão
-- **Institution**: Instituto Politécnico da Guarda
+Name:           BJBank - Post-Quantum Cryptography in Mobile Banking
+Type:           Master's Dissertation / Academic Research
+Author:         Vagner Bom Jesus
+Advisor:        Prof. Rui A. P. Perdigão
+Institution:    Instituto Politécnico da Guarda (IPG)
+Completion:     18 April 2026
+Copyright:      Copyright © 2026 Vagner Bom Jesus
+Status:         Production-Ready Educational Implementation
 
 ---
 
-## Disclaimer
+PROJECT SCOPE & IMPLEMENTATION
 
-This software is provided "AS IS" for academic and research purposes. The authors make no warranties regarding:
-- Fitness for commercial production
-- Security for handling real financial data
-- Performance at scale
-- Compatibility with production systems
+The BJBank application implements 50+ banking features across 4 phases:
 
-This is an **educational implementation** demonstrating post-quantum cryptography concepts. It is NOT suitable for production banking systems without extensive security audits and modifications.
+Phase 1: Core Banking (RF01-RF05)
+  • Authentication & User Profile
+  • Dashboard with real-time balance
+  • Multiple accounts support
+  • Transaction history with filters
+  • Post-Quantum Cryptography integration
 
----
+Phase 2: Financial Management (RF06-RF08)
+  • Advanced card management (5 types)
+  • Transfers (instant + scheduled)
+  • Bill management & payments
+  • MB WAY integration
+  • OTP verification
 
-## Third-Party Components
+Phase 3: Advanced Financial (RF09-RF10)
+  • Loan management with amortization
+  • Investment portfolio
+  • Savings goals tracking
+  • Budget management by category
 
-This project incorporates the following third-party libraries:
+Phase 4: Advanced Features (RF11-RF13)
+  • Card blocking/unblocking
+  • Push notifications (FCM)
+  • QR code payments
+  • Badge system (13 transaction types)
 
-### Open Source Libraries
-- **Flutter**: BSD 3-Clause License
-- **Dart**: BSD 3-Clause License
-- **Firebase SDK**: Apache 2.0 License
-- **libOQS**: MIT License
-- **Provider**: MIT License
-
-See `pubspec.yaml` for complete dependency list and licenses.
-
-### Academic References
-
-This project is based on research from:
-- NIST Post-Quantum Cryptography Standardization Project
-- Open Quantum Safe Organization
-- Academic papers on hybrid cryptographic systems
-- Flutter and Firebase official documentation
-
----
-
-## Citation
-
-If you reference or build upon this work for academic purposes, please cite:
-
-```
-@mastersthesis{bom2026bjbank,
-  author = {Vagner Bom Jesus},
-  title = {Post-Quantum Cryptography in Mobile Banking Applications},
-  school = {Instituto Politécnico da Guarda},
-  year = {2026},
-  advisor = {Prof. Rui A. P. Perdigão}
-}
-```
+Technology Stack:
+  • Flutter 3.8.1 + Dart 3.8+
+  • Firebase (Auth, Firestore, Cloud Messaging)
+  • Post-Quantum Cryptography (Kyber + ECDH secp256r1)
+  • libOQS native library
 
 ---
 
-## Copyright Notice
+1. GRANT OF RIGHTS
 
-Copyright © 2026 Vagner Bom Jesus
+Subject to the terms and conditions of this License, the Author hereby grants you a worldwide, royalty-free, non-exclusive, non-transferable license to:
 
-This work is protected by copyright. Unauthorized reproduction, distribution, or modification is strictly prohibited except where permitted by applicable law or by written permission from the author.
+1.1 Academic Research
+  - Use this software for academic research and study
+  - Conduct experiments with post-quantum cryptography
+  - Analyze the implementation of PQC hybrid protocols
+  - Study mobile banking security architecture
+  - Reference the code for learning purposes
+
+1.2 Educational Purposes
+  - Use in university courses and educational settings
+  - Create derivative educational materials
+  - Teach concepts of quantum-safe cryptography
+  - Demonstrate mobile security best practices
+  - Present findings at academic conferences
+
+1.3 Non-Commercial Development
+  - Create derivative works for non-commercial projects
+  - Extend the codebase for research purposes
+  - Contribute improvements back to the project
+  - Adapt the architecture for educational implementations
+
+1.4 Internal Use
+  - Use within academic or research institutions
+  - Use for internal training and knowledge sharing
+  - Use for academic institution repositories
 
 ---
 
-**Last Updated**: 18 April 2026
-**Status**: Academic Research Project - Production Implementation for Educational Purposes
+2. RESTRICTIONS
+
+You may NOT:
+
+2.1 Commercial Use
+  - Use this software for any commercial purpose without written permission
+  - Sell, license, or charge for access to this software
+  - Integrate into commercial banking applications
+  - Use in competing fintech or banking products
+  - Monetize any derivative works based on this software
+
+2.2 Production Banking Systems
+  - Deploy this software as a production banking system
+  - Process real financial transactions
+  - Handle real customer data at scale
+  - Use without extensive security audits and modifications
+  - Represent this as production-grade banking software
+
+2.3 Intellectual Property Violations
+  - Remove, obscure, or alter copyright notices
+  - Remove or alter license text
+  - Remove attribution to the original author
+  - Claim ownership of the original work
+  - Redistribute under a different license
+
+2.4 Competing Applications
+  - Use in competing banking applications
+  - Use in competing fintech solutions
+  - Use to create similar commercial products
+  - Use to reverse-engineer commercial banking systems
+  - Use to develop proprietary banking software
+
+2.5 Unauthorized Redistribution
+  - Redistribute as proprietary software
+  - Redistribute without including this license
+  - Distribute without proper attribution
+  - Sell or charge for the source code
+  - Include in proprietary collections
+
+---
+
+3. ATTRIBUTION REQUIREMENTS
+
+Any use, study, distribution, or reference of this project must prominently include:
+
+3.1 In Source Code
+  Include in all modified files:
+  ```
+  Original Author: Vagner Bom Jesus
+  Original Project: BJBank - Post-Quantum Cryptography in Mobile Banking
+  Institution: Instituto Politécnico da Guarda
+  License: Academic Research License
+  ```
+
+3.2 In Documentation
+  Include in README or main documentation:
+  ```
+  Based on: BJBank by Vagner Bom Jesus
+  Institution: Instituto Politécnico da Guarda
+  License: Academic Research License
+  ```
+
+3.3 In Academic Works
+  Include proper citation in bibliography:
+  ```
+  @mastersthesis{bom2026bjbank,
+    author = {Vagner Bom Jesus},
+    title = {Post-Quantum Cryptography in Mobile Banking Applications},
+    school = {Instituto Politécnico da Guarda},
+    year = {2026},
+    advisor = {Prof. Rui A. P. Perdigão}
+  }
+  ```
+
+3.4 In Conference Presentations
+  Acknowledge the original work and institution
+
+---
+
+4. DISCLAIMER OF WARRANTIES
+
+THIS SOFTWARE IS PROVIDED "AS IS" FOR ACADEMIC AND RESEARCH PURPOSES. THE AUTHOR AND INSTITUTION MAKE NO WARRANTIES, EXPRESS OR IMPLIED, REGARDING:
+
+4.1 Security & Cryptography
+  - The cryptographic implementation is not audited for production use
+  - This is an educational demonstration of PQC concepts
+  - Post-quantum cryptographic algorithms may have unknown vulnerabilities
+  - No guarantee of resistance to sophisticated attacks
+  - No guarantee of security for real financial data
+
+4.2 Fitness & Performance
+  - Fitness for any particular purpose
+  - Fitness for production banking systems
+  - Performance at scale
+  - Compatibility with production systems
+  - Stability under high transaction volumes
+
+4.3 Data Protection
+  - No warranty of data protection or privacy
+  - No warranty of compliance with banking regulations
+  - No warranty of GDPR, PSD2, or LGPD compliance
+  - No warranty for handling real customer data
+  - No warranty for secure credential storage
+
+4.4 Liability Limitation
+  IN NO EVENT SHALL THE AUTHOR, ADVISOR, OR INSTITUTION BE LIABLE FOR:
+  - Any damage resulting from use of this software
+  - Loss of data or financial loss
+  - Security breaches or unauthorized access
+  - Regulatory violations
+  - Any indirect, incidental, or consequential damages
+
+---
+
+5. LIMITATIONS & CONDITIONS
+
+5.1 Educational Implementation Only
+  - This is an educational demonstration
+  - Not suitable for production banking without extensive modifications
+  - Requires security audits before any real financial use
+  - Should not handle real customer financial data
+  - Intended for learning, not production deployment
+
+5.2 Research Integrity
+  - You may not remove or alter research findings
+  - You may not misrepresent the original research
+  - You must acknowledge original research contributions
+  - You must cite the original dissertation properly
+
+5.3 Regulatory Compliance
+  - You are responsible for compliance with local regulations
+  - This software does not guarantee regulatory compliance
+  - Banking regulations vary by jurisdiction
+  - Commercial use requires compliance expertise
+  - User assumes all regulatory responsibility
+
+---
+
+6. PERMITTED DERIVATIVE WORKS
+
+You may create derivative works for:
+
+6.1 Academic Research
+  - Comparative studies with other PQC implementations
+  - Performance analysis and benchmarking
+  - Security research and cryptanalysis
+  - Educational case studies
+  - Academic papers and dissertations
+
+6.2 Educational Extensions
+  - Modified versions for teaching purposes
+  - Simplified versions for learning
+  - Annotated versions with explanations
+  - Multi-language versions for education
+  - Integration with curriculum materials
+
+6.3 Open Source Improvements
+  - Bug fixes and performance improvements
+  - Code quality enhancements
+  - Additional test coverage
+  - Documentation improvements
+  - Architecture refinements
+
+All derivative works must:
+  - Include proper attribution to original work
+  - Include this license or a compatible one
+  - Not claim sole ownership of original research
+  - Acknowledge original author contribution
+
+---
+
+7. COMMERCIAL INQUIRIES
+
+For commercial use, licensing for proprietary applications, or other inquiries beyond the scope of this Academic Research License:
+
+Contact:
+  Name:           Vagner Bom Jesus
+  Email:          vagneripg@gmail.com
+  Institution:    Instituto Politécnico da Guarda
+  Advisor:        Prof. Rui A. P. Perdigão
+
+Possible arrangements:
+  - Commercial licensing agreements
+  - Consulting for banking implementations
+  - Custom security audits
+  - Extended research collaborations
+  - Training and workshops
+
+---
+
+8. THIRD-PARTY COMPONENTS
+
+This project uses the following third-party libraries, each under their respective licenses:
+
+Library             License           Purpose
+================================================
+Flutter             BSD 3-Clause      Mobile UI framework
+Dart                BSD 3-Clause      Programming language
+Firebase SDK        Apache 2.0        Backend services
+libOQS              MIT               PQC cryptography
+Provider            MIT               State management
+
+Full dependency list: See pubspec.yaml
+
+Each dependency retains its original license and copyright. Any derivative work must comply with all applicable third-party licenses.
+
+---
+
+9. SECURITY NOTICE
+
+9.1 Known Limitations
+  - Educational implementation not suitable for production
+  - No formal security audit completed
+  - Not recommended for real financial data
+  - Should be extensively reviewed before any production use
+  - Post-quantum cryptography is still being standardized
+
+9.2 Security Considerations
+  - Use libOQS for cryptographic operations only
+  - Implement additional security measures for production
+  - Add comprehensive security testing
+  - Conduct formal security audit
+  - Implement proper access controls
+  - Use secure credential storage
+  - Implement transaction signing and verification
+  - Add comprehensive logging and monitoring
+
+9.3 Cryptographic Standards
+  - Implements NIST PQC standardization recommendations
+  - Uses Kyber (ML-KEM-768) for key encapsulation
+  - Uses ECDH (secp256r1) for hybrid compatibility
+  - Based on published cryptographic research
+  - Not cryptographically audited for production
+
+---
+
+10. ACADEMIC INTEGRITY
+
+10.1 Citation & Attribution
+  - Always cite the original dissertation
+  - Acknowledge the institution and advisor
+  - Give credit to the original author
+  - Maintain research integrity
+  - Do not misrepresent authorship
+
+10.2 Research Ethics
+  - Respect the academic nature of the project
+  - Use for legitimate educational and research purposes
+  - Do not use to harm individuals or institutions
+  - Follow your institution's research ethics guidelines
+  - Report any misuse of the work
+
+10.3 Publication & Dissemination
+  - You may publish research based on this work
+  - You must cite the original dissertation
+  - You may improve and extend the implementation
+  - You should contribute improvements back to the project
+  - Academic publications are encouraged
+
+---
+
+11. TERMINATION
+
+11.1 Automatic Termination
+  - This license terminates immediately if you violate any terms
+  - All rights granted under this license cease upon violation
+  - You must cease using the software immediately
+  - You must destroy all copies in your possession
+
+11.2 Reinstatement
+  - To reinstate, contact the author
+  - You may be granted a new license at author's discretion
+  - Reinstatement requires written acknowledgment of violations
+  - Future compliance with all terms is required
+
+---
+
+12. GOVERNING LAW & JURISDICTION
+
+This license is governed by the laws of Portugal and the jurisdiction of Instituto Politécnico da Guarda.
+
+Any disputes arising from this license shall be resolved through:
+  - Negotiation and good faith discussion
+  - Mediation if necessary
+  - Courts of Portugal if required
+
+---
+
+13. ENTIRE AGREEMENT
+
+This license constitutes the entire agreement between you and the author regarding the use of this software. Any modifications must be made in writing and signed by both parties.
+
+---
+
+14. SEPARABILITY
+
+If any provision of this license is found to be invalid or unenforceable, the remaining provisions shall remain in effect. The invalid provision shall be modified to the minimum extent necessary to make it valid.
+
+---
+
+ACKNOWLEDGMENTS
+
+This project would not be possible without:
+  - Instituto Politécnico da Guarda for institutional support
+  - Prof. Rui A. P. Perdigão for expert guidance
+  - The Flutter and Dart communities
+  - The Open Quantum Safe Organization
+  - NIST for PQC standardization guidance
+  - All contributors to the project
+
+---
+
+CONTACT INFORMATION
+
+For questions about this license or the project:
+
+Author:         Vagner Bom Jesus
+Email:          vagneripg@gmail.com
+Institution:    Instituto Politécnico da Guarda
+Advisor:        Prof. Rui A. P. Perdigão
+
+Project Repository: https://github.com/VagnerBomJesus/BJBank
+
+---
+
+Last Updated:   18 April 2026
+License Version: 1.0
+Status:         Active - Academic Research License
+
+This work is protected by copyright and international copyright agreements.
+Unauthorized reproduction, distribution, or modification is strictly prohibited
+except where permitted by this license and applicable law.
+
+For educational use, consult the Academic Research section.
+For commercial inquiries, contact the author directly.
+
+============================
+END OF BJBANK ACADEMIC RESEARCH LICENSE
+============================
