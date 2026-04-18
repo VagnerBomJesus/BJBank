@@ -2,7 +2,7 @@
 
 **Date**: 18/04/2026
 **Status**: APPROVED & IMPLEMENTED
-**Authors**: Vagner Bom Jesus, Claude Haiku 4.5
+**Author**: Vagner Bom Jesus
 
 ---
 
@@ -425,7 +425,6 @@ testWidgets('Consumer rebuilds on provider change', (tester) async {
 | Role | Name | Date | Status |
 |------|------|------|--------|
 | **Author** | Vagner Bom Jesus | 18/04/2026 | APPROVED |
-| **Implementation** | Claude Haiku 4.5 | 18/04/2026 | COMPLETE |
 
 ---
 

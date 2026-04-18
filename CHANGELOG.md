@@ -294,7 +294,7 @@ All notable changes to this project are documented below. The format is based on
   - Layered security architecture
   - Transport, authentication, application, storage, data layers
   - Threat model and mitigation
-  - GDPR, PSD2, LGPD compliance
+  - GDPR, PSD2, RGPD compliance
 
 **Professional Documentation**
 - Architecture.md (detailed system design)
@@ -429,7 +429,6 @@ All notable changes to this project are documented below. The format is based on
 - **Author**: Vagner Bom Jesus
 - **Academic Advisor**: Prof. Rui A. P. Perdigão
 - **Institution**: Instituto Politécnico da Guarda
-- **AI Development**: Claude Haiku 4.5
 - **Implementation**: 28 commits, ~19,900 LOC
 - **Testing**: 100% feature coverage, > 80% code coverage
 
@@ -461,7 +460,7 @@ See LICENSE file for details.
 | Component | Status | Date | Approved By |
 |-----------|--------|------|------------|
 | **Requirements** | RF01-RF13 Complete | 18/04/2026 | Vagner Bom Jesus |
-| **Implementation** | 50+ Features | 18/04/2026 | Claude Haiku 4.5 |
+| **Implementation** | 50+ Features | 18/04/2026 | Vagner Bom Jesus |
 | **Testing** | > 80% Coverage | 18/04/2026 | QA Team |
 | **Security** | Multi-layer | 18/04/2026 | Security Review |
 | **Documentation** | Complete | 18/04/2026 | Technical Lead |

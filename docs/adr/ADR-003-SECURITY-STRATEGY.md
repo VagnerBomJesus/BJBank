@@ -2,7 +2,7 @@
 
 **Date**: 18/04/2026
 **Status**: APPROVED & IMPLEMENTED
-**Authors**: Vagner Bom Jesus, Claude Haiku 4.5
+**Author**: Vagner Bom Jesus
 
 ---
 
@@ -330,13 +330,15 @@ Future<void> deleteUserData(String userId) async {
 - [COMPLIANT] Encryption of sensitive data
 - [COMPLIANT] Access logging and monitoring
 
-### 5.3 LGPD (Brazilian Law)
+### 5.3 RGPD (Regulamento Geral sobre Proteção de Dados - Portuguese/European)
 
 **Implementation**:
 - [COMPLIANT] Data subject rights (access, deletion, portability)
 - [COMPLIANT] Consent management
 - [COMPLIANT] Data processing transparency
 - [COMPLIANT] Data protection officer notification system
+- [COMPLIANT] Legal basis for data processing
+- [COMPLIANT] Data Protection Impact Assessments (DPIA)
 
 ---
 
@@ -490,8 +492,8 @@ testWidgets('Login with invalid credentials fails', (tester) async {
 2. [NIST Cybersecurity Framework](https://www.nist.gov/cyberframework)
 3. [Firebase Security Best Practices](https://firebase.google.com/docs/security)
 4. [GDPR Technical Guidance](https://ec.europa.eu/info/law/law-topic/data-protection_en)
-5. [PSD2 Strong Customer Authentication](https://www.eba.europa.eu/regulation-and-policy/payment-services-directive-psd-2)
-6. [LGPD (Lei Geral de Proteção de Dados)](http://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/lei/l13709.htm)
+5. [RGPD (Regulamento Geral sobre Proteção de Dados)](https://eur-lex.europa.eu/legal-content/PT/TXT/?uri=celex%3A32016R0679)
+6. [PSD2 Strong Customer Authentication](https://www.eba.europa.eu/regulation-and-policy/payment-services-directive-psd-2)
 
 ---
 
@@ -500,7 +502,6 @@ testWidgets('Login with invalid credentials fails', (tester) async {
 | Role | Name | Date | Status |
 |------|------|------|--------|
 | **Author** | Vagner Bom Jesus | 18/04/2026 | APPROVED |
-| **Implementation** | Claude Haiku 4.5 | 18/04/2026 | COMPLETE |
 
 ---
 

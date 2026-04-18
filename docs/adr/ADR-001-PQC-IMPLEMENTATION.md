@@ -2,7 +2,7 @@
 
 **Date**: 18/04/2026
 **Status**: APPROVED & IMPLEMENTED
-**Authors**: Vagner Bom Jesus, Claude Haiku 4.5
+**Author**: Vagner Bom Jesus
 **Reviewers**: Prof. Rui A. P. Perdigão
 
 ---
@@ -287,7 +287,6 @@ Session Overhead       | < 5%      | Negligible
 |------|------|------|--------|
 | **Author** | Vagner Bom Jesus | 18/04/2026 | APPROVED |
 | **Advisor** | Prof. Rui A. P. Perdigão | 18/04/2026 | APPROVED |
-| **Implementation** | Claude Haiku 4.5 | 18/04/2026 | COMPLETE |
 
 ---
 
