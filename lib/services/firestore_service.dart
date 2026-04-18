@@ -729,8 +729,10 @@ class FirestoreService {
     };
 
     // Generate random 15 remaining digits
-    final random = DateTime.now().millisecondsSinceEpoch.toString();
-    return prefix + random.substring(0, 15).padRight(15, '0');
+    final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
+    final random = DateTime.now().microsecondsSinceEpoch.toString();
+    final combined = (timestamp + random).padRight(15, '0');
+    return prefix + combined.substring(0, 15);
   }
 
   /// Generate expiry date (MM/YYYY)
@@ -780,6 +782,9 @@ class FirestoreService {
   /// Update card status (block/unblock)
   Future<void> updateCardStatus(String cardId, CardStatus status) async {
     try {
+      if (cardId.isEmpty) {
+        throw Exception('Card ID cannot be empty');
+      }
       await _cardsCollection.doc(cardId).update({
         'status': status.name,
       });
@@ -817,15 +822,18 @@ class FirestoreService {
     bool? internationalEnabled,
   }) async {
     try {
+      if (cardId.isEmpty) {
+        throw Exception('Card ID cannot be empty');
+      }
       final updates = <String, dynamic>{};
       if (contactlessEnabled != null) {
-        updates['contactlessEnabled'] = contactlessEnabled;
+        updates['lockedForOnline'] = !contactlessEnabled;
       }
       if (onlinePaymentsEnabled != null) {
-        updates['onlinePaymentsEnabled'] = onlinePaymentsEnabled;
+        updates['lockedForOnline'] = !onlinePaymentsEnabled;
       }
       if (internationalEnabled != null) {
-        updates['internationalEnabled'] = internationalEnabled;
+        updates['lockedForInternational'] = !internationalEnabled;
       }
 
       if (updates.isNotEmpty) {
@@ -840,6 +848,9 @@ class FirestoreService {
   /// Delete card
   Future<void> deleteCard(String cardId) async {
     try {
+      if (cardId.isEmpty) {
+        throw Exception('Card ID cannot be empty');
+      }
       await _cardsCollection.doc(cardId).delete();
     } catch (e) {
       debugPrint('Error deleting card: $e');

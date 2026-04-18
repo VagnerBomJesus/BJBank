@@ -366,6 +366,8 @@ class CardProvider extends ChangeNotifier {
 
   /// Toggle card feature (generic toggle for various card features)
   Future<bool> toggleCardFeature(String cardId, String feature) async {
+    if (cardId.isEmpty) return false;
+
     final card = _cards.firstWhere(
       (c) => c.id == cardId,
       orElse: () => CardModel(
@@ -396,6 +398,15 @@ class CardProvider extends ChangeNotifier {
       'contactless' => card.lockedForOnline
           ? unlockCardForOnline(cardId)
           : lockCardForOnline(cardId),
+      'onlinePaymentsEnabled' => card.lockedForOnline
+          ? unlockCardForOnline(cardId)
+          : lockCardForOnline(cardId),
+      'contactlessEnabled' => card.lockedForOnline
+          ? unlockCardForOnline(cardId)
+          : lockCardForOnline(cardId),
+      'internationalEnabled' => card.lockedForInternational
+          ? unlockCardForInternational(cardId)
+          : lockCardForInternational(cardId),
       _ => false,
     };
   }

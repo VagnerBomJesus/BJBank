@@ -30,9 +30,9 @@ class _CardSettingsDialogState extends State<CardSettingsDialog> {
   void initState() {
     super.initState();
     _dailyLimitController =
-        TextEditingController(text: widget.card.dailyLimit.toString());
+        TextEditingController(text: (widget.card.dailyLimit ?? 0).toString());
     _monthlyLimitController =
-        TextEditingController(text: widget.card.monthlyLimit.toString());
+        TextEditingController(text: (widget.card.monthlyLimit ?? 0).toString());
     _contactlessEnabled = widget.card.contactlessEnabled;
     _onlinePaymentsEnabled = widget.card.onlinePaymentsEnabled;
     _internationalEnabled = widget.card.internationalEnabled;
@@ -47,6 +47,11 @@ class _CardSettingsDialogState extends State<CardSettingsDialog> {
 
   Future<void> _saveLimits(CardProvider cardProvider) async {
     try {
+      if (widget.card.id.isEmpty) {
+        _showSnackbar('ID do cartão inválido', isError: true);
+        return;
+      }
+
       final dailyLimit = double.tryParse(_dailyLimitController.text);
       final monthlyLimit = double.tryParse(_monthlyLimitController.text);
 
