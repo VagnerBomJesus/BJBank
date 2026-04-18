@@ -1,10 +1,10 @@
-# 🏦 BJBank - Post-Quantum Cryptography in Mobile Banking
+# BJBank - Post-Quantum Cryptography in Mobile Banking
 
-[![Flutter](https://img.shields.io/badge/Flutter-3.8.1-02569B?logo=flutter)](https://flutter.dev)
+[![Flutter](https://img.shields.io/badge/Flutter-3.8.1-02569B?logo=flutter)](https://docs.flutter.dev)
 [![Dart](https://img.shields.io/badge/Dart-3.8.1-0175C2?logo=dart)](https://dart.dev)
-[![Firebase](https://img.shields.io/badge/Firebase-Backend-FFCA28?logo=firebase)](https://firebase.google.com)
+[![Firebase](https://img.shields.io/badge/Firebase-Backend-FFCA28?logo=firebase)](https://firebase.google.com/docs)
 [![NIST PQC](https://img.shields.io/badge/NIST-PQC%20Standard-green)](https://csrc.nist.gov/projects/post-quantum-cryptography)
-[![License](https://img.shields.io/badge/License-Academic%20Research-blue)]()
+[![License](https://img.shields.io/badge/License-Academic%20Research-blue)](./LICENSE)
 [![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)]()
 
 <div align="center">
@@ -13,80 +13,81 @@
 
 ---
 
-## 📋 Índice
+## Table of Contents
 
-- [Sobre o Projeto](#sobre-o-projeto)
-- [Features Implementadas](#features-implementadas)
-- [Arquitetura](#arquitetura)
-- [Criptografia Pós-Quântica](#criptografia-pós-quântica)
-- [Stack Tecnológico](#stack-tecnológico)
-- [Instalação](#instalação)
-- [Uso](#uso)
-- [Documentação](#documentação)
-- [Contribuição](#contribuição)
-- [Licença](#licença)
+- [About](#about)
+- [Features](#features)
+- [Architecture](#architecture)
+- [Post-Quantum Cryptography](#post-quantum-cryptography)
+- [Technology Stack](#technology-stack)
+- [Installation](#installation)
+- [Testing](#testing)
+- [Documentation](#documentation)
+- [Contributing](#contributing)
+- [License](#license)
+- [Contact](#contact)
 
 ---
 
-## 🎯 Sobre o Projeto
+## About
 
-**BJBank** é uma aplicação bancária móvel completa desenvolvida em Flutter com foco em **Criptografia Pós-Quântica (PQC)**.
+**BJBank** is a complete banking mobile application developed in Flutter focusing on **Post-Quantum Cryptography (PQC)**.
 
-### 🎓 Contexto Académico
+### Academic Context
 
-| Campo | Valor |
+| Field | Value |
 |-------|-------|
-| **Tipo** | Dissertação de Mestrado |
-| **Título** | Criptografia Pós-Quântica em Aplicações Móveis |
-| **Autor** | Vagner Bom Jesus |
-| **Orientador** | Professor Rui A. P. Perdigão |
-| **Instituição** | Instituto Politécnico da Guarda |
-| **Data Conclusão** | 18/04/2026 |
+| **Type** | Master's Dissertation |
+| **Title** | Post-Quantum Cryptography in Mobile Applications |
+| **Author** | Vagner Bom Jesus |
+| **Advisor** | Prof. Rui A. P. Perdigão |
+| **Institution** | Instituto Politécnico da Guarda |
+| **Completion Date** | 18/04/2026 |
 
-### 🎯 Objetivos
+### Objectives
 
-1. ✅ Implementar sistema bancário completo em Flutter
-2. ✅ Integrar criptografia pós-quântica (Kyber + Elliptic Curve)
-3. ✅ Demonstrar segurança híbrida (clássica + quântica)
-4. ✅ Avaliar performance e overhead PQC
-5. ✅ Criar guias de implementação para produção
-
----
-
-## ✨ Features Implementadas
-
-### **Phase 1: Core Banking** ✅ 100%
-- 🔐 Autenticação (email/password/PIN)
-- 👤 Gestão de perfil
-- 📊 Dashboard em tempo real
-- 💳 Múltiplas contas
-- 📝 Histórico transações com filtros
-- 🔒 PQC Cryptography (Hybrid Handshake)
-
-### **Phase 2: Financial Management** ✅ 100%
-- 💳 Gestão avançada de cartões (5 tipos)
-- 💸 Transferências (instantâneas + agendadas)
-- 📄 Gestão de faturas
-- 📱 Pagamentos MB WAY
-- ✅ OTP verification
-
-### **Phase 3: Advanced Financial** ✅ 100%
-- 💰 Gestão de empréstimos
-- 📈 Portfolio de investimentos
-- 🎯 Metas de poupança
-- 💼 Orçamentos por categoria
-
-### **Phase 4: Advanced Features** ✅ 100%
-- 🚫 Bloqueio/desbloqueio de cartões
-- 🔔 Push Notifications (FCM)
-- 📲 Pagamentos por QR Code
-- 🏷️ Sistema de Badges (13 tipos)
-
-### **Total: 50+ Features Implementadas**
+1. Complete banking system implementation in Flutter
+2. Post-quantum cryptography integration (Kyber + Elliptic Curve)
+3. Hybrid security demonstration (classical + quantum)
+4. PQC performance and overhead evaluation
+5. Production implementation guides creation
 
 ---
 
-## 🏗️ Arquitetura
+## Features
+
+### Phase 1: Core Banking [100%]
+- Authentication (Email/Password/PIN)
+- User Profile Management
+- Real-time Dashboard
+- Multiple Accounts Support
+- Transaction History with Filters
+- Post-Quantum Cryptography (Hybrid Handshake)
+
+### Phase 2: Financial Management [100%]
+- Advanced Card Management (5 types)
+- Transfers (Instant + Scheduled)
+- Bill Management
+- MB WAY Payments
+- OTP Verification
+
+### Phase 3: Advanced Financial [100%]
+- Loan Management
+- Investment Portfolio
+- Savings Goals
+- Budget Management by Category
+
+### Phase 4: Advanced Features [100%]
+- Card Blocking/Unblocking
+- Push Notifications (FCM)
+- QR Code Payments
+- Badge System (13 transaction types)
+
+**Total: 50+ Features Implemented**
+
+---
+
+## Architecture
 
 ```
 ┌─────────────────────────────────────────┐
@@ -129,7 +130,7 @@
 
 ---
 
-## 🔐 Criptografia Pós-Quântica
+## Post-Quantum Cryptography
 
 ### Hybrid Handshake Implementation
 
@@ -153,15 +154,15 @@ Client                          Server
   │                              │
 ```
 
-### Algoritmos Utilizados
+### Algorithms Used
 
-| Componente | Algoritmo | NIST Standard | Nota |
-|-----------|-----------|---------------|------|
-| **Key Encapsulation** | Kyber | Aprovado | Principal |
-| **Signature** | Falcon (fallback) | NIST PQC | Assinaturas |
-| **Classic Fallback** | ECDH secp256r1 | FIPS 186-4 | Compatibilidade |
-| **Hash** | SHA-256 | FIPS 180-4 | Integridade |
-| **MAC** | HMAC-SHA256 | FIPS 198-1 | Autenticação |
+| Component | Algorithm | NIST Standard | Purpose |
+|-----------|-----------|---------------|---------|
+| **Key Encapsulation** | Kyber | FIPS 203 | Primary KEM |
+| **Signature** | Falcon (fallback) | NIST PQC | Digital signatures |
+| **Classic Fallback** | ECDH secp256r1 | FIPS 186-4 | Hybrid compatibility |
+| **Hash** | SHA-256 | FIPS 180-4 | Integrity verification |
+| **MAC** | HMAC-SHA256 | FIPS 198-1 | Message authentication |
 
 ### Performance Metrics
 
@@ -177,37 +178,37 @@ Verification       | 10-15     | -
 
 ---
 
-## 🛠️ Stack Tecnológico
+## Technology Stack
 
 ### Frontend
-- **Flutter** 3.8.1 - Framework UI
-- **Dart** 3.8+ - Linguagem
-- **Material Design 3** - Design System
-- **Provider** 6.x - State Management
+- **Flutter** 3.8.1 - Mobile UI framework
+- **Dart** 3.8+ - Programming language
+- **Material Design 3** - Design system
+- **Provider** 6.x - State management
 
-### Backend
-- **Firebase** - Backend as Service
+### Backend Services
+- **Firebase** - Backend as a service
   - Authentication
-  - Cloud Firestore (DB Real-time)
-  - Cloud Messaging (Push Notifications)
+  - Cloud Firestore (Real-time database)
+  - Cloud Messaging (Push notifications)
   - Cloud Storage
 
-### Segurança
+### Security & Cryptography
 - **libOQS** - Open Quantum Safe library
-- **Kyber** - Key Encapsulation (NIST approved)
+- **Kyber** - Key Encapsulation Mechanism
 - **Elliptic Curve** - secp256r1 (FIPS 186-4)
-- **HMAC-SHA256** - Message Authentication
+- **HMAC-SHA256** - Message authentication
 
-### Bibliotecas Principais
-- `oqs` - PQC bindings
-- `qr_flutter` - QR generation
-- `mobile_scanner` - QR scanning
+### Key Dependencies
+- `oqs` - Post-quantum cryptography bindings
+- `qr_flutter` - QR code generation
+- `mobile_scanner` - QR code scanning
 - `intl` - Internationalization
 - `uuid` - UUID generation
 
 ---
 
-## 📁 Estrutura do Projeto
+## Project Structure
 
 ```
 lib/
@@ -229,9 +230,9 @@ ios/                               # iOS native
 
 ---
 
-## 🚀 Instalação
+## Installation
 
-### Pré-requisitos
+### Prerequisites
 - Flutter 3.8.1+
 - Dart 3.8+
 - Android SDK / Xcode
@@ -240,18 +241,18 @@ ios/                               # iOS native
 
 ### Setup
 
-1. **Clone o repositório**
+1. Clone the repository
 ```bash
-git clone https://github.com/vagnerbom/bjbank.git
+git clone https://github.com/VagnerBomJesus/BJBank.git
 cd bjbank
 ```
 
-2. **Instale dependências**
+2. Install dependencies
 ```bash
 flutter pub get
 ```
 
-3. **Configure Firebase**
+3. Configure Firebase
 ```bash
 # Android
 flutterfire configure --platforms=android
@@ -260,29 +261,29 @@ flutterfire configure --platforms=android
 flutterfire configure --platforms=ios
 ```
 
-4. **Execute em desenvolvimento**
+4. Run in development
 ```bash
 flutter run
 ```
 
 ---
 
-## 📚 Documentação
+## Documentation
 
-### Documentos Principais
-- **[IMPLEMENTATION_OVERVIEW.md](./IMPLEMENTATION_OVERVIEW.md)** - Inventário técnico completo
-- **[COMMIT_FEATURES.md](./COMMIT_FEATURES.md)** - Histórico de implementação
-- **[ARCHITECTURE.md](./docs/ARCHITECTURE.md)** - Arquitetura detalhada
-- **[DEPLOYMENT.md](./docs/DEPLOYMENT.md)** - Guia de deployment
+### Key Documents
+- **[IMPLEMENTATION_OVERVIEW.md](./IMPLEMENTATION_OVERVIEW.md)** - Complete technical inventory
+- **[COMMIT_FEATURES.md](./COMMIT_FEATURES.md)** - Implementation history
+- **[ARCHITECTURE.md](./docs/ARCHITECTURE.md)** - Detailed system architecture
+- **[DEPLOYMENT.md](./docs/DEPLOYMENT.md)** - Deployment guide
 
 ### Architecture Decision Records (ADRs)
-- **[ADR-001: PQC Implementation Mode](./docs/adr/ADR-001-pqc-implementation.md)** - Decisão: Hybrid Handshake
-- **[ADR-002: State Management](./docs/adr/ADR-002-state-management.md)** - Decisão: Provider pattern
-- **[ADR-003: Security Strategy](./docs/adr/ADR-003-security-strategy.md)** - Decisão: Layered security
+- **[ADR-001: Post-Quantum Cryptography Implementation](./ADR-001-PQC-IMPLEMENTATION.md)** - Hybrid Kyber + ECDH handshake
+- **[ADR-002: State Management Architecture](./ADR-002-STATE-MANAGEMENT.md)** - Provider pattern with ChangeNotifier
+- **[ADR-003: Security Strategy](./docs/adr/ADR-003-SECURITY-STRATEGY.md)** - Multi-layer security architecture
 
 ---
 
-## 🧪 Testes
+## Testing
 
 ### Unit Tests
 ```bash
@@ -305,75 +306,79 @@ flutter build ios --release
 
 ---
 
-## 📊 Estatísticas
+## Statistics
 
-| Métrica | Valor |
-|---------|-------|
-| **Arquivos Dart** | 113 |
-| **Linhas de Código** | ~19,900 |
-| **Modelos** | 14 |
+| Metric | Value |
+|--------|-------|
+| **Dart Files** | 113 |
+| **Lines of Code** | ~19,900 |
+| **Models** | 14 |
 | **Providers** | 12 |
-| **Serviços** | 20 |
+| **Services** | 20 |
 | **Screens** | 33+ |
 | **Widgets** | 9+ |
 | **Features** | 50+ |
-| **Commits** | 28 |
+| **Commits** | 37 |
 | **Compilation Errors** | 0 |
 
 ---
 
-## 🔒 Segurança
+## Security
 
-### Camadas de Segurança
+### Security Layers
 1. **Transport** - HTTPS/TLS
 2. **Authentication** - Firebase Auth + PIN
 3. **Encryption** - PQC Hybrid (Kyber + EC)
 4. **Storage** - Secure Flutter storage
 5. **Data** - HMAC-SHA256 validation
 
-### Boas Práticas Implementadas
-- ✅ No hardcoded secrets
-- ✅ Secure token storage
-- ✅ PIN-based local authentication
-- ✅ Real-time Firestore rules
-- ✅ GDPR compliance ready
-- ✅ Type-safe operations
+### Best Practices Implemented
+- No hardcoded secrets
+- Secure token storage
+- PIN-based local authentication
+- Real-time Firestore security rules
+- GDPR compliance ready
+- Type-safe operations
+- Multi-layer encryption
 
 ---
 
-## 📝 Licença
+## License
 
-Este projeto é desenvolvido para fins académicos de investigação.
+This project is developed for academic research purposes as a Master's Dissertation at Instituto Politécnico da Guarda.
 
-**Autor**: Vagner Bom Jesus
-**Instituição**: Instituto Politécnico da Guarda
-**Ano**: 2026
+**Author**: Vagner Bom Jesus
+**Institution**: Instituto Politécnico da Guarda
+**Year**: 2026
+**License**: Academic Research
+
+See [LICENSE](./LICENSE) file for details.
 
 ---
 
-## 🤝 Contribuição
+## Contributing
 
-Este é um projeto académico de pesquisa. Para fins de extensão ou pesquisa futura, consulte os autores.
+This is an academic research project. For extension or future research inquiries, please contact the authors.
 
-### Referências
-- [NIST PQC Standardization](https://csrc.nist.gov/projects/post-quantum-cryptography)
-- [Open Quantum Safe](https://openquantumsafe.org/)
-- [libOQS - GitHub Repository](https://github.com/open-quantum-safe/liboqs)
+### References
+- [NIST Post-Quantum Cryptography](https://csrc.nist.gov/projects/post-quantum-cryptography)
+- [Open Quantum Safe Organization](https://openquantumsafe.org/)
+- [libOQS Library](https://github.com/open-quantum-safe/liboqs)
 - [Flutter Documentation](https://docs.flutter.dev/)
-- [Flutter Best Practices](https://docs.flutter.dev/)
 - [Firebase Documentation](https://firebase.google.com/docs)
-- [Firebase Security](https://firebase.google.com/docs/security)
+- [Firebase Security Best Practices](https://firebase.google.com/docs/security)
 
 ---
 
-## 📧 Contacto
+## Contact
 
-**Autor**: Vagner Bom Jesus
+**Author**: Vagner Bom Jesus
 **Email**: vagneripg@gmail.com
-**Orientador**: Prof. Rui A. P. Perdigão
+**Advisor**: Prof. Rui A. P. Perdigão
+**Institution**: Instituto Politécnico da Guarda
 
 ---
 
-**Status Final**: ✅ Production Ready - 100% Completo (RF01-RF13)
-**Data**: 18/04/2026
-**Desenvolvido com**: Flutter & Post-Quantum Cryptography
+**Project Status**: Production Ready (100% Complete - RF01-RF13)
+**Completion Date**: 18/04/2026
+**Built with**: Flutter 3.8.1 & Post-Quantum Cryptography
