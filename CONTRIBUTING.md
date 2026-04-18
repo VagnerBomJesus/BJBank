@@ -334,8 +334,8 @@ CHANGES:
 Before making architectural changes, review these documents:
 
 1. **[ARCHITECTURE.md](./docs/ARCHITECTURE.md)** - System design and components
-2. **[ADR-001: Post-Quantum Cryptography](./docs/adr/ADR-001-pqc-implementation-mode.md)** - PQC implementation details
-3. **[ADR-002: State Management](./ADR-002-STATE-MANAGEMENT.md)** - Provider pattern rationale
+2. **[ADR-001: Post-Quantum Cryptography](./docs/adr/ADR-001-PQC-IMPLEMENTATION.md)** - PQC implementation details
+3. **[ADR-002: State Management](./docs/adr/ADR-002-STATE-MANAGEMENT.md)** - Provider pattern rationale
 4. **[ADR-003: Security Strategy](./docs/adr/ADR-003-SECURITY-STRATEGY.md)** - Security architecture
 
 ### Adding New Features

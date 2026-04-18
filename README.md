@@ -321,14 +321,13 @@ flutter run
 ## Documentation
 
 ### Key Documents
-- **[IMPLEMENTATION_OVERVIEW.md](./IMPLEMENTATION_OVERVIEW.md)** - Complete technical inventory
-- **[COMMIT_FEATURES.md](./COMMIT_FEATURES.md)** - Implementation history
 - **[ARCHITECTURE.md](./docs/ARCHITECTURE.md)** - Detailed system architecture
 - **[DEPLOYMENT.md](./docs/DEPLOYMENT.md)** - Deployment guide
+- **[CHANGELOG.md](./CHANGELOG.md)** - Complete version history and features
 
 ### Architecture Decision Records (ADRs)
-- **[ADR-001: Post-Quantum Cryptography Implementation](./ADR-001-PQC-IMPLEMENTATION.md)** - Hybrid Kyber + ECDH handshake
-- **[ADR-002: State Management Architecture](./ADR-002-STATE-MANAGEMENT.md)** - Provider pattern with ChangeNotifier
+- **[ADR-001: Post-Quantum Cryptography Implementation](./docs/adr/ADR-001-PQC-IMPLEMENTATION.md)** - Hybrid Kyber + ECDH handshake
+- **[ADR-002: State Management Architecture](./docs/adr/ADR-002-STATE-MANAGEMENT.md)** - Provider pattern with ChangeNotifier
 - **[ADR-003: Security Strategy](./docs/adr/ADR-003-SECURITY-STRATEGY.md)** - Multi-layer security architecture
 
 ---
