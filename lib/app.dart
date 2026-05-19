@@ -5,12 +5,7 @@ import 'providers/account_provider.dart';
 import 'providers/settings_provider.dart';
 import 'providers/card_provider.dart';
 import 'providers/transfer_provider.dart';
-import 'providers/bill_provider.dart';
 import 'providers/mbway_provider.dart';
-import 'providers/investment_provider.dart';
-import 'providers/loan_provider.dart';
-import 'providers/savings_goal_provider.dart';
-import 'providers/budget_provider.dart';
 import 'providers/notification_provider.dart';
 import 'routes/app_router.dart';
 import 'routes/app_routes.dart';
@@ -46,15 +41,6 @@ class BJBankApp extends StatelessWidget {
             return transferProvider ?? TransferProvider();
           },
         ),
-        ChangeNotifierProxyProvider<AuthProvider, BillProvider>(
-          create: (_) => BillProvider(),
-          update: (_, authProvider, billProvider) {
-            if (authProvider.userId != null) {
-              billProvider?.initialize(authProvider.userId!);
-            }
-            return billProvider ?? BillProvider();
-          },
-        ),
         ChangeNotifierProxyProvider<AuthProvider, MbWayProvider>(
           create: (_) => MbWayProvider(),
           update: (_, authProvider, mbwayProvider) {
@@ -62,42 +48,6 @@ class BJBankApp extends StatelessWidget {
               mbwayProvider?.initialize(authProvider.userId!);
             }
             return mbwayProvider ?? MbWayProvider();
-          },
-        ),
-        ChangeNotifierProxyProvider<AuthProvider, InvestmentProvider>(
-          create: (_) => InvestmentProvider(),
-          update: (_, authProvider, investmentProvider) {
-            if (authProvider.userId != null) {
-              investmentProvider?.initialize(authProvider.userId!);
-            }
-            return investmentProvider ?? InvestmentProvider();
-          },
-        ),
-        ChangeNotifierProxyProvider<AuthProvider, LoanProvider>(
-          create: (_) => LoanProvider(),
-          update: (_, authProvider, loanProvider) {
-            if (authProvider.userId != null) {
-              loanProvider?.initialize(authProvider.userId!);
-            }
-            return loanProvider ?? LoanProvider();
-          },
-        ),
-        ChangeNotifierProxyProvider<AuthProvider, SavingsGoalProvider>(
-          create: (_) => SavingsGoalProvider(),
-          update: (_, authProvider, savingsGoalProvider) {
-            if (authProvider.userId != null) {
-              savingsGoalProvider?.initialize(authProvider.userId!);
-            }
-            return savingsGoalProvider ?? SavingsGoalProvider();
-          },
-        ),
-        ChangeNotifierProxyProvider<AuthProvider, BudgetProvider>(
-          create: (_) => BudgetProvider(),
-          update: (_, authProvider, budgetProvider) {
-            if (authProvider.userId != null) {
-              budgetProvider?.initialize(authProvider.userId!);
-            }
-            return budgetProvider ?? BudgetProvider();
           },
         ),
         ChangeNotifierProxyProvider<AuthProvider, NotificationProvider>(
