@@ -1,0 +1,247 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  @apply scroll-smooth;
+}
+
+html {
+  scroll-behavior: smooth;
+  color-scheme: light dark;
+}
+
+/* Estilos globais premium */
+@layer base {
+  body {
+    @apply bg-gradient-to-br from-white via-slate-50 to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 text-slate-900 dark:text-slate-50 transition-colors duration-500;
+  }
+
+  h1 {
+    @apply font-bold text-4xl md:text-5xl lg:text-7xl tracking-tight;
+  }
+
+  h2 {
+    @apply font-bold text-3xl md:text-4xl tracking-tight;
+  }
+
+  h3 {
+    @apply font-bold text-2xl md:text-3xl tracking-tight;
+  }
+
+  h4, h5, h6 {
+    @apply font-semibold;
+  }
+}
+
+/* Grid Pattern */
+.bg-grid-pattern {
+  background-image:
+    linear-gradient(0deg, transparent 24%, rgba(255, 255, 255, 0.05) 25%, rgba(255, 255, 255, 0.05) 26%, transparent 27%, transparent 74%, rgba(255, 255, 255, 0.05) 75%, rgba(255, 255, 255, 0.05) 76%, transparent 77%, transparent),
+    linear-gradient(90deg, transparent 24%, rgba(255, 255, 255, 0.05) 25%, rgba(255, 255, 255, 0.05) 26%, transparent 27%, transparent 74%, rgba(255, 255, 255, 0.05) 75%, rgba(255, 255, 255, 0.05) 76%, transparent 77%, transparent);
+  background-size: 50px 50px;
+}
+
+/* Animações sofisticadas */
+@keyframes gradient-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-20px); }
+}
+
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 20px rgba(1, 117, 194, 0.5); }
+  50% { box-shadow: 0 0 40px rgba(1, 117, 194, 0.8); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -1000px 0; }
+  100% { background-position: 1000px 0; }
+}
+
+@keyframes slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(-100px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulse-slow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes bounce-subtle {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes glow-soft {
+  0%, 100% { box-shadow: 0 0 10px rgba(1, 117, 194, 0.3); }
+  50% { box-shadow: 0 0 20px rgba(1, 117, 194, 0.5); }
+}
+
+.bg-gradient-animated {
+  background-size: 200% 200%;
+  animation: gradient-shift 8s ease infinite;
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+.animate-glow-pulse {
+  animation: glow-pulse 3s ease-in-out infinite;
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.animate-scale-in {
+  animation: scale-in 0.5s ease-out;
+}
+
+.animate-bounce-subtle {
+  animation: bounce-subtle 2s ease-in-out infinite;
+}
+
+.animate-glow-soft {
+  animation: glow-soft 3s ease-in-out infinite;
+}
+
+/* Glassmorphism Premium */
+.glass {
+  @apply backdrop-blur-xl bg-white/10 dark:bg-white/5 border border-white/20 dark:border-white/20;
+}
+
+.glass-hover {
+  @apply glass hover:bg-white/15 dark:hover:bg-white/10 transition-all duration-300;
+}
+
+.glass-sm {
+  @apply backdrop-blur-lg bg-white/5 dark:bg-white/5 border border-white/10 dark:border-white/10;
+}
+
+/* Efeitos de sombra sofisticados */
+.shadow-glow {
+  @apply shadow-lg;
+  box-shadow: 0 0 30px rgba(1, 117, 194, 0.2);
+}
+
+.shadow-glow-lg {
+  @apply shadow-2xl;
+  box-shadow: 0 0 60px rgba(1, 117, 194, 0.3);
+}
+
+/* Scrollbar premium */
+::-webkit-scrollbar {
+  @apply w-2.5;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gradient-to-b from-bjbank-primary to-bjbank-secondary rounded-full opacity-50 hover:opacity-75;
+  transition: opacity 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply opacity-75;
+}
+
+/* Links e transições fluidas */
+a {
+  @apply transition-all duration-300;
+}
+
+/* Focus states elegantes */
+*:focus-visible {
+  @apply outline-none;
+  box-shadow: 0 0 0 3px rgba(1, 117, 194, 0.2), 0 0 0 6px rgba(1, 117, 194, 0.4);
+}
+
+/* Placeholder e input styles */
+input::placeholder {
+  @apply text-slate-400 dark:text-slate-600;
+}
+
+/* Selection color */
+::selection {
+  @apply bg-bjbank-primary/20 text-slate-900 dark:text-white;
+}
+
+/* Smooth transitions */
+body {
+  transition: background-color 0.5s ease, color 0.5s ease;
+}
+
+/* Micro-interactions */
+button, a {
+  position: relative;
+}
+
+/* Responsive typography */
+@media (max-width: 640px) {
+  h1 {
+    @apply text-3xl;
+  }
+  h2 {
+    @apply text-2xl;
+  }
+}
+
+/* Page transitions */
+@supports (animation-timeline: view()) {
+  [data-scroll] {
+    animation: slide-in linear;
+    animation-timeline: view();
+  }
+}
+
+/* Premium backdrop filters */
+.backdrop-blur-premium {
+  @apply backdrop-blur-xl;
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+/* Hover effects */
+.hover-lift {
+  @apply transition-all duration-300 hover:shadow-lg hover:-translate-y-1;
+}
+
+/* Text effects */
+.text-gradient {
+  @apply bg-gradient-to-r bg-clip-text text-transparent;
+}
+
+/* Performance optimizations */
+* {
+  @apply will-change-auto;
+}
+
+[data-animated] {
+  @apply will-change-transform;
+}
