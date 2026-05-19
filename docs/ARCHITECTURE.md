@@ -1,1014 +1,255 @@
-# BJBank - System Architecture
+# Arquitectura — BJBank
 
-**Date**: 18/04/2026
-**Version**: 1.0
-**Document Type**: Technical Architecture Guide
+Documento técnico que descreve a arquitectura actual da aplicação BJBank após a migração de Firebase para Supabase e a adopção do pipeline PQC end-to-end.
 
----
-
-## Table of Contents
-
-1. [System Overview](#1-system-overview)
-2. [Layered Architecture](#2-layered-architecture)
-3. [Component Diagram](#3-component-diagram)
-4. [Data Flow](#4-data-flow)
-5. [Provider Architecture](#5-provider-architecture)
-6. [Service Layer](#6-service-layer)
-7. [Data Model](#7-data-model)
-8. [Deployment Architecture](#8-deployment-architecture)
-9. [Integration Patterns](#9-integration-patterns)
-10. [Performance Considerations](#10-performance-considerations)
-
----
-
-## 1. System Overview
-
-### 1.1 High-Level Architecture
+## Visão de camadas
 
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│                    User Device (Android/iOS)                    │
-├──────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  ┌────────────────────────────────────────────────────────────┐ │
-│  │             UI Layer (Material Design 3)                  │ │
-│  │  • Screens (33+)                                           │ │
-│  │  • Widgets (9+ custom)                                     │ │
-│  │  • Badges (13 transaction types)                           │ │
-│  └────────────────────┬───────────────────────────────────────┘ │
-│                       │                                          │
-│  ┌────────────────────▼───────────────────────────────────────┐ │
-│  │          State Management (Provider Pattern)              │ │
-│  │  • 12 Specialized Providers                               │ │
-│  │  • ChangeNotifier architecture                            │ │
-│  │  • Real-time listeners                                    │ │
-│  └────────────────────┬───────────────────────────────────────┘ │
-│                       │                                          │
-│  ┌────────────────────▼───────────────────────────────────────┐ │
-│  │           Services Layer (Business Logic)                 │ │
-│  │  • 20 Services (auth, db, payments, etc.)                 │ │
-│  │  • Firebase integration                                   │ │
-│  │  • PQC cryptographic operations                           │ │
-│  └────────────────────┬───────────────────────────────────────┘ │
-│                       │                                          │
-│  ┌────────────────────▼───────────────────────────────────────┐ │
-│  │            Local Storage & Cache                          │ │
-│  │  • Encrypted secure storage                               │ │
-│  │  • SharedPreferences for settings                         │ │
-│  │  • Firestore offline persistence                          │ │
-│  └────────────────────┬───────────────────────────────────────┘ │
-│                       │                                          │
-│  ┌────────────────────▼───────────────────────────────────────┐ │
-│  │         Security & Cryptography Layer                     │ │
-│  │  • PQC (Kyber + ECDH)                                      │ │
-│  │  • HMAC-SHA256                                             │ │
-│  │  • libOQS native library                                   │ │
-│  └────────────────────┬───────────────────────────────────────┘ │
-│                       │                                          │
-└───────────────────────┼──────────────────────────────────────────┘
-                        │ HTTPS/TLS 1.3 + Certificate Pinning
-                        ▼
-        ┌───────────────────────────────────────────┐
-        │      Firebase Backend (Google Cloud)      │
-        ├───────────────────────────────────────────┤
-        │  • Cloud Firestore (Real-time DB)         │
-        │  • Authentication                          │
-        │  • Cloud Messaging (FCM)                  │
-        │  • Cloud Storage                          │
-        │  • Cloud Functions (serverless)           │
-        └───────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────┐
+│                          UI Layer (Flutter)                            │
+│   Screens (auth, home, transfer, history, profile, settings, security) │
+└───────────────────────────────┬────────────────────────────────────────┘
+                                │  Provider (ChangeNotifier)
+┌───────────────────────────────▼────────────────────────────────────────┐
+│                       State Management Layer                           │
+│   AuthProvider · AccountProvider · MbWayProvider · TransferProvider    │
+│   CardProvider · SettingsProvider · NotificationProvider               │
+└───────────────────────────────┬────────────────────────────────────────┘
+                                │
+┌───────────────────────────────▼────────────────────────────────────────┐
+│                          Service Layer                                 │
+│  SupabaseAuthService                  → Supabase Auth (GoTrue)         │
+│  SupabaseAccountService               → Postgrest + Realtime           │
+│  SupabaseMbwayService                 → mbway_phones + transfer        │
+│  SupabaseTransferService              → pipeline PQC E2E (ML-DSA+GCM)  │
+│  SupabasePqcHandshakeService          → handshake + HKDF               │
+│  TrustedServerKeyService              → TOFU pinning (SharedPrefs)     │
+│  FirestoreService (proxy legacy)      → API compatível Firestore       │
+│  PqcBenchmarkService (local)          → benchmark PoC                  │
+│  ServerPqcBenchmarkService            → invoca bench_server_pqc        │
+└───────────────────────────────┬────────────────────────────────────────┘
+                                │  HTTPS + JWT
+┌───────────────────────────────▼────────────────────────────────────────┐
+│                          Backend Supabase                              │
+│  ┌──────────┐  ┌─────────────────┐  ┌──────────┐  ┌─────────────────┐  │
+│  │  Auth    │  │  Postgres 15    │  │ Realtime │  │ Edge Functions  │  │
+│  │ (GoTrue) │  │   + RLS         │  │ (WebSk.) │  │   (Deno 2.1)    │  │
+│  └──────────┘  └─────────────────┘  └──────────┘  └────────┬────────┘  │
+│                                                            │           │
+│                                              ┌─────────────▼────────┐  │
+│                                              │ @noble/post-quantum  │  │
+│                                              │ ML-KEM-* / ML-DSA-*  │  │
+│                                              └──────────────────────┘  │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 1.2 Architecture Principles
+## State Management
 
-- **Separation of Concerns**: UI, State Management, Services, Data clearly separated
-- **Dependency Injection**: Services injected into providers for testability
-- **Real-time Synchronization**: Firestore listeners for live updates
-- **Offline-First**: Local persistence with sync when online
-- **Security by Default**: Encryption at all layers
-- **Type Safety**: Full null-safety with Dart static analysis
+Padrão escolhido: **Provider + ChangeNotifier**.
 
----
+- `AuthProvider` mantém o `UserModel` actual + ouve `currentUserStream` do `SupabaseAuthService`. Tem método `refreshProfile()` que enriquece com `photo_url`/`phone` via RPC.
+- `AccountProvider` mantém `primaryAccount` + `transactions`. Inicia 2 streams Realtime ao login (`observarContas` + `observarTransacoes`). O método `_enrichWithMbWay` faz batch query a `mbway_phones` para preencher `mbWayLinked` em cada conta.
+- `MbWayProvider` expõe contactos recentes (`mbway_contacts`) e operação `pagar(...)` que delega a `SupabaseTransferService.executar(...)`.
+- `TransferProvider` mantém o serviço PQC (singleton).
+- `SettingsProvider` mantém preferências locais (tema, biometria).
 
-## 2. Layered Architecture
+## Service Layer detalhado
 
-### 2.1 UI Layer
+### `SupabaseAuthService`
 
-**Responsibility**: Present data to user, capture input, trigger actions
+Mapeia o `supabase.auth` SDK para o `UserModel` interno. Métodos:
+- `signIn`, `signUp` (com phone metadata), `signOut`
+- `sendPasswordReset(email)` — redirect para `bjbank://reset`
+- `updatePassword`
+- `currentUserStream` — `onAuthStateChange` mapeado para `UserModel?`
 
-**Key Components**:
-- **33+ Screens**: Organized by feature (auth, accounts, transactions, cards, etc.)
-- **9+ Custom Widgets**: Reusable components (badges, cards, lists)
-- **Material Design 3**: Modern, accessible, responsive design
-- **Theming**: Dark/light theme support
+### `SupabaseAccountService`
 
-**Examples**:
-```
-Screens/
-├── auth/
-│   ├── login_screen.dart
-│   ├── signup_screen.dart
-│   └── profile_screen.dart
-├── accounts/
-│   ├── accounts_screen.dart
-│   └── account_detail_screen.dart
-├── transactions/
-│   ├── transactions_screen.dart
-│   └── transaction_detail_screen.dart
-└── ... (30+ more screens)
-```
+- `observarContas()` — `_sb.from('accounts').stream(primaryKey:['id']).eq('user_id', uid)` + `asyncMap(_enrichWithMbWay)`
+- `observarTransacoes(accountId)` — stream de `transactions` ordenadas por timestamp
+- `obterContas()`, `obterTransacoes()` — fetch one-shot para refresh manual
+- `_enrichWithMbWay(accounts)` — batch query a `mbway_phones` por `account_id IN (...)` e popula `mbWayLinked` + `mbWayPhone`
+- Mappers `_accountFromRow`, `_transactionFromRow` — Postgrest row → domain model
 
-**Constraints**:
-- [NOT ALLOWED] Business logic in screens
-- [NOT ALLOWED] Direct Firebase calls
-- [NOT ALLOWED] API calls
-- [CORRECT] Only UI logic and Consumer widgets
+### `SupabasePqcHandshakeService`
 
-### 2.2 State Management Layer
+Fluxo `obterOuEstabelecer()`:
+1. **Bootstrap (se primeira vez)** — `pqc_bootstrap` → guarda chave pública ML-DSA do servidor em `TrustedServerKeyService` (SharedPreferences). TOFU pinning.
+2. **Handshake** — gera nonce 32 B, POST `pqc_handshake_flutter`, recebe `{sessionId, sharedSecret, signature}`
+3. **Verificação** — `verify_dsa` valida a assinatura ML-DSA do servidor sobre `(nonce | shared_secret | server_dsa_pub | sessionId)`. Também compara `serverDsaPublic` com o pinned (rejeita se mudar)
+4. **Derivação** — HKDF-SHA-256 com `salt=sessionId`, `info='BJBank-v1|session-keys'`, `len=44` → AES key (32 B) + nonceBase (12 B)
 
-**Responsibility**: Manage application state, notify listeners of changes
+Resultado: `SessionKeys { sessionId, chaveCifragem, nonceBase }`. Cacheada em memória até `invalidar()`.
 
-**Architecture**:
-- **12 Providers**: One per domain (auth, accounts, cards, etc.)
-- **ChangeNotifier**: Base class for all providers
-- **Consumer & ProxyProvider**: UI subscription mechanism
-- **StreamSubscription**: Real-time listeners for Firestore
+### `SupabaseTransferService.executar(...)`
 
-**Provider Hierarchy**:
-```
-AuthProvider (root)
-  ├─ AccountProvider (depends on auth)
-  ├─ CardProvider (depends on auth)
-  ├─ TransferProvider (depends on auth)
-  ├─ BillProvider (depends on auth)
-  ├─ LoanProvider (depends on auth)
-  ├─ InvestmentProvider (depends on auth)
-  ├─ SavingsGoalProvider (depends on auth)
-  ├─ BudgetProvider (depends on auth)
-  ├─ MbWayProvider (depends on auth)
-  ├─ NotificationProvider (depends on auth)
-  └─ SettingsProvider (independent)
-```
+Orquestra o pipeline:
+1. `obterOuEstabelecer()` para ter sessionKeys
+2. Gera `txId` (UUID v4) + `nonce` 16 B + timestamp
+3. Constrói payload canónico em bytes — função `_construirPayload` produz bytes idênticos ao cliente Kotlin
+4. Invoca `flutter_sign_transfer` com `payloadBase64` → recebe `{signatureBase64, clientDsaPublicBase64}`
+5. Constrói envelope: `[4B|payload_len][payload][4B|sig_len][signature]`
+6. Cifra com `pc.GCMBlockCipher(pc.AESEngine())`: `key = session.chaveCifragem`, `iv = session.nonceBase ⊕ txId`, `aad = utf8(sessionId)`, tag 128 bits
+7. POST `executar_transferencia` com `{sessionId, ivBase64, envelopeBase64, clientDsaPublicBase64}`
 
-**Template**:
-```dart
-class DomainProvider extends ChangeNotifier {
-  final DomainService _service;
+Em caso de sucesso devolve `txId`.
 
-  // State
-  List<Model> _items = [];
-  bool _isLoading = false;
-  String? _error;
-  StreamSubscription? _subscription;
+### `TrustedServerKeyService`
 
-  // Initialization
-  Future<void> initialize(String userId) async {
-    _startListening(userId);
-  }
+TOFU pinning persistente:
+- `setTrustedKey(bytes)` — guarda primeiro acesso
+- `getTrustedKey()` — usado pelo handshake para comparar
+- `verificar(serverKey)` — throws se diferente do pinned
 
-  // Methods
-  Future<void> fetchItems() async {
-    _isLoading = true;
-    try {
-      _items = await _service.getItems();
-      _error = null;
-    } catch (e) {
-      _error = e.toString();
-    }
-    notifyListeners();
-  }
+### `FirestoreService` (proxy)
 
-  @override
-  void dispose() {
-    _subscription?.cancel();
-    super.dispose();
-  }
-}
+API legacy mantida para minimizar churn nas screens. Métodos como `getUser`, `findAccountByIban`, `createTransfer`, `linkMbWayVerified` delegam internamente a Postgrest/RPCs/Edge Functions Supabase.
+
+## Database — Schema
+
+15 tabelas em `public`, todas com RLS.
+
+### `users`
+```sql
+id              UUID PK (FK → auth.users)
+email           TEXT
+nome_completo   TEXT
+nif             TEXT NULL
+phone           TEXT NULL ('+351XXXXXXXXX')
+photo_url       TEXT NULL (data URL base64)
+pqc_public_key_base64 TEXT NULL (chave ML-DSA do cliente — TOFU)
+created_at      TIMESTAMPTZ
 ```
 
-### 2.3 Services Layer
-
-**Responsibility**: Business logic, external integrations, data operations
-
-**20 Services**:
-```
-Services/
-├── Auth
-│   └── auth_service.dart
-├── Database
-│   └── firestore_service.dart
-├── Messaging
-│   └── fcm_service.dart
-├── Storage
-│   └── cloud_storage_service.dart
-├── Security
-│   ├── pqc_service.dart
-│   └── crypto_service.dart
-├── Financial
-│   ├── transfer_service.dart
-│   ├── bill_service.dart
-│   ├── loan_service.dart
-│   └── investment_service.dart
-├── Integration
-│   ├── mb_way_service.dart
-│   └── qr_code_service.dart
-└── ... (more services)
+### `accounts`
+```sql
+id              UUID PK
+user_id         UUID FK → users
+iban            TEXT UNIQUE ('PT50...')
+nome            TEXT
+saldo           NUMERIC
+moeda           TEXT ('EUR')
+tipo            TEXT ('CORRENTE' | 'POUPANCA' | 'CARTAO_CREDITO')
+created_at      TIMESTAMPTZ
 ```
 
-**Service Interface Pattern**:
-```dart
-abstract class DomainService {
-  Future<List<Model>> getItems();
-  Future<Model> getItemById(String id);
-  Future<Model> createItem(Model item);
-  Future<void> updateItem(Model item);
-  Future<void> deleteItem(String id);
-  Stream<List<Model>> streamItems();
-}
-
-class DomainServiceImpl implements DomainService {
-  final FirestoreService _firestore;
-
-  @override
-  Future<List<Model>> getItems() async {
-    // Implementation
-  }
-}
+### `transactions`
+```sql
+id                    UUID PK
+account_id            UUID FK → accounts
+conta_origem_iban     TEXT
+conta_destino_iban    TEXT
+montante              NUMERIC (negativo na origem, positivo no destino)
+moeda                 TEXT
+descricao             TEXT
+timestamp             TIMESTAMPTZ
+estado                TEXT ('CONFIRMADA' | 'PENDENTE' | 'REJEITADA' | 'REVOGADA')
+nonce                 BYTEA
+assinatura_mldsa      BYTEA
+cliente_dsa_public    BYTEA
+session_id            TEXT
 ```
 
-**Dependency Injection**:
-```dart
-// Services are injected into providers
-class DomainProvider extends ChangeNotifier {
-  final DomainService _service; // Injected
-
-  DomainProvider({DomainService? service})
-    : _service = service ?? DomainServiceImpl();
-}
-
-// Easy to mock in tests
-test('DomainProvider works correctly', () {
-  final mockService = MockDomainService();
-  final provider = DomainProvider(service: mockService);
-  // Test
-});
+### `sessions`
+```sql
+id                    TEXT PK (UUID)
+user_id               UUID
+shared_secret_base64  TEXT
+expires_at            BIGINT (epoch millis)
+created_at            TIMESTAMPTZ
 ```
 
-### 2.4 Data Layer
-
-**Responsibility**: Persist and retrieve data
-
-**Components**:
-- **Firestore**: Cloud database for persistent data
-- **Secure Storage**: Encrypted local storage for secrets
-- **SharedPreferences**: User settings and preferences
-- **SQLite (Optional)**: For complex queries and offline sync
-
-**Models** (14 total):
-```
-Models/
-├── user_model.dart
-├── account_model.dart
-├── transaction_model.dart
-├── card_model.dart
-├── transfer_model.dart
-├── bill_model.dart
-├── loan_model.dart
-├── investment_model.dart
-└── ... (6 more models)
+### `mbway_phones`
+```sql
+phone           TEXT PK ('+351XXXXXXXXX')
+account_id      UUID FK → accounts (UNIQUE — 1 número/conta)
+user_id         UUID FK → users
+ativo           BOOLEAN
+criada_em       TIMESTAMPTZ
 ```
 
-**Model Pattern**:
-```dart
-class TransactionModel {
-  final String id;
-  final String accountId;
-  final double amount;
-  final String type;
-  final DateTime timestamp;
-  final String description;
-
-  TransactionModel({
-    required this.id,
-    required this.accountId,
-    required this.amount,
-    required this.type,
-    required this.timestamp,
-    required this.description,
-  });
-
-  // Serialization
-  factory TransactionModel.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
-    return TransactionModel(
-      id: doc.id,
-      accountId: data['accountId'],
-      amount: data['amount'],
-      type: data['type'],
-      timestamp: (data['timestamp'] as Timestamp).toDate(),
-      description: data['description'],
-    );
-  }
-
-  Map<String, dynamic> toFirestore() {
-    return {
-      'accountId': accountId,
-      'amount': amount,
-      'type': type,
-      'timestamp': Timestamp.fromDate(timestamp),
-      'description': description,
-    };
-  }
-}
+### `mbway_contacts`
+```sql
+id              UUID PK
+owner_user_id   UUID
+name            TEXT
+phone           TEXT
+last_used       TIMESTAMPTZ
+use_count       INT
 ```
 
-### 2.5 Security Layer
-
-**Responsibility**: Cryptographic operations, encryption, authentication
-
-**Components**:
-- **PQC Service**: Kyber + ECDH key exchange
-- **Crypto Service**: HMAC, signatures, encryption
-- **Auth Service**: Firebase authentication, session management
-- **Secure Storage**: Encrypted credential storage
-
----
-
-## 3. Component Diagram
-
-### 3.1 Major Components
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    BJBank App                              │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐        │
-│  │   Auth      │  │ Accounts    │  │ Cards       │        │
-│  │ Screen      │  │ Screen      │  │ Screen      │        │
-│  │             │  │             │  │             │        │
-│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘        │
-│         │                 │                 │              │
-│         └─────────────────┼─────────────────┘              │
-│                           │                                │
-│                ┌──────────▼──────────┐                     │
-│                │  Provider Layer     │                     │
-│                │  (12 providers)     │                     │
-│                └──────────┬──────────┘                     │
-│                           │                                │
-│         ┌─────────────────┼─────────────────┐             │
-│         │                 │                 │             │
-│    ┌────▼────┐    ┌──────▼──────┐   ┌─────▼────┐         │
-│    │Auth     │    │Account      │   │Card      │         │
-│    │Service  │    │Service      │   │Service   │         │
-│    │         │    │             │   │          │         │
-│    └────┬────┘    └──────┬──────┘   └─────┬────┘         │
-│         │                 │                 │             │
-│         └─────────────────┼─────────────────┘             │
-│                           │                                │
-│                ┌──────────▼──────────┐                     │
-│                │  Firestore Service  │                     │
-│                │  (Database Access)  │                     │
-│                └──────────┬──────────┘                     │
-│                           │                                │
-│                ┌──────────▼──────────┐                     │
-│                │ Firebase Backend    │                     │
-│                │ (Cloud Services)    │                     │
-│                └─────────────────────┘                     │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+### `flutter_client_keys`
+```sql
+user_id            UUID PK FK → auth.users
+public_key_base64  TEXT
+secret_key_base64  TEXT  ← chave privada server-managed
+criada_em          TIMESTAMPTZ
 ```
 
-### 3.2 Cross-Cutting Concerns
-
-```
-┌──────────────────────────────────────────────────────┐
-│        Logging & Analytics (Cross-cutting)           │
-│  • Debug logging in development                      │
-│  • Analytics events in production                    │
-│  • Error tracking (Sentry/Firebase Crashlytics)      │
-└──────────────────────────────────────────────────────┘
-          ▲
-          │
-┌─────────┴──────────────────────────────────────────┐
-│      Security & Cryptography (Cross-cutting)       │
-│  • Applied to all network requests                 │
-│  • Applied to sensitive data storage               │
-│  • Applied to inter-module communication           │
-└─────────┬──────────────────────────────────────────┘
-          │
-┌─────────▼──────────────────────────────────────────┐
-│      Error Handling (Cross-cutting)                │
-│  • Try-catch in services                           │
-│  • User-friendly error messages                    │
-│  • Logging of errors                               │
-└──────────────────────────────────────────────────────┘
+### `public_config`
+```sql
+key                TEXT PK ('server_ml_dsa')
+public_key_base64  TEXT
+secret_key_base64  TEXT
+created_at         TIMESTAMPTZ
 ```
 
----
-
-## 4. Data Flow
-
-### 4.1 User Authentication Flow
-
-```
-User enters credentials
-           │
-           ▼
-┌─────────────────────────┐
-│  Login Screen           │
-│  (TextFields + Button)  │
-└─────────────┬───────────┘
-              │ onPressed()
-              ▼
-┌─────────────────────────┐
-│  AuthProvider           │
-│  .login(email, pwd)     │
-└─────────────┬───────────┘
-              │
-              ▼
-┌─────────────────────────┐
-│  AuthService            │
-│  .signInWithEmail()     │
-└─────────────┬───────────┘
-              │
-              ▼
-┌─────────────────────────┐
-│  Firebase Auth          │
-│  (Cloud Service)        │
-└─────────────┬───────────┘
-              │ idToken, refreshToken
-              ▼
-┌─────────────────────────┐
-│  Secure Storage         │
-│  (Save tokens)          │
-└─────────────┬───────────┘
-              │
-              ▼
-┌─────────────────────────┐
-│  AuthProvider           │
-│  .notifyListeners()     │
-└─────────────┬───────────┘
-              │
-              ▼
-┌─────────────────────────┐
-│  Dashboard Screen       │
-│  (Rebuilds with auth)   │
-└─────────────────────────┘
-```
-
-### 4.2 Real-time Transaction Update Flow
-
-```
-New transaction in Firestore
-           │
-           ▼
-┌──────────────────────────────┐
-│  Firestore Listener          │
-│  (in AccountProvider)        │
-└──────────┬───────────────────┘
-           │ Stream event
-           ▼
-┌──────────────────────────────┐
-│  AccountProvider             │
-│  ._startListening()          │
-│  (updates _accounts list)    │
-└──────────┬───────────────────┘
-           │ notifyListeners()
-           ▼
-┌──────────────────────────────┐
-│  Consumer<AccountProvider>   │
-│  (rebuilds UI)               │
-└──────────┬───────────────────┘
-           │
-           ▼
-┌──────────────────────────────┐
-│  Transactions Screen         │
-│  (shows updated data)        │
-└──────────────────────────────┘
-```
-
-### 4.3 Transfer Operation Flow
-
-```
-User initiates transfer
-           │
-           ▼
-┌────────────────────────────────┐
-│  Transfer Screen               │
-│  (enter recipient, amount)     │
-└──────────┬─────────────────────┘
-           │ onConfirm()
-           ▼
-┌────────────────────────────────┐
-│  TransferProvider              │
-│  .createTransfer(transfer)     │
-└──────────┬─────────────────────┘
-           │
-           ▼
-┌────────────────────────────────┐
-│  TransferService               │
-│  .createTransfer()             │
-└──────────┬─────────────────────┘
-           │
-           ▼
-┌────────────────────────────────┐
-│  FirestoreService              │
-│  .createTransaction()          │
-└──────────┬─────────────────────┘
-           │
-           ▼
-┌────────────────────────────────┐
-│  Firebase Firestore            │
-│  (write to database)           │
-└──────────┬─────────────────────┘
-           │
-           ▼
-┌────────────────────────────────┐
-│  Firestore Trigger             │
-│  (Cloud Function)              │
-│  • Debit sender account        │
-│  • Credit recipient account    │
-│  • Update balances             │
-└──────────┬─────────────────────┘
-           │
-           ▼
-┌────────────────────────────────┐
-│  Firestore Listeners           │
-│  (both accounts)               │
-│  (AccountProvider)             │
-└──────────┬─────────────────────┘
-           │
-           ▼
-┌────────────────────────────────┐
-│  Dashboard refreshes           │
-│  (shows new balances)          │
-└────────────────────────────────┘
-```
-
----
-
-## 5. Provider Architecture
-
-### 5.1 Provider Dependency Graph
-
-```
-                    SettingsProvider
-                          │
-                    AuthProvider (root)
-                          │
-                ┌─────────┼─────────┬─────────┬───────────┐
-                │         │         │         │           │
-           AccountProvider CardProvider TransferProvider BillProvider
-                │         │         │         │           │
-           ┌────┴────┐    │         │         │     ┌─────┴─────┐
-           │          │    │         │         │     │           │
-      LoanProvider InvestmentProvider │         │ MbWayProvider │
-                │         │         │         │     │           │
-           SavingsGoalProvider BudgetProvider │     NotificationProvider
-                                        │
-                                 QrCodeProvider
-```
-
-### 5.2 Provider Initialization Sequence
-
-```
-App Launch
-    │
-    ▼
-MultiProvider setup in main.dart
-    │
-    ├─ AuthProvider created
-    │  └─ AuthProvider.initialize()
-    │     ├─ Verify saved session
-    │     ├─ Load user data
-    │     └─ notify listeners
-    │
-    ├─ SettingsProvider created
-    │  └─ Load user preferences
-    │
-    ├─ ProxyProvider (AccountProvider)
-    │  ├─ Watches AuthProvider
-    │  └─ Calls AccountProvider.initialize(userId)
-    │
-    ├─ ProxyProvider (CardProvider)
-    │  ├─ Watches AuthProvider
-    │  └─ Calls CardProvider.initialize(userId)
-    │
-    ├─ ... (other providers initialized via proxy)
-    │
-    └─ Firestore Real-time Listeners start
-       ├─ Account balance stream
-       ├─ Transaction stream
-       ├─ Card stream
-       └─ ... (all domain streams)
-```
-
----
-
-## 6. Service Layer
-
-### 6.1 Service Classification
-
-**Authentication & User**:
-- AuthService (Firebase Auth)
-- ProfileService (User data)
-
-**Database & Storage**:
-- FirestoreService (Real-time DB)
-- CloudStorageService (File storage)
-- SecureStorageService (Encrypted secrets)
-
-**Messaging & Notifications**:
-- FCMService (Firebase Cloud Messaging)
-- NotificationService (Local notifications)
-
-**Financial Operations**:
-- TransferService (Money transfers)
-- BillService (Bill management)
-- LoanService (Loan management)
-- InvestmentService (Portfolio)
-- SavingsGoalService (Goals)
-- BudgetService (Budgets)
-
-**Payment Integration**:
-- MbWayService (MB WAY payments)
-- QrCodeService (QR code generation/scanning)
-
-**Security & Cryptography**:
-- PqcService (Post-quantum cryptography)
-- CryptoService (HMAC, AES, etc.)
-
-### 6.2 Service Communication Pattern
-
-```dart
-// Service interface
-abstract class DomainService {
-  Future<Model> get(String id);
-  Future<List<Model>> list();
-  Stream<Model> watch(String id);
-}
-
-// Implementation
-class DomainServiceImpl implements DomainService {
-  final FirestoreService _firestore;
-  final Logger _logger;
-
-  @override
-  Future<Model> get(String id) async {
-    try {
-      final doc = await _firestore.getDocument('collection', id);
-      return Model.fromFirestore(doc);
-    } catch (e) {
-      _logger.error('Failed to get model', e);
-      rethrow;
-    }
-  }
-
-  @override
-  Stream<Model> watch(String id) {
-    return _firestore
-        .watchDocument('collection', id)
-        .map((doc) => Model.fromFirestore(doc));
-  }
-}
-
-// Provider using service
-class DomainProvider extends ChangeNotifier {
-  final DomainService _service;
-
-  Model? _model;
-  StreamSubscription? _subscription;
-
-  Future<void> load(String id) async {
-    _model = await _service.get(id);
-    _subscribe(id);
-    notifyListeners();
-  }
-
-  void _subscribe(String id) {
-    _subscription = _service.watch(id).listen(
-      (model) {
-        _model = model;
-        notifyListeners();
-      },
-      onError: (e) {
-        _error = e.toString();
-        notifyListeners();
-      },
-    );
-  }
-
-  @override
-  void dispose() {
-    _subscription?.cancel();
-    super.dispose();
-  }
-}
-```
-
----
-
-## 7. Data Model
-
-### 7.1 Entity Relationship Diagram
-
-```
-┌──────────┐
-│   User   │
-│          │
-│ • id     │
-│ • email  │
-│ • name   │
-│ • pin    │
-└────┬─────┘
-     │ 1:N
-     ▼
-┌──────────────┐
-│   Account    │
-│              │
-│ • id         │
-│ • type       │
-│ • balance    │
-│ • currency   │
-└────┬─────────┘
-     │ 1:N
-     ├──────────────────────┬──────────────┐
-     │                      │              │
-     ▼                      ▼              ▼
-┌──────────────┐  ┌──────────────┐  ┌──────────────┐
-│ Transaction  │  │   Transfer   │  │     Bill     │
-│              │  │              │  │              │
-│ • id         │  │ • id         │  │ • id         │
-│ • amount     │  │ • amount     │  │ • amount     │
-│ • type       │  │ • recipient  │  │ • dueDate    │
-│ • timestamp  │  │ • scheduled  │  │ • status     │
-└──────────────┘  └──────────────┘  └──────────────┘
-
-┌──────────────┐
-│     Card     │
-│              │
-│ • id         │
-│ • type       │
-│ • number     │
-│ • limit      │
-└────┬─────────┘
-     │ 1:N
-     ▼
-┌──────────────┐
-│  CardLock    │
-│              │
-│ • type       │
-│ • enabled    │
-└──────────────┘
-```
-
-### 7.2 Model Relationships
-
-**User → Account (1:N)**
-- One user has multiple accounts
-- Accounts linked by userId
-
-**Account → Transaction (1:N)**
-- One account has many transactions
-- Transaction references accountId
-
-**Account → Card (1:N)**
-- One account can have multiple cards
-- Card references accountId
-
-**Account → Loan (1:N)**
-- One account has multiple loans
-- Loan references accountId
-
-**Account → Investment (1:N)**
-- One account has multiple investments
-
-**User → Settings (1:1)**
-- One user has one settings document
-- Settings document referenced by userId
-
----
-
-## 8. Deployment Architecture
-
-### 8.1 Build Configuration
-
-```
-Development
-    ├─ debug APK (Android)
-    ├─ debug IPA (iOS)
-    └─ debug web
-
-Production
-    ├─ release APK (Android)
-    ├─ release IPA (iOS)
-    └─ release web
-
-Release Management
-    ├─ Google Play Store
-    ├─ Apple App Store
-    └─ GitHub Releases
-```
-
-### 8.2 Firebase Configuration
-
-**Android** (android/app/google-services.json):
-```json
-{
-  "project_id": "bjbank-firebase-project",
-  "api_key": "...",
-  "app_id": "...",
-  "database_url": "https://bjbank.firebaseio.com",
-  "cloud_messaging_sender_id": "..."
-}
-```
-
-**iOS** (ios/Runner/GoogleService-Info.plist):
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<plist version="1.0">
-<dict>
-  <key>PROJECT_ID</key>
-  <string>bjbank-firebase-project</string>
-  ...
-</dict>
-</plist>
-```
-
-### 8.3 Environment-Specific Configuration
-
-```dart
-// lib/config/environment.dart
-class Environment {
-  static const String appName = 'BJBank';
-
-  static const String firebaseProjectId = 'bjbank-firebase-project';
-  static const String firebaseStorageBucket = 'bjbank.appspot.com';
-
-  static const bool isProduction = bool.fromEnvironment('PRODUCTION');
-  static const bool isDevelopment = !isProduction;
-
-  static const String logLevel = String.fromEnvironment(
-    'LOG_LEVEL',
-    defaultValue: isDevelopment ? 'debug' : 'warning',
-  );
-}
-```
-
----
-
-## 9. Integration Patterns
-
-### 9.1 Firebase Integration
-
-**Real-time Synchronization**:
-```dart
-// Provider listens to Firestore stream
-void _startListening(String userId) {
-  _subscription = _firestore
-      .collection('users')
-      .doc(userId)
-      .collection('accounts')
-      .snapshots()
-      .listen(
-    (snapshot) {
-      _accounts = snapshot.docs
-          .map((doc) => AccountModel.fromFirestore(doc))
-          .toList();
-      notifyListeners();
-    },
-    onError: (error) {
-      _error = error.toString();
-      notifyListeners();
-    },
-  );
-}
-```
-
-**Offline Persistence**:
-```dart
-// Firestore automatically caches data
-Future<void> setupFirestore() async {
-  await FirebaseFirestore.instance.settings = FirestoreSettings(
-    persistenceEnabled: true,
-    cacheSizeBytes: FirestoreSettings.cacheSizeUnlimited,
-  );
-}
-```
-
-### 9.2 Push Notification Integration
-
-**FCM Setup**:
-```dart
-// Initialize FCM in AuthProvider
-Future<void> _initializeFcm() async {
-  final token = await FirebaseMessaging.instance.getToken();
-  await _firestore.updateUserToken(userId, token);
-
-  // Listen for token refresh
-  FirebaseMessaging.instance.onTokenRefresh.listen((token) async {
-    await _firestore.updateUserToken(userId, token);
-  });
-}
-
-// Handle foreground messages
-FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-  _handleNotification(message);
-});
-```
-
-### 9.3 PQC Integration
-
-**Key Exchange**:
-```dart
-// Hybrid handshake in PqcService
-Future<SharedSecret> performKeyExchange() async {
-  // 1. Generate EC keys
-  final ecKeyPair = _generateEcKeyPair();
-
-  // 2. Generate Kyber keys
-  final kyberKeyPair = await _generateKyberKeyPair();
-
-  // 3. Send public keys to server
-  final encapsulation = await _sendPublicKeys(
-    ecKeyPair.publicKey,
-    kyberKeyPair.publicKey,
-  );
-
-  // 4. Derive shared secret
-  final sharedSecret = _deriveSharedSecret(
-    ecKeyPair.privateKey,
-    kyberKeyPair.privateKey,
-    encapsulation,
-  );
-
-  return sharedSecret;
-}
-```
-
----
-
-## 10. Performance Considerations
-
-### 10.1 Optimization Techniques
-
-**Provider Optimization**:
-```dart
-// Use Selector to optimize rebuilds
-Selector<DomainProvider, String>(
-  selector: (context, provider) => provider.name,
-  builder: (context, name, child) {
-    return Text(name); // Only rebuilds if name changes
-  },
-)
-```
-
-**Firestore Query Optimization**:
-```dart
-// Indexed queries for performance
-Query query = _firestore
-    .collection('transactions')
-    .where('accountId', isEqualTo: accountId)
-    .where('timestamp', isGreaterThan: startDate)
-    .orderBy('timestamp', descending: true)
-    .limit(50);
-```
-
-**Image Loading Optimization**:
-```dart
-// Cached image with placeholder
-CachedNetworkImage(
-  imageUrl: imageUrl,
-  placeholder: (context, url) => const LoadingWidget(),
-  cacheManager: customCacheManager,
-  memCacheHeight: 300,
-  memCacheWidth: 300,
-)
-```
-
-### 10.2 Performance Metrics
-
-**Target Metrics**:
-- App startup: < 3 seconds
-- Screen navigation: < 500ms
-- List scrolling: 60 FPS
-- Firestore query: < 1 second
-- PQC operation: < 100ms (mobile)
-
----
-
-## References
-
-- [Flutter Documentation](https://docs.flutter.dev/)
-- [Flutter Architecture](https://docs.flutter.dev/resources/architectural-overview)
-- [Provider Documentation](https://pub.dev/packages/provider)
-- [Firebase Documentation](https://firebase.google.com/docs)
-- [Firebase Best Practices](https://firebase.google.com/docs/best-practices)
-- [Dart Design Patterns](https://dart.dev/guides)
-
----
-
-**Version**: 1.0
-**Last Updated**: 18/04/2026
-**Status**: Complete
+### Reservadas para funcionalidade futura
+`cards`, `bills`, `loans`, `investments`, `savings_goals`, `budgets`, `notification_preferences`. A `cards` tem UI parcial; as outras são placeholders.
+
+## Edge Functions
+
+| Função | Verify JWT | Propósito |
+|---|---|---|
+| `pqc_bootstrap` | sim | Devolve chave pública ML-DSA do servidor (para TOFU) |
+| `pqc_handshake_flutter` | sim | Gera shared_secret + assina transcript |
+| `flutter_sign_transfer` | sim | Carrega ou gera par ML-DSA-65 do user, assina payload |
+| `verify_dsa` | sim | Verifica assinatura ML-DSA-65 arbitrária |
+| `executar_transferencia` | sim | Decifra envelope, verifica assinatura, chama RPC atómica |
+| `bench_server_pqc` | sim | Benchmark de primitivas reais (até 100 iter/algoritmo) |
+| `send_otp_email` | sim | Envia OTP por email via Resend (opcional) |
+
+## RPCs com `SECURITY DEFINER`
+
+| RPC | Resultado |
+|---|---|
+| `lookup_account_by_iban(p_iban)` | `{ account_id, user_id, iban, owner_name }` |
+| `lookup_account_by_phone(p_phone)` | `{ account_id, user_id, iban, owner_name, phone }` |
+| `lookup_user_public(p_user_id)` | `{ id, nome_completo, photo_url }` |
+| `executar_transferencia_atomica(...)` | `void` (debit+credit numa transacção) |
+| `bjbank_gerar_iban_pt()` | `text` (IBAN PT50 válido) |
+
+## Cripto — primitivas e parâmetros
+
+- **ML-KEM-768** (FIPS 203, nível NIST 3) — usado conceptualmente no handshake; no Flutter o `shared_secret` vem do servidor via TLS, simplificando a parte cliente
+- **ML-DSA-65** (FIPS 204, nível NIST 3) — assinatura de payload de transferências e de transcript de handshake
+- **AES-256-GCM** — cifragem do envelope `[payload | signature]`, tag 128 bits, IV 12 B, AAD = sessionId UTF-8
+- **HKDF-SHA-256** — derivação de chave de sessão a partir de shared_secret
+- **SHA-256** — hash interno do HKDF
+
+Tamanhos oficiais:
+
+| | pk | sk | ct/sig |
+|---|---|---|---|
+| ML-KEM-768 | 1184 B | 2400 B | 1088 B |
+| ML-DSA-65 | 1952 B | 4032 B | 3309 B |
+
+## Modelo de ameaça resumido
+
+Ver `docs/adr/ADR-003-SECURITY-STRATEGY.md` para detalhe completo. Resumo:
+
+| Ameaça | Mitigação |
+|---|---|
+| HNDL (Harvest Now, Decrypt Later) | Cifragem AES-GCM dentro de envelope + assinatura ML-DSA pós-quântica |
+| Replay de transferência | `txId` UUID único + `sessions.expires_at` 1h + transcript canónico comparado byte-a-byte |
+| MITM no handshake | TOFU pinning da chave ML-DSA do servidor; assinatura sobre transcript |
+| Substituição de chave de cliente | Coluna `users.pqc_public_key_base64` pin no primeiro signing — rejeita mudanças |
+| RLS bypass | `service_role` só nas Edge Functions; cliente usa JWT do utilizador |
+| Saldo negativo / race condition | `SELECT FOR UPDATE` + saldo check + tudo numa transacção SQL |
+
+## Limitações documentadas
+
+1. **Chave privada Flutter no servidor** — `flutter_client_keys.secret_key_base64` é mantida em texto na BD (acessível apenas via service_role). Decisão pragmática pela falta de libs Dart fiáveis para ML-DSA. Solução real: HSM ou KMS.
+2. **Rotação de chaves** — Não automatizada. Para rodar o par ML-DSA do servidor: `DELETE FROM public_config WHERE key='server_ml_dsa'` (próximo handshake gera nova).
+3. **Sem replay protection explícito de nonce** — Confiamos no UUID v4 e no UNIQUE PK da `transactions.id`. Recomendado adicionar `WHERE NOT EXISTS` na RPC.
+4. **SMS provider não configurado** — Verificação MBWay actual usa só validação de formato local. Activação SMS via Supabase requer configurar Twilio/MessageBird no Dashboard.

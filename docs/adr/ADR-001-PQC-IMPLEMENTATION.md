@@ -1,295 +1,94 @@
-# ADR-001: Post-Quantum Cryptography Implementation Mode
-
-**Date**: 18/04/2026
-**Status**: APPROVED & IMPLEMENTED
-**Author**: Vagner Bom Jesus
-**Reviewers**: Prof. Rui A. P. Perdigão
-
----
-
-## 1. Context
-
-The advancement of quantum computing poses a future threat to current cryptographic systems. Classical public-key cryptography (RSA, ECDSA) may become insecure when practical quantum computers become available.
-
-The BJBank application requires a robust cryptographic framework for:
-- User authentication
-- Data integrity
-- Confidential communication
-- Digital signatures
-
-**Challenge**: Implement quantum-resistant cryptography while maintaining compatibility with existing systems and minimizing performance overhead on mobile devices.
-
----
-
-## 2. Decision
-
-Implement **Hybrid Cryptographic Handshake** combining:
-1. **Post-Quantum Cryptography**: Kyber (Key Encapsulation Mechanism)
-2. **Classical Cryptography**: ECDH with secp256r1 (fallback & compatibility)
-3. **Authentication**: HMAC-SHA256 message authentication
-
----
-
-## 3. Architecture
-
-### 3.1 Hybrid Handshake Flow
-
-```
-┌─────────────────────────────────────────────────┐
-│          Client → Server Communication         │
-└─────────────────────────────────────────────────┘
+# ADR-001: Estratégia de implementação PQC (revisada)
 
-Phase 1: Key Generation
-├─ Client: Generate EC keypair (secp256r1)
-├─ Client: Generate Kyber keypair (ML-KEM-768)
-└─ Client: Send (EC_pub || Kyber_pub)
-
-Phase 2: Shared Secret Derivation
-├─ Server: Receive public keys
-├─ Server: Perform Kyber KEM encapsulation
-├─ Server: Perform ECDH with EC key
-├─ Server: shared_secret = KEM_secret || ECDH_secret
-└─ Server: Send (encapsulation)
-
-Phase 3: Key Confirmation
-├─ Client: Receive encapsulation
-├─ Client: Decapsulate using Kyber private key
-├─ Client: Compute ECDH shared secret
-├─ Client: Derive session key
-└─ Client: Send confirmation (HMAC)
-
-Phase 4: Secure Channel
-├─ Both parties: Establish AES-256-GCM session
-├─ All messages: Authenticated & encrypted
-└─ Session: Valid until manual termination
-```
-
-### 3.2 Cryptographic Components
+**Data**: 19/05/2026
+**Estado**: Aceite (revisto após migração para Supabase + abordagem dupla Kotlin/Flutter)
 
-| Component | Algorithm | Standard | Use Case |
-|-----------|-----------|----------|----------|
-| **KEM** | Kyber-768 | NIST PQC | Primary key agreement |
-| **Signature** | Falcon-512 | NIST PQC | Digital signatures |
-| **Classic KEM** | ECDH secp256r1 | FIPS 186-4 | Fallback/hybrid |
-| **Hash** | SHA-256 | FIPS 180-4 | Integrity verification |
-| **MAC** | HMAC-SHA256 | FIPS 198-1 | Message authentication |
-| **Symmetric** | AES-256-GCM | FIPS 197 | Session encryption |
-
----
-
-## 4. Implementation Details
-
-### 4.1 PQC Service
-
-```dart
-class PqcService {
-  // Initialization
-  static Future<void> initialize() async {
-    try {
-      LibOQSLoader.loadLibrary(); // Load libOQS native library
-      isLiboqsAvailable = true;
-    } catch (e) {
-      isLiboqsAvailable = false; // Fallback to simulation
-    }
-  }
-
-  // Key Generation
-  Future<KeyPair> generateKeyPair() async {
-    if (isLiboqsAvailable) {
-      return _generateNativeKeyPair();
-    } else {
-      return _simulateKeyGeneration();
-    }
-  }
-
-  // Signature Operations
-  Future<Uint8List> signData(Uint8List data) async {
-    return _performPQCSignature(data);
-  }
+## Contexto
 
-  Future<bool> verifySignature(Uint8List data, Uint8List signature) async {
-    return _verifyPQCSignature(data, signature);
-  }
-}
-```
+O BJBank pretende demonstrar Criptografia Pós-Quântica (ML-KEM-768 + ML-DSA-65, FIPS 203/204) em operações bancárias móveis. A decisão crítica é **onde corre a cripto**: no dispositivo do cliente, no servidor, ou ambos.
 
-### 4.2 Performance Optimization
+A escolha tem impacto directo em:
+- Modelo de ameaça (quem tem acesso à chave privada)
+- Latência percebida pelo utilizador
+- Reprodutibilidade dos resultados experimentais
+- Tamanho do binário do app
+- Maturidade das bibliotecas disponíveis
 
-**Caching Strategy**:
-- Cache public keys in SharedPreferences
-- Reuse session keys for multiple operations
-- Lazy initialization of PQC library
-
-**Batch Operations**:
-- Group multiple signatures
-- Parallel key generation
-- Asynchronous crypto operations
-
----
+## Decisão
 
-## 5. Rationale
+**Implementação dupla deliberada** para servir como objecto de comparação na tese:
 
-### Why Hybrid Approach?
+### Variante A — Kotlin (canónica)
+- **Onde corre a cripto**: localmente no dispositivo Android
+- **Biblioteca**: BouncyCastle 1.82 (Java/Kotlin)
+- **Chave privada ML-DSA do cliente**: gerada e armazenada no Android Keystore
+- **Modelo de ameaça**: forte — chave privada nunca sai do dispositivo
 
-1. **Quantum Safety**: Kyber provides protection against quantum attacks
-2. **Compatibility**: Classical ECDH maintains compatibility with existing systems
-3. **Flexibility**: Can transition to full PQC when libraries mature
-4. **Risk Mitigation**: Even if one algorithm breaks, the other provides security
+### Variante B — Flutter (pragmática)
+- **Onde corre a cripto**: ML-DSA-65 é delegada ao servidor; AES-GCM e HKDF correm localmente
+- **Biblioteca cliente**: PointyCastle (HKDF + AES-GCM)
+- **Biblioteca servidor**: `@noble/post-quantum 0.4` (TypeScript/Deno)
+- **Chave privada ML-DSA do cliente**: gerada e guardada na BD Supabase em `flutter_client_keys.secret_key_base64`, protegida por RLS (acessível só por service_role e usada apenas dentro da Edge Function `flutter_sign_transfer`)
+- **Modelo de ameaça**: comprometido vs. variante A — atacante que compromete o backend Supabase tem acesso às chaves privadas dos utilizadores Flutter
 
-### Why Kyber?
+### Pipeline comum a ambas variantes
+1. Handshake → derivação HKDF-SHA-256
+2. Construção de payload canónico (bytes idênticos nas duas variantes)
+3. Assinatura ML-DSA-65 do payload
+4. Envelope `[payload | signature]`
+5. Cifragem AES-256-GCM com IV derivado e AAD = sessionId
+6. POST `executar_transferencia` Edge Function
+7. Verificação ML-DSA + RPC atómica
 
-1. [VERIFIED] NIST-approved PQC standard (FIPS 203)
-2. [VERIFIED] Efficient key sizes (~1.5 KB)
-3. [VERIFIED] Fast operation (< 1ms on mobile)
-4. [VERIFIED] Well-tested implementations available
-5. [VERIFIED] Strong security guarantees (IND-CCA2)
+## Justificação
 
-### Why ECDH secp256r1?
+### Por que Kotlin com cripto local
 
-1. [VERIFIED] Industry standard for mobile
-2. [VERIFIED] Hardware acceleration available
-3. [VERIFIED] Widely implemented (OpenSSL, BoringSSL)
-4. [VERIFIED] Small key sizes (~65 bytes)
-5. [VERIFIED] Fast operation (< 5ms)
+- BouncyCastle 1.82 tem implementações estáveis de ML-KEM e ML-DSA (Maio 2026)
+- JVM permite uso directo sem FFI / build extra
+- Android Keystore oferece hardware-backed key storage em muitos dispositivos
+- Representa o cenário "ideal" para banca móvel pós-quântica
 
-### Why HMAC-SHA256?
+### Por que Flutter com cripto server-side
 
-1. [VERIFIED] Resistant to length-extension attacks
-2. [VERIFIED] Proven security record
-3. [VERIFIED] Computational efficiency
-4. [VERIFIED] Suitable for mobile constrained devices
-5. [VERIFIED] Part of Android Keystore
+- **Inexistência de libs Dart fiáveis para ML-DSA em Maio 2026**:
+  - `oqs-dart` não compila em Android (problemas FFI com liboqs)
+  - `pointycastle` não tem ML-DSA nem ML-KEM
+- A alternativa seria FFI manual para liboqs — fora do escopo da tese
+- Permite mostrar o **trade-off arquitectural** explicitamente na tese: "se a biblioteca não está disponível no cliente, qual é o overhead de delegar ao servidor?"
+- A escolha está documentada no ecrã "Sobre" da app e visível ao utilizador
 
----
+## Consequências
 
-## 6. Consequences
+### Positivas
+- Tese tem material rico para comparação: PQC client-side vs server-side, lados positivos e negativos de cada modelo
+- Pipeline comum (handshake + payload canónico + envelope) é demonstrado em ambas — prova que a arquitectura é portável
+- O backend Supabase com Edge Functions Deno serve como provedor universal de PQC para outros clientes futuros (Web, iOS) que também não tenham libs nativas
 
-### Benefits
-- [VERIFIED] Quantum-safe key agreement
-- [VERIFIED] Future-proof cryptographic foundation
-- [VERIFIED] Minimal performance overhead
-- [VERIFIED] Gradual migration path
-- [VERIFIED] Better security posture
+### Negativas
+- Variante Flutter não cumpre o requisito de "chave privada nunca sai do device" — é uma limitação conhecida e documentada
+- Reprodutibilidade dos benchmarks depende do runtime Supabase Edge (Deno 2.1, V8 11.6) — ambiente partilhado com outros tenants
 
-### Drawbacks
-- [WARNING] Increased key sizes (especially Kyber)
-- [WARNING] Dependency on libOQS library
-- [WARNING] Requires fallback mechanisms
-- [WARNING] More complex implementation
-- [WARNING] Need for quantum-aware protocols
+### Mitigações
+- A chave privada ML-DSA do servidor para o utilizador é gerada por seed aleatório `crypto.getRandomValues(32)` e nunca é mostrada nos logs
+- O `pqc_public_key_base64` do utilizador é pin no primeiro signing (TOFU) — qualquer tentativa de substituição é rejeitada
+- Em produção real, esta arquitectura migraria para HSM/KMS do lado do servidor (AWS CloudHSM, Azure Key Vault, GCP KMS)
 
-### Mitigations
-- Implemented fallback to simulation if libOQS unavailable
-- Optimized caching to reduce key generation calls
-- Async operations to prevent UI blocking
-- Thorough testing of both paths
+## Alternativas consideradas
 
----
+### Alternativa 1: Apenas Kotlin (cripto local) — rejeitada
+Limitaria a tese a Android-only e perderia o ponto de comparação. Flutter é uma das stacks mais relevantes em banca móvel multi-plataforma.
 
-## 7. Performance Analysis
+### Alternativa 2: Flutter com FFI manual para liboqs — rejeitada
+Esforço de engenharia desproporcionado (build de liboqs para 4 arquitecturas Android + iOS + cross-compilação) sem valor académico adicional.
 
-### Benchmark Results
+### Alternativa 3: Flutter com ml-dsa-js sobre `js_isolate` — rejeitada
+Performance pior que delegar ao servidor (carregamento de JS runtime no Dart VM), e introduzia dependência adicional difícil de auditar.
 
-```
-Operation              | Time (ms) | Overhead
---------------------------------------------|----------
-EC Key Generation      | 5-10      | -
-Kyber Key Generation   | 15-25     | 2-3x
-ECDH Computation       | 8-12      | -
-Kyber KEM              | 20-30     | 2-3x
-Signature (Falcon)     | 25-35     | 3-4x
-Verification           | 15-20     | 2-3x
+### Alternativa 4: Implementar ML-DSA em Dart puro — rejeitada
+Esforço enorme + risco de bugs criptográficos. Fora do escopo da tese.
 
-Total Handshake        | 80-140ms  | ~2.5x vs classic ECDH
-Session Overhead       | < 5%      | Negligible
-```
+## Decisões relacionadas
 
-**Conclusion**: Acceptable overhead for enhanced security.
-
----
-
-## 8. Alternatives Considered
-
-### Alternative 1: Full PQC Only
-- [REJECTED] No fallback for older systems
-- [REJECTED] Larger keys, more bandwidth
-- [REJECTED] Slower operations
-
-### Alternative 2: Classic ECDH Only
-- [REJECTED] Vulnerable to quantum attacks
-- [REJECTED] No future protection
-- [REJECTED] Not approved for this use case
-
-### Alternative 3: RSA (2048-bit)
-- [REJECTED] Still vulnerable to quantum
-- [REJECTED] Slower than ECDH
-- [REJECTED] Larger keys
-
-**Chosen**: Hybrid approach provides best balance
-
----
-
-## 9. Testing Strategy
-
-### Unit Tests
-- [TESTED] Key generation correctness
-- [TESTED] Signature generation/verification
-- [TESTED] Shared secret consistency
-- [TESTED] Edge cases & error handling
-
-### Integration Tests
-- [TESTED] Full handshake flow
-- [TESTED] Cross-platform compatibility
-- [TESTED] Fallback mechanism
-- [TESTED] Performance under load
-
-### Security Tests
-- [VERIFIED] Cryptographic strength
-- [VERIFIED] Replay attack resistance
-- [VERIFIED] Key derivation correctness
-- [VERIFIED] Random number quality
-
----
-
-## 10. Migration Path
-
-### Phase 1: Current (IMPLEMENTED)
-- Hybrid Kyber + ECDH handshake
-- HMAC-SHA256 authentication
-- Fallback to pure ECDH if needed
-
-### Phase 2: Future
-- Implement Kyber-1024 for extra margin
-- Add post-quantum signatures (Dilithium)
-- Transition to pure PQC as standards mature
-
-### Phase 3: Post-Quantum Ready
-- Full NIST PQC standard compliance
-- Deprecate classical algorithms
-- Quantum-safe everywhere
-
----
-
-## 11. References
-
-1. [NIST PQC Standardization](https://csrc.nist.gov/projects/post-quantum-cryptography)
-2. [FIPS 203: Kyber](https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.203.pdf)
-3. [Open Quantum Safe](https://openquantumsafe.org/)
-4. [libOQS - GitHub Repository](https://github.com/open-quantum-safe/liboqs)
-5. [Hybrid Post-Quantum Cryptography](https://www.ietf.org/rfc/draft-ietf-tls-hybrid-design.html)
-6. [FIPS 186-4: ECDSA](https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.186-4.pdf)
-
----
-
-## 12. Approval
-
-| Role | Name | Date | Status |
-|------|------|------|--------|
-| **Author** | Vagner Bom Jesus | 18/04/2026 | APPROVED |
-| **Advisor** | Prof. Rui A. P. Perdigão | 18/04/2026 | APPROVED |
-
----
-
-**Status**: IMPLEMENTED & TESTED
-**Completion Date**: 18/04/2026
-**Code Coverage**: 100% (13 test cases)
+- **ADR-002 State Management** — Provider escolhido para simplicidade; estado de cripto é fora desse padrão (singletons)
+- **ADR-003 Security Strategy** — Detalha modelo de ameaça completo e mitigações
