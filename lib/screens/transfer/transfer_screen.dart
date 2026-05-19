@@ -4,7 +4,8 @@ import '../../theme/colors.dart';
 import '../../theme/spacing.dart';
 import '../../services/firestore_service.dart';
 import '../../services/pqc_service.dart';
-import '../../services/auth_service.dart';
+import 'package:provider/provider.dart';
+import '../../providers/auth_provider.dart';
 import '../../models/transaction_model.dart';
 import 'transfer_confirmation_screen.dart';
 import 'transfer_receipt_screen.dart';
@@ -101,7 +102,7 @@ class _TransferScreenState extends State<TransferScreen> {
     });
 
     try {
-      final currentUserId = AuthService.currentUserId;
+      final currentUserId = context.read<AuthProvider>().userId;
       if (currentUserId == null) {
         throw Exception('Utilizador não autenticado');
       }
@@ -140,14 +141,17 @@ class _TransferScreenState extends State<TransferScreen> {
       final transaction = await _firestoreService.createTransfer(
         senderId: currentUserId,
         senderAccountId: senderAccount.id,
+        senderIban: senderAccount.iban,
         receiverId: recipientAccount.userId,
         receiverAccountId: recipientAccount.id,
+        recipientIban: recipientAccount.iban,
+        recipientName: _recipientName,
         amount: amount,
         description: _descriptionController.text.isNotEmpty
             ? _descriptionController.text
             : 'Transferência',
         type: TransactionType.transfer,
-        pqcSignature: signature,
+        pqcSignature: signature.toBase64(),
       );
 
       if (!mounted) return;

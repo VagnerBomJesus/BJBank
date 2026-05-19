@@ -5,10 +5,10 @@ import '../../theme/colors.dart';
 import '../../theme/spacing.dart';
 import '../../services/firestore_service.dart';
 import '../../services/pqc_service.dart';
-import '../../services/auth_service.dart';
 import '../../models/transaction_model.dart';
 import '../../models/mbway_contact_model.dart';
 import '../../providers/account_provider.dart';
+import '../../providers/auth_provider.dart';
 import 'transfer_confirmation_screen.dart';
 import 'transfer_receipt_screen.dart';
 
@@ -56,7 +56,7 @@ class _MbWayScreenState extends State<MbWayScreen> {
   }
 
   Future<void> _loadRecentContacts() async {
-    final userId = AuthService.currentUserId;
+    final userId = context.read<AuthProvider>().userId;
     if (userId == null) return;
 
     try {
@@ -178,7 +178,7 @@ class _MbWayScreenState extends State<MbWayScreen> {
     });
 
     try {
-      final currentUserId = AuthService.currentUserId;
+      final currentUserId = context.read<AuthProvider>().userId;
       if (currentUserId == null) {
         throw Exception('Utilizador não autenticado');
       }
@@ -232,14 +232,17 @@ class _MbWayScreenState extends State<MbWayScreen> {
       final transaction = await _firestoreService.createTransfer(
         senderId: currentUserId,
         senderAccountId: senderAccount.id,
+        senderIban: senderAccount.iban,
         receiverId: recipientAccount.userId,
         receiverAccountId: recipientAccount.id,
+        recipientIban: recipientAccount.iban,
+        recipientName: _recipientName,
         amount: amount,
         description: _descriptionController.text.isNotEmpty
             ? _descriptionController.text
             : 'MB WAY',
         type: TransactionType.mbway,
-        pqcSignature: signature,
+        pqcSignature: signature.toBase64(),
       );
 
       if (!mounted) return;
@@ -297,20 +300,10 @@ class _MbWayScreenState extends State<MbWayScreen> {
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: BJBankColors.mbwayRed, // MB WAY red
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: const Text(
-                'MB',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+            Image.asset(
+              'assets/mbway.png',
+              height: 24,
+              fit: BoxFit.contain,
             ),
             const SizedBox(width: 8),
             const Text('MB WAY'),
