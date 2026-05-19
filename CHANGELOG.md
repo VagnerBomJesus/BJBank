@@ -4,6 +4,104 @@ All notable changes to this project are documented below. The format is based on
 
 ---
 
+## [1.1.0] — 2026-05-19
+
+### Migração arquitectural Firebase → Supabase + PQC server-side
+
+Reescrita completa da camada de backend e do pipeline criptográfico.
+
+#### Adicionado
+
+**Backend Supabase**
+- Projecto Supabase deployado em `jdybjrpmybkmmfdlwrzp.supabase.co`
+- 15 tabelas Postgres com Row Level Security
+- 8 Edge Functions em Deno + `@noble/post-quantum 0.4`:
+  - `pqc_bootstrap` (entrega chave pública ML-DSA do servidor)
+  - `pqc_handshake_flutter` (handshake adaptado para Flutter)
+  - `flutter_sign_transfer` (assina payload ML-DSA-65 server-side)
+  - `verify_dsa` (verifica assinatura ML-DSA-65 arbitrária)
+  - `executar_transferencia` (decifra envelope + verifica + RPC atómica)
+  - `bench_server_pqc` (benchmark de primitivas reais)
+  - `send_otp_email` (OTP por email via Resend)
+- RPCs `SECURITY DEFINER` para lookup público: `lookup_account_by_iban`, `lookup_account_by_phone`, `lookup_user_public`
+- Trigger SQL `handle_new_user` que cria perfil + conta + IBAN + auto-link MBWay no signup
+- Função `bjbank_gerar_iban_pt()` para IBANs PT50 únicos
+
+**Pipeline PQC end-to-end**
+- `SupabaseTransferService.executar(...)` — orquestra handshake + assinatura + cifragem
+- `SupabasePqcHandshakeService` — handshake com nonce, shared_secret, HKDF-SHA-256 e verificação ML-DSA do servidor
+- `TrustedServerKeyService` — TOFU pinning persistente via SharedPreferences
+- Envelope AES-256-GCM com IV derivado (`nonceBase ⊕ txId`) e AAD canónico
+- Transcript canónico de payload com bytes idênticos ao cliente Kotlin
+- Linha por conta inserida na `transactions` (negativa origem, positiva destino) numa RPC atómica `executar_transferencia_atomica` com `SELECT FOR UPDATE`
+
+**MBWay (simplificado)**
+- Activar com número (sem SMS/OTP, validação local +351 obrigatório)
+- Constraint UNIQUE em `mbway_phones(account_id)` — 1 número por conta
+- Lookup público via RPC `lookup_account_by_phone`
+- Auto-link no signup se telefone fornecido
+- Logo oficial MB WAY em 5 sítios da app (`assets/mbway.png`)
+
+**Benchmarks PQC**
+- Tela `pqc_benchmark_screen` com duas modalidades:
+  - **Local** (PoC): Dilithium2/3/5 + Kyber512/768/1024 simulados, exporta JSON/Markdown
+  - **Servidor** (real): invoca `bench_server_pqc`, mede primitivas `@noble/post-quantum` com slider 10-100 iterações
+- 6 algoritmos: ML-KEM-512/768/1024 + ML-DSA-44/65/87
+- Stats completos: mean, min, max, p50, p95, stddev, n
+- Tamanhos oficiais FIPS 203/204 reportados
+
+**Perfil**
+- Coluna `users.photo_url` adicionada (data URL base64)
+- Avatar via `image_picker` com redimensionamento 512×512
+- `AuthProvider.refreshProfile()` recarrega phone + photoUrl da BD após edit
+- Edição de telefone com validador +351 obrigatório (9 dígitos, começar por 9)
+- Formatter `_PtPhoneFormatter` formata como "9XX XXX XXX" em tempo real
+
+**Página "Sobre" reescrita**
+- Versão 1.1.0 — Maio 2026
+- Stack técnico completo (Frontend, Backend, BD, Cripto, Auth)
+- 4 cards de normas NIST (FIPS 203, 204, AES-256-GCM, HKDF)
+- 5 contribuições científicas listadas
+- Menção explícita a Y2Q / Harvest Now Decrypt Later
+
+**Limpeza técnica**
+- Eliminados 5 providers órfãos do `app.dart` (Bill, Budget, Investment, Loan, SavingsGoal)
+- 15 ficheiros legacy esvaziados com comentário `DEPRECATED`:
+  - 6 services: `transfer_service`, `mbway_service`, `bill_service`, `budget_service`, `investment_service`, `loan_service`, `savings_goal_service`, `seed_data_service`, `firebase_config`
+  - 5 providers órfãos
+  - `firebase_options.dart`
+- `seed_screen.dart` reescrita como tela informativa Supabase (sem operações destrutivas via cliente)
+
+**Documentação**
+- 9 diagramas UML em formato draw.io em `../MCiber/diagramas/`:
+  - Contexto, Casos de Uso, Tabela actores, 5 diagramas de sequência (registo, login, transferência IBAN, MBWay, ativar MBWay), Diagrama de Estado
+- `docs/ARCHITECTURE.md` reescrito (15 tabelas, 8 Edge Functions, RPCs, modelo de ameaça)
+- `docs/DEPLOYMENT.md` reescrito (Supabase em vez de Firebase, comandos SQL operacionais)
+- `docs/FIREBASE-BEST-PRACTICES.md` marcado como deprecated
+- `docs/adr/ADR-001-PQC-IMPLEMENTATION.md` actualizado para reflectir abordagem dupla (Kotlin local + Flutter server-side)
+
+#### Alterado
+
+- `SupabaseAccountService.observarContas()` agora enriquece com `mbWayLinked` via `_enrichWithMbWay` (batch query a `mbway_phones`)
+- Tela MBWay `mbway_phone_verification_screen` simplificada — apenas input do número (removido fluxo OTP/email)
+- Tela MBWay activate/deactivate reactiva ao estado actual da BD
+- Helper text dos campos de telefone: "Indicativo Portugal (+351) obrigatório"
+- Login chama `refreshProfile()` para hidratar `photoUrl` e `phone` da BD após signIn
+
+#### Corrigido
+
+- IBAN de destinatário não encontrado em transferências (RLS bloqueava lookup) — resolvido via RPCs `SECURITY DEFINER`
+- Avatar não actualizava após upload — `AuthProvider._user` é refrescado via `getUser` da tabela `public.users`
+- Toggle MBWay não actualizava — `_enrichWithMbWay` popula `account.mbWayLinked` em tempo real
+- Edge Function `bench_server_pqc` tinha erro "offset is out of bounds" — ML-DSA precisa de seed 32 B (não 64 B)
+- Edge Function `verify_dsa` falhava com `ml_dsa65.lengths.public` undefined — substituído por constante FIPS 1952
+
+#### Removido
+
+- Dependência directa de Firebase no runtime (mantidos shims compat em `lib/compat/firebase_*.dart` para modelos legacy)
+
+---
+
 ## [1.0.0] - 2026-04-18
 
 ### 🎉 Production Release - 100% Complete
