@@ -1,14 +1,15 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../theme/colors.dart';
 import '../../theme/spacing.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/account_provider.dart';
-import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
+import '../../services/auth_service.dart';
 
 /// Profile Screen
 /// View and edit user profile information
@@ -39,8 +40,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final user = context.read<AuthProvider>().user;
     if (user != null) {
       _nameController.text = user.name;
-      _phoneController.text = user.phone ?? '';
+      // Retira prefixo +351 / 351 / espacos para mostrar so 9 digitos.
+      final raw = user.phone ?? '';
+      final cleaned = raw.replaceAll(RegExp(r'[^\d]'), '');
+      String local = cleaned;
+      if (cleaned.startsWith('351') && cleaned.length == 12) {
+        local = cleaned.substring(3);
+      } else if (cleaned.startsWith('00351') && cleaned.length == 14) {
+        local = cleaned.substring(5);
+      }
+      _phoneController.text = _formatPhoneLocal(local);
     }
+  }
+
+  /// Formata 9 digitos como "9XX XXX XXX".
+  String _formatPhoneLocal(String digits) {
+    if (digits.length <= 3) return digits;
+    if (digits.length <= 6) {
+      return '${digits.substring(0, 3)} ${digits.substring(3)}';
+    }
+    return '${digits.substring(0, 3)} '
+        '${digits.substring(3, 6)} '
+        '${digits.substring(6)}';
+  }
+
+  String? _validatePhone(String? value) {
+    final cleaned = (value ?? '').replaceAll(RegExp(r'[^\d]'), '');
+    if (cleaned.isEmpty) return 'Telefone obrigatorio';
+    if (cleaned.length != 9) return 'O numero deve ter 9 digitos';
+    if (!cleaned.startsWith('9')) return 'Numero de telemovel invalido';
+    return null;
   }
 
   @override
@@ -88,12 +117,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final bytes = await File(pickedFile.path).readAsBytes();
       final base64Image = 'data:image/jpeg;base64,${base64Encode(bytes)}';
 
-      final userId = AuthService.currentUserId;
+      final userId = context.read<AuthProvider>().userId;
       if (userId == null) return;
 
       await _firestoreService.updateUser(userId, {
         'photoUrl': base64Image,
       });
+
+      // Recarrega perfil para reflectir o novo avatar imediatamente.
+      if (mounted) {
+        await context.read<AuthProvider>().refreshProfile();
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -121,17 +155,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() => _isSaving = true);
 
     try {
-      final userId = AuthService.currentUserId;
+      final userId = context.read<AuthProvider>().userId;
       if (userId == null) return;
+
+      // Normaliza para +351XXXXXXXXX antes de gravar.
+      final localDigits = _phoneController.text.replaceAll(RegExp(r'[^\d]'), '');
+      final normalizedPhone = localDigits.length == 9
+          ? '+351$localDigits'
+          : _phoneController.text.trim();
 
       await _firestoreService.updateUser(userId, {
         'name': _nameController.text.trim(),
-        'phone': _phoneController.text.trim(),
+        'phone': normalizedPhone,
       });
 
       await AuthService.updateProfile(
         displayName: _nameController.text.trim(),
       );
+
+      // Recarrega o perfil para que AuthProvider tenha o phone/nome novos.
+      if (mounted) {
+        await context.read<AuthProvider>().refreshProfile();
+      }
 
       if (mounted) {
         setState(() {
@@ -285,15 +330,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                       const Divider(height: BJBankSpacing.lg),
 
-                      // Phone
+                      // Phone (sempre formato +351 9XX XXX XXX)
                       _isEditing
                           ? TextFormField(
                               controller: _phoneController,
                               keyboardType: TextInputType.phone,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                                _PtPhoneFormatter(),
+                              ],
+                              validator: _validatePhone,
+                              autovalidateMode:
+                                  AutovalidateMode.onUserInteraction,
                               decoration: const InputDecoration(
                                 labelText: 'Telefone',
                                 prefixIcon: Icon(Icons.phone_outlined),
-                                hintText: '+351 912 345 678',
+                                prefixText: '+351 ',
+                                hintText: '9XX XXX XXX',
+                                helperText:
+                                    'Indicativo Portugal (+351) obrigatorio',
                               ),
                             )
                           : _buildInfoRow(
@@ -457,6 +512,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Formata o numero local PT (9 digitos) como "9XX XXX XXX". O prefixo
+/// +351 e mostrado pelo prefixText do TextFormField, nao entra no controller.
+class _PtPhoneFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final digits = newValue.text.replaceAll(RegExp(r'[^\d]'), '');
+    if (digits.length > 9) return oldValue;
+    final buf = StringBuffer();
+    for (var i = 0; i < digits.length; i++) {
+      if (i == 3 || i == 6) buf.write(' ');
+      buf.write(digits[i]);
+    }
+    final formatted = buf.toString();
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
     );
   }
 }

@@ -39,9 +39,9 @@ class QuickActions extends StatelessWidget {
             children: [
               Expanded(
                 child: _QuickActionCard(
-                  icon: Icons.phone_android_rounded,
+                  imageAsset: 'assets/mbway.png',
                   label: AppStrings.homeMbWay,
-                  color: BJBankColors.primary,
+                  color: BJBankColors.mbwayRed,
                   onTap: onMbWayTap,
                 ),
               ),
@@ -73,13 +73,16 @@ class QuickActions extends StatelessWidget {
 
 class _QuickActionCard extends StatelessWidget {
   const _QuickActionCard({
-    required this.icon,
+    this.icon,
+    this.imageAsset,
     required this.label,
     required this.color,
     this.onTap,
-  });
+  }) : assert(icon != null || imageAsset != null,
+            'icon ou imageAsset obrigatorio');
 
-  final IconData icon;
+  final IconData? icon;
+  final String? imageAsset;
   final String label;
   final Color color;
   final VoidCallback? onTap;
@@ -113,11 +116,19 @@ class _QuickActionCard extends StatelessWidget {
                   color: color.withValues(alpha: 0.12),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(
-                  icon,
-                  size: 22,
-                  color: color,
-                ),
+                child: imageAsset != null
+                    ? Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: Image.asset(
+                          imageAsset!,
+                          fit: BoxFit.contain,
+                        ),
+                      )
+                    : Icon(
+                        icon,
+                        size: 22,
+                        color: color,
+                      ),
               ),
               const SizedBox(height: BJBankSpacing.sm),
               Text(

@@ -7,7 +7,7 @@ import '../../models/transaction_model.dart' show Transaction;
 import '../../providers/auth_provider.dart';
 import '../../providers/account_provider.dart';
 import '../../providers/settings_provider.dart';
-import '../../services/auth_service.dart';
+// auth_service.dart removido: usar AuthProvider (Supabase) em vez disso.
 import '../../routes/app_routes.dart';
 import '../history/history_screen.dart';
 import '../cards/cards_screen.dart';
@@ -50,14 +50,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   void _loadAccountData() {
-    final userId = AuthService.currentUserId;
+    final userId = context.read<AuthProvider>().userId;
     if (userId != null) {
       context.read<AccountProvider>().loadAccount(userId);
     }
   }
 
   Future<void> _refreshData() async {
-    final userId = AuthService.currentUserId;
+    final userId = context.read<AuthProvider>().userId;
     if (userId != null) {
       await context.read<AccountProvider>().refreshTransactions(userId);
     }
@@ -557,7 +557,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               onTap: () => Navigator.pushNamed(context, AppRoutes.transfer),
             ),
             _buildCircularServiceButton(
-              icon: Icons.smartphone_rounded,
+              imageAsset: 'assets/mbway.png',
               label: 'MB WAY',
               color: const Color(0xFFE11D48),
               onTap: () => Navigator.pushNamed(context, AppRoutes.mbway),
@@ -633,11 +633,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildCircularServiceButton({
-    required IconData icon,
+    IconData? icon,
+    String? imageAsset,
     required String label,
     required Color color,
     required VoidCallback onTap,
   }) {
+    assert(icon != null || imageAsset != null,
+        'icon ou imageAsset obrigatorio');
     return GestureDetector(
       onTap: () {
         HapticFeedback.lightImpact();
@@ -658,7 +661,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   width: 1.5,
                 ),
               ),
-              child: Icon(icon, color: color, size: 26),
+              child: imageAsset != null
+                  ? Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Image.asset(
+                        imageAsset,
+                        fit: BoxFit.contain,
+                      ),
+                    )
+                  : Icon(icon, color: color, size: 26),
             ),
             const SizedBox(height: 10),
             Text(
