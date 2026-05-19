@@ -35,16 +35,9 @@ Autor: **Vagner Bom Jesus** · Orientador: **Prof. Rui A. P. Perdigão**
 
 ## Visão geral
 
-**BJBank** é uma aplicação bancária móvel que investiga a viabilidade da Criptografia Pós-Quântica (PQC) em operações financeiras face ao cenário *Harvest Now, Decrypt Later* (Y2Q). Implementa o pipeline completo de uma transferência interbancária — handshake, assinatura, cifragem, verificação server-side, persistência atómica — usando algoritmos pós-quânticos padronizados pelo NIST em **FIPS 203 (ML-KEM)** e **FIPS 204 (ML-DSA)**.
+**BJBank** é uma aplicação bancária móvel **em Flutter** que investiga a viabilidade da Criptografia Pós-Quântica (PQC) em operações financeiras face ao cenário *Harvest Now, Decrypt Later* (Y2Q). Implementa o pipeline completo de uma transferência interbancária — handshake, assinatura, cifragem, verificação server-side, persistência atómica — usando algoritmos pós-quânticos padronizados pelo NIST em **FIPS 203 (ML-KEM)** e **FIPS 204 (ML-DSA)**.
 
-O projecto fornece **duas implementações paralelas** para servir como objecto de comparação na tese:
-
-| | App Kotlin (Android nativo) | App Flutter |
-|---|---|---|
-| **Estratégia cripto** | Canónica — chave privada vive no device | Pragmática — assinatura delegada ao servidor |
-| **Lib PQC** | BouncyCastle 1.82 (local) | `@noble/post-quantum 0.4` (Edge Function) |
-| **Motivo** | Modelo de ameaça mais forte | Sem libs Dart fiáveis para ML-DSA |
-| **Limitação documentada** | — | Servidor mantém chaves privadas dos utilizadores em `flutter_client_keys` cifradas com derivação do JWT |
+A cripto pós-quântica (ML-KEM-768, ML-DSA-65) é executada server-side em Edge Functions Deno do Supabase com a biblioteca `@noble/post-quantum 0.4`. O cliente Flutter executa localmente apenas a cripto simétrica (HKDF-SHA-256 e AES-256-GCM via `pointycastle`). Esta decisão é justificada pela ausência de bibliotecas Dart fiáveis para ML-DSA e está documentada em `docs/adr/ADR-001-PQC-IMPLEMENTATION.md`.
 
 ---
 
@@ -53,13 +46,13 @@ O projecto fornece **duas implementações paralelas** para servir como objecto 
 ```
 ┌────────────────────┐                ┌──────────────────────────────────────┐
 │  BJBank App        │                │  Supabase                            │
-│  (Flutter / Kotlin)│ ◀─ HTTPS+JWT ▶ │  ┌────────────┐  ┌────────────────┐ │
+│      (Flutter)     │ ◀─ HTTPS+JWT ▶ │  ┌────────────┐  ┌────────────────┐ │
 └────────────────────┘                │  │  Auth      │  │  Postgres 15   │ │
          │                            │  │  (GoTrue)  │  │  + RLS         │ │
-         │ ML-DSA-65                  │  └────────────┘  └────────────────┘ │
+         │ HKDF-SHA-256               │  └────────────┘  └────────────────┘ │
          │ AES-256-GCM                │  ┌────────────┐  ┌────────────────┐ │
          ▼                            │  │  Realtime  │  │  Edge Functions│ │
-   BouncyCastle / PointyCastle        │  │ (WebSocket)│  │  (Deno)        │ │
+       PointyCastle                   │  │ (WebSocket)│  │  (Deno)        │ │
                                       │  └────────────┘  └────────────────┘ │
                                       │           │              │           │
                                       │           ▼              ▼           │
@@ -82,10 +75,6 @@ Detalhe completo: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) · diagramas UM
 - `pointycastle` 3.9 (HKDF-SHA256, AES-256-GCM client-side)
 - `image_picker`, `app_links`, `share_plus`
 
-**Cliente Kotlin (Android)**
-- Kotlin + Jetpack Compose
-- Hilt (DI), Navigation, BiometricPrompt
-- BouncyCastle 1.82 (ML-KEM-768, ML-DSA-65 locais)
 
 **Backend Supabase**
 - **Auth** (GoTrue) — email/password com JWT + email confirmation
@@ -112,11 +101,11 @@ Sequência completa de uma transferência por IBAN:
    - Servidor gera `shared_secret` 32 B, assina `(nonce | shared_secret | server_dsa_pub | sessionId)` com ML-DSA-65, persiste em `sessions`
    - Cliente verifica assinatura via `verify_dsa` e faz pin da chave pública do servidor (TOFU)
    - HKDF-SHA-256 deriva 44 bytes → AES key (32 B) + nonceBase (12 B)
-3. **Construção do payload canónico** — bytes idênticos ao cliente Kotlin:
+3. **Construção do payload canónico** — bytes determinísticos compatíveis com o transcript canónico do servidor:
    ```
    [4B|txId] [4B|origem_iban] [4B|destino_iban] [4B|montante] [4B|descricao] [8B timestamp_be] [4B|nonce16]
    ```
-4. **Assinatura ML-DSA-65** — Kotlin assina localmente; Flutter delega via `flutter_sign_transfer`
+4. **Assinatura ML-DSA-65** — delegada à Edge Function `flutter_sign_transfer` (chave server-managed em `flutter_client_keys`)
 5. **Envelope cifrado**
    - Envelope = `[4B|payload][4B|signature]`
    - Cifra AES-256-GCM com IV = `nonceBase ⊕ txId`, AAD = `sessionId`
@@ -195,49 +184,67 @@ Diagrama detalhado: `MCiber/diagramas/06_seq_transferencia_iban.drawio`.
 ```
 bjbank/
 ├─ lib/
-│  ├─ main.dart                              # entry point + DeepLinkHandler
+│  ├─ main.dart                              # entry point + Supabase init + Deep Links
 │  ├─ app.dart                               # MultiProvider + MaterialApp
 │  ├─ models/                                # UserModel, AccountModel, TransactionModel, …
-│  ├─ providers/                             # AuthProvider, AccountProvider, MbWayProvider, …
+│  ├─ providers/                             # AuthProvider, AccountProvider, TransferProvider, …
 │  ├─ routes/                                # AppRouter, AppRoutes
 │  ├─ services/
 │  │  ├─ supabase_config.dart                # URL + anon key
-│  │  ├─ supabase_auth_service.dart          # signIn/signUp/updatePassword
-│  │  ├─ supabase_account_service.dart       # streams accounts/transactions
-│  │  ├─ supabase_mbway_service.dart         # lookup phone, pagar()
-│  │  ├─ supabase_transfer_service.dart      # PIPELINE PQC end-to-end
-│  │  ├─ supabase_pqc_handshake_service.dart # handshake + HKDF
-│  │  ├─ trusted_server_key_service.dart     # TOFU pinning
-│  │  ├─ firestore_service.dart              # proxy legacy com API Supabase
-│  │  ├─ pqc_service.dart                    # stub PoC (benchmark local)
-│  │  ├─ pqc_benchmark_service.dart          # benchmark local
-│  │  ├─ server_pqc_benchmark_service.dart   # invoca bench_server_pqc
-│  │  └─ deep_link_handler.dart              # bjbank://reset, bjbank://login
+│  │  ├─ supabase_auth_service.dart          # signIn/signUp/updatePassword/deleteAccount
+│  │  ├─ supabase_account_service.dart       # streams accounts/transactions via Realtime
+│  │  ├─ supabase_transfer_service.dart      # PIPELINE PQC end-to-end (orquestra handshake+sign+cipher)
+│  │  ├─ supabase_pqc_handshake_service.dart # nonce + shared_secret + HKDF-SHA256
+│  │  ├─ supabase_mbway_service.dart         # lookup phone, ativar MBWay, pagar
+│  │  ├─ trusted_server_key_service.dart     # TOFU pinning persistente via SharedPreferences
+│  │  ├─ server_pqc_benchmark_service.dart   # invoca bench_server_pqc Edge Function
+│  │  ├─ pqc_service.dart                    # local PoC (benchmark simulado)
+│  │  ├─ deep_link_handler.dart              # bjbank://reset, bjbank://login
+│  │  ├─ firebase_config.dart                # config legacy (compat)
+│  │  ├─ firestore_service.dart              # adapter legacy para Supabase
+│  │  └─ [outros serviços]                   # notification, otp, seed_data, …
+│  ├─ compat/                                # Compatibility layer Firebase→Supabase
+│  │  ├─ firebase_auth_compat.dart
+│  │  ├─ firebase_core_compat.dart
+│  │  ├─ firebase_messaging_compat.dart
+│  │  └─ firestore_compat.dart
 │  ├─ screens/
-│  │  ├─ auth/                               # login, register, forgot_password, seed
+│  │  ├─ auth/                               # login, register, seed, forgot_password
 │  │  ├─ home/                               # dashboard + quick actions
 │  │  ├─ transfer/                           # transfer_screen, mbway_screen, confirmação, recibo
 │  │  ├─ history/                            # history_screen com filtros + pesquisa
 │  │  ├─ cards/                              # cards_screen + card_settings_dialog
-│  │  ├─ profile/                            # profile_screen com avatar
-│  │  ├─ settings/                           # mbway_settings, mbway_phone_verification, about, …
-│  │  └─ security/                           # pqc_benchmark_screen
-│  ├─ compat/                                # shims legacy de Firebase (deprecation)
+│  │  ├─ profile/                            # profile_screen com avatar + telefone
+│  │  ├─ settings/                           # mbway_settings, mbway_phone_verification, about
+│  │  ├─ security/                           # pqc_benchmark_screen (local + server)
+│  │  └─ splash/                             # splash_screen (session handling)
 │  └─ theme/                                 # colors, spacing, typography, app_strings
 ├─ assets/
 │  ├─ logo_bjbank.png
 │  └─ mbway.png                              # logo oficial MB WAY
 ├─ docs/
-│  ├─ ARCHITECTURE.md
-│  ├─ DEPLOYMENT.md
-│  └─ adr/
-│     ├─ ADR-001-PQC-IMPLEMENTATION.md
-│     ├─ ADR-002-STATE-MANAGEMENT.md
-│     └─ ADR-003-SECURITY-STRATEGY.md
-├─ android/                                  # plugins, manifest com deep links bjbank://
-├─ ios/
-├─ CHANGELOG.md
-├─ CONTRIBUTING.md
+│  ├─ ARCHITECTURE.md                        # detalhada da arquitetura completa
+│  ├─ DEPLOYMENT.md                          # setup Supabase, Edge Functions, secrets
+│  ├─ FIREBASE-BEST-PRACTICES.md             # referência (Firebase legacy)
+│  ├─ FIREBASE_EMAIL_SETUP.md                # configuração de email
+│  ├─ adr/
+│  │  ├─ ADR-001-PQC-IMPLEMENTATION.md       # decisão de cripto server-side
+│  │  ├─ ADR-002-STATE-MANAGEMENT.md         # Provider + Realtime
+│  │  └─ ADR-003-SECURITY-STRATEGY.md        # ameaças, modelo RLS
+│  └─ [diagramas UML em docs-site/]
+├─ docs-site/                                # Website de documentação (Next.js)
+│  ├─ src/app/
+│  ├─ src/components/
+│  └─ [configuração Next.js + Tailwind]
+├─ functions/                                # Supabase Edge Functions (Deno 2.1)
+│  ├─ src/index.ts                          # 8 funções PQC + transferências
+│  └─ [package.json, tsconfig.json]
+├─ android/                                  # Android manifest + plugins
+├─ ios/                                      # iOS configuration
+├─ CHANGELOG.md                              # v1.1.0 com detalhes da migração
+├─ CONTRIBUTING.md                           # guidelines de contribuição
+├─ pubspec.yaml                              # dependências (supabase_flutter, crypto, etc.)
+├─ pubspec.lock
 └─ README.md (este ficheiro)
 ```
 
@@ -246,6 +253,18 @@ bjbank/
 ## Backend Supabase
 
 **Project URL**: `https://jdybjrpmybkmmfdlwrzp.supabase.co`
+
+### Serviços de Backend Implementados
+
+| Serviço | Localização | Responsabilidade |
+|---|---|---|
+| **SupabaseAuthService** | `lib/services/supabase_auth_service.dart` | Registo, login, reset password, alteração password, delete account |
+| **SupabaseAccountService** | `lib/services/supabase_account_service.dart` | Streams Realtime de `accounts` e `transactions` |
+| **SupabaseTransferService** | `lib/services/supabase_transfer_service.dart` | **Orquestra pipeline PQC end-to-end** (handshake → sign → cipher → RPC) |
+| **SupabasePqcHandshakeService** | `lib/services/supabase_pqc_handshake_service.dart` | Nonce + shared_secret + HKDF-SHA-256 derivation |
+| **TrustedServerKeyService** | `lib/services/trusted_server_key_service.dart` | TOFU pinning persistente de chave pública servidor |
+| **SupabaseMbwayService** | `lib/services/supabase_mbway_service.dart` | Lookup phone, ativar MBWay, pagar via MBWay |
+| **ServerPqcBenchmarkService** | `lib/services/server_pqc_benchmark_service.dart` | Invoca `bench_server_pqc` Edge Function |
 
 ### Tabelas (15, todas com RLS)
 
@@ -336,45 +355,62 @@ Comparação com clássico (SUPERCOP @ Intel i7-6500U):
 
 | Documento | Conteúdo |
 |---|---|
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Arquitectura detalhada (camadas, providers, services) |
-| [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | Deploy Supabase, Edge Functions, secrets |
-| [`docs/adr/ADR-001-PQC-IMPLEMENTATION.md`](docs/adr/ADR-001-PQC-IMPLEMENTATION.md) | Decisão da estratégia PQC dupla (Kotlin local vs Flutter server-side) |
-| [`docs/adr/ADR-002-STATE-MANAGEMENT.md`](docs/adr/ADR-002-STATE-MANAGEMENT.md) | Provider + Realtime |
-| [`docs/adr/ADR-003-SECURITY-STRATEGY.md`](docs/adr/ADR-003-SECURITY-STRATEGY.md) | Estratégia de segurança, modelo de ameaças |
-| [`CHANGELOG.md`](CHANGELOG.md) | Histórico de versões |
-| [`MCiber/diagramas/`](../../Claude/Projects/MCiber/diagramas) | 9 diagramas UML em formato draw.io |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Arquitectura end-to-end (Flutter ↔ Supabase ↔ Edge Functions) |
+| [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | Setup Supabase, deploy Edge Functions, configuração secrets |
+| [`docs/FIREBASE-BEST-PRACTICES.md`](docs/FIREBASE-BEST-PRACTICES.md) | Referência de boas práticas Firebase (legacy) |
+| [`docs/FIREBASE_EMAIL_SETUP.md`](docs/FIREBASE_EMAIL_SETUP.md) | Configuração de email via Firebase/Resend |
+| [`docs/adr/ADR-001-PQC-IMPLEMENTATION.md`](docs/adr/ADR-001-PQC-IMPLEMENTATION.md) | **Decisão arquitectural**: cripto ML-DSA/ML-KEM server-side em Deno, simetria (HKDF/AES-256-GCM) client-side |
+| [`docs/adr/ADR-002-STATE-MANAGEMENT.md`](docs/adr/ADR-002-STATE-MANAGEMENT.md) | State management com Provider + Realtime WebSocket |
+| [`docs/adr/ADR-003-SECURITY-STRATEGY.md`](docs/adr/ADR-003-SECURITY-STRATEGY.md) | Modelo de ameaças, Row-Level Security, TOFU pinning, Y2Q |
+| [`CHANGELOG.md`](CHANGELOG.md) | Histórico v1.0→v1.1.0 com detalhe completo da migração |
+| [`EMAIL_OTP_IMPLEMENTATION.md`](EMAIL_OTP_IMPLEMENTATION.md) | Guia implementação OTP por email |
+| [`docs-site/`](docs-site/) | Website de documentação interativa (Next.js 14 + Tailwind) |
 
 ---
 
 ## Estado actual e o que falta
 
-### Funcional ✅
-- Auth completa (registo/login/reset/alterar password/eliminar conta)
-- Perfil com avatar e telefone +351 validado
-- Transferências por IBAN com pipeline PQC end-to-end funcional
-- MBWay (activar com 1 número/conta, transferir, lookup público)
-- Histórico em tempo real com filtros e pesquisa
-- 8 Edge Functions deployadas e acessíveis
-- Benchmark PQC server-side com primitivas reais
+### ✅ v1.1.0 — Migração Supabase + PQC COMPLETA
 
-### Parcialmente implementado ⚠️
+**Backend**
+- ✅ Supabase project deployado em `jdybjrpmybkmmfdlwrzp.supabase.co`
+- ✅ 15 tabelas Postgres com RLS
+- ✅ 8 Edge Functions em Deno 2.1 com `@noble/post-quantum 0.4`
+- ✅ RPCs `SECURITY DEFINER` para lookup público (IBAN, phone, user)
+- ✅ Triggers SQL (`handle_new_user` para auto-setup conta + IBAN + MBWay)
+
+**Frontend**
+- ✅ Auth completa (registo/login/reset/alterar password/eliminar conta) via Supabase
+- ✅ Perfil com avatar (base64) e telefone +351 validado
+- ✅ **Transferências PQC end-to-end** (handshake → sign → cipher → atomic RPC)
+- ✅ **MBWay simplificado** (1 número/conta, lookup público, auto-link signup)
+- ✅ Histórico em tempo real com Realtime WebSocket (filtros, pesquisa, agrupamento)
+- ✅ Deep links `bjbank://reset` e `bjbank://login`
+- ✅ **Benchmark PQC** (modalidade local PoC + servidor com primitivas reais)
+- ✅ Website de documentação interativa (`docs-site/`)
+- ✅ Compatibility layer para migração gradual Firebase→Supabase
+
+**Infra**
+- ✅ TOFU pinning de chave pública do servidor (SharedPreferences)
+- ✅ AES-256-GCM com IV derivado e AAD canónico
+- ✅ Transcript canónico compatível com servidor
+- ✅ Cifragem end-to-end de payload + assinatura
+- ✅ RPC atómica com `SELECT FOR UPDATE`
+
+### ⚠️ Parcialmente implementado
 - QR Code (telas existem mas botão da home mostra "Em breve")
-- Cards (UI funcional mas `CardProvider` ainda usa shim legacy)
-- Notifications (`FirebaseMessaging` shim — sem push real)
+- Cards (UI funcional mas dados ainda são shim)
 
-### Para a parte académica da tese 📚
-- Pipeline clássico paralelo (ECDH-P256 + ECDSA-P256) para benchmark PQC vs Clássico no mesmo runtime
-- Recolha de dados experimentais com N=200+ para citar com confiança
-- Replay protection explícita na RPC `executar_transferencia_atomica` (txId UNIQUE constraint)
-- Diagramas UML finais (já gerados em `MCiber/diagramas/`)
+### 📚 Para a parte académica da tese
+- [ ] Pipeline clássico paralelo (ECDH-P256 + ECDSA-P256) para benchmark PQC vs Clássico
+- [ ] Recolha de dados experimentais com N=200+ iterações para confiança estatística
+- [ ] Replay protection explícita (txId UNIQUE constraint em `transactions`)
+- [ ] Análise de overhead temporal (handshake, sign, verify, cipher)
 
-### Limpeza técnica
-- Ficheiros legacy marcados como `DEPRECATED` (eliminar com `git rm` quando conveniente):
-  - `lib/services/transfer_service.dart`, `mbway_service.dart`, `bill_service.dart`, `budget_service.dart`, `investment_service.dart`, `loan_service.dart`, `savings_goal_service.dart`
-  - `lib/services/seed_data_service.dart`, `firebase_config.dart`
-  - `lib/firebase_options.dart`
-  - `lib/providers/bill_provider.dart`, `budget_provider.dart`, `investment_provider.dart`, `loan_provider.dart`, `savings_goal_provider.dart`
-- Shims `lib/compat/firebase_*.dart` podem ser eliminados quando modelos perderem as factories `fromFirestore`
+### 🧹 Limpeza técnica sugerida
+- Ficheiros legacy com dados obsoletos (ainda funcionam via shim):
+  - `lib/services/bill_service.dart`, `budget_service.dart`, `investment_service.dart`, `loan_service.dart`, `savings_goal_service.dart`
+  - `lib/providers/bill_provider.dart`, etc.
 
 ---
 
