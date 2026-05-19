@@ -19,6 +19,7 @@ Autor: **Vagner Bom Jesus** · Orientador: **Prof. Rui A. P. Perdigão**
 ## Sumário
 
 - [Visão geral](#visão-geral)
+- [Quick Start](#quick-start)
 - [Arquitectura](#arquitectura)
 - [Stack técnico](#stack-técnico)
 - [Pipeline pós-quântico](#pipeline-pós-quântico-end-to-end)
@@ -29,15 +30,69 @@ Autor: **Vagner Bom Jesus** · Orientador: **Prof. Rui A. P. Perdigão**
 - [Benchmarks PQC](#benchmarks-pqc)
 - [Documentação](#documentação)
 - [Estado actual e o que falta](#estado-actual-e-o-que-falta)
+- [Contribuir](#contribuir)
 - [Licença](#licença)
+
+---
+
+## Quick Start
+
+### Correr a app em 3 passos:
+
+```bash
+# 1. Clonar e instalar
+git clone https://github.com/VagnerBomJesus/BJBank.git
+cd bjbank && flutter pub get
+
+# 2. Escolher plataforma
+flutter run -d android    # Android emulator
+flutter run -d iphone     # iOS simulator
+
+# 3. Testar funcionalidades
+# Login com email/password
+# Criar transferência → visualizar pipeline PQC
+# Settings → Segurança → Benchmark PQC (servidor)
+```
+
+**Credenciais de teste**:
+- Email: `test@example.com`
+- Password: `Test123!@#`
+- (Ou criar nova conta)
+
+### Recursos importantes:
+
+| Recurso | Link |
+|---|---|
+| **Como contribuir** | [`CONTRIBUTING.md`](CONTRIBUTING.md) — setup dev, padrões, checklist |
+| **Arquitectura técnica** | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — camadas, fluxos, diagramas |
+| **Deployment** | [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) — Supabase, Edge Functions, secrets |
+| **Changelog** | [`CHANGELOG.md`](CHANGELOG.md) — v1.0 → v1.1.0 migração |
+| **Issues & Bugs** | [GitHub Issues](https://github.com/VagnerBomJesus/BJBank/issues) |
 
 ---
 
 ## Visão geral
 
-**BJBank** é uma aplicação bancária móvel **em Flutter** que investiga a viabilidade da Criptografia Pós-Quântica (PQC) em operações financeiras face ao cenário *Harvest Now, Decrypt Later* (Y2Q). Implementa o pipeline completo de uma transferência interbancária — handshake, assinatura, cifragem, verificação server-side, persistência atómica — usando algoritmos pós-quânticos padronizados pelo NIST em **FIPS 203 (ML-KEM)** e **FIPS 204 (ML-DSA)**.
+**BJBank** é uma aplicação bancária móvel **em Flutter** que implementa **Criptografia Pós-Quântica (PQC) em operações financeiras** reais. Investiga a viabilidade do uso de algoritmos NIST-padronizados (FIPS 203 ML-KEM, FIPS 204 ML-DSA) face ao cenário *Harvest Now, Decrypt Later* (Y2Q).
 
-A cripto pós-quântica (ML-KEM-768, ML-DSA-65) é executada server-side em Edge Functions Deno do Supabase com a biblioteca `@noble/post-quantum 0.4`. O cliente Flutter executa localmente apenas a cripto simétrica (HKDF-SHA-256 e AES-256-GCM via `pointycastle`). Esta decisão é justificada pela ausência de bibliotecas Dart fiáveis para ML-DSA e está documentada em `docs/adr/ADR-001-PQC-IMPLEMENTATION.md`.
+### O que torna esta aplicação diferente:
+
+| Aspecto | Implementação |
+|---|---|
+| **PQC end-to-end** | Handshake ML-DSA-65 + ML-KEM-768 + AES-256-GCM + TOFU pinning |
+| **Server-side PQC** | Edge Functions Deno com `@noble/post-quantum 0.4` |
+| **Client-side simétrica** | HKDF-SHA-256 + AES-256-GCM via `pointycastle` |
+| **Transações atómicas** | RPC Postgres com `SELECT FOR UPDATE` e RLS |
+| **Realtime** | WebSocket Supabase para saldos + histórico ao vivo |
+| **Auditoria PQC** | Assinatura ML-DSA persistida em cada transação |
+
+### Stack resumido:
+- **Frontend**: Flutter 3.8 + Dart 3.8 + Provider
+- **Backend**: Supabase (Auth, Postgres 15, Realtime, Edge Functions)
+- **Cripto**: `@noble/post-quantum` (servidor) + `pointycastle` (cliente)
+- **Deployment**: Deno 2.1 (V8 11.6) em Edge Functions
+
+Arquitetura documentada em [`CONTRIBUTING.md`](CONTRIBUTING.md) · Decisões técnicas em [`docs/adr/`](docs/adr).
 
 ---
 
@@ -68,26 +123,41 @@ Detalhe completo: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) · diagramas UM
 
 ## Stack técnico
 
-**Cliente Flutter**
-- Flutter 3.8.1 + Dart 3.8.1
-- Provider (state management)
-- `supabase_flutter` 2.5+
-- `pointycastle` 3.9 (HKDF-SHA256, AES-256-GCM client-side)
-- `image_picker`, `app_links`, `share_plus`
+### Cliente Flutter
 
+| Componente | Tecnologia | Responsabilidade |
+|---|---|---|
+| **Framework** | Flutter 3.8.1 + Dart 3.8.1 | UI, widgets, navegação |
+| **State Mgmt** | provider 6.1+ | ChangeNotifier + ChangeNotifierProxyProvider |
+| **Backend SDK** | supabase_flutter 2.5+ | Auth, Realtime, RPC calls |
+| **Cripto simétrica** | pointycastle 3.9 | HKDF-SHA-256, AES-256-GCM, MAC |
+| **Plugins** | app_links, image_picker, share_plus | Deep links, media, sharing |
+| **Persistência** | SharedPreferences | TOFU pinning servidor, preferences |
 
-**Backend Supabase**
-- **Auth** (GoTrue) — email/password com JWT + email confirmation
-- **Postgres 15** — 15 tabelas com RLS; RPCs `SECURITY DEFINER` para lookup público
-- **Realtime** — subscrições WebSocket em `accounts` e `transactions`
-- **Edge Functions** (Deno 2.1, V8 11.6) — 8 funções activas:
-  - `pqc_bootstrap` — entrega chave pública ML-DSA-65 do servidor (TOFU pinning)
-  - `pqc_handshake_flutter` — handshake adaptado para Flutter (server emite shared_secret)
-  - `flutter_sign_transfer` — assina payload com ML-DSA-65 (server-side, para cliente Flutter)
-  - `verify_dsa` — verifica assinatura ML-DSA-65 arbitrária
-  - `executar_transferencia` — verifica assinatura + decifra envelope + chama RPC atómica
-  - `bench_server_pqc` — benchmark de primitivas reais (`@noble/post-quantum`)
-  - `send_otp_email` — envio de código OTP por email via Resend (opcional)
+### Backend Supabase + Deno
+
+| Componente | Tecnologia | Responsabilidade |
+|---|---|---|
+| **Autenticação** | GoTrue (Supabase Auth) | JWT, email/password, session |
+| **Banco de dados** | PostgreSQL 15 | 15 tabelas com RLS |
+| **Subscrições** | Supabase Realtime (WebSocket) | Saldos + histórico ao vivo |
+| **Cripto PQC** | @noble/post-quantum 0.4 | ML-KEM-768, ML-DSA-65 (server-side) |
+| **Runtime** | Deno 2.1 / V8 11.6 | Executa 8 Edge Functions |
+
+### 8 Edge Functions em `functions/src/index.ts`
+
+| Função | Propósito | Utiliza |
+|---|---|---|
+| `pqc_bootstrap` | Entrega chave pública servidor | ML-DSA-65 pub key |
+| `pqc_handshake_flutter` | Handshake PQC | ML-KEM-768 encapsulation |
+| `flutter_sign_transfer` | Assina payload | ML-DSA-65 signing |
+| `verify_dsa` | Verifica assinatura | ML-DSA-65 verify |
+| `executar_transferencia` | RPC atómica + decifra | AES-256-GCM decrypt |
+| `bench_server_pqc` | Benchmark real | @noble/post-quantum |
+| `send_otp_email` | OTP por email | Resend API |
+| `lookup_*` | RPCs públicas | PostgreSQL SELECT |
+
+**Nota**: Cripto assimétrica (PQC) é **server-only** porque não há bibliotecas Dart confiáveis para ML-DSA-65. Cripto simétrica (HKDF + AES-256-GCM) é **client-side** para minimizar latência. Ver [`ADR-001`](docs/adr/ADR-001-PQC-IMPLEMENTATION.md).
 
 ---
 
@@ -414,16 +484,63 @@ Comparação com clássico (SUPERCOP @ Intel i7-6500U):
 
 ---
 
-## Licença
+## Contribuir
 
-Investigação académica. Uso comercial requer autorização explícita.
+Este é um projecto académico aberto a contribuições em pesquisa, *bug fixes*, e extensões educacionais.
 
-© 2026 Vagner Bom Jesus · Instituto Politécnico da Guarda · Todos os direitos reservados.
+### Contribuições apropriadas:
+- ✅ Bug reports (com stack trace, passos para reproduzir)
+- ✅ Segurança disclosures (contactar `vagneripg@gmail.com` com `[SECURITY]` em assunto)
+- ✅ Melhorias em documentação
+- ✅ Investigação em PQC (novos algoritmos, benchmarks, análise)
+- ✅ Testes e cobertura
+- ✅ Refactoring com padrões estabelecidos
+
+### Workflow:
+1. Ler [`CONTRIBUTING.md`](CONTRIBUTING.md) completamente
+2. Criar branch `feat/`, `fix/`, `docs/`, etc.
+3. Implementar com padrões do projecto (singletons, imutabilidade, RLS)
+4. Passar `flutter analyze` (sem warnings)
+5. Submeter PR com descrição clara
+
+### Perguntas frequentes:
+
+**P: Posso usar esta app em produção?**
+R: Não. É investigação académica. Uso comercial requer autorização explícita. Ver licença.
+
+**P: Por que server-side PQC em vez de cliente?**
+R: Ausência de bibliotecas Dart fiáveis para ML-DSA-65. Documentado em [`ADR-001`](docs/adr/ADR-001-PQC-IMPLEMENTATION.md).
+
+**P: Como está o suporte a Y2Q?**
+R: ML-DSA-65 + ML-KEM-768 são resistentes a quantum. Assinatura persistida em cada transação. Ver [`ADR-003`](docs/adr/ADR-003-SECURITY-STRATEGY.md).
+
+**P: Posso fazer benchmark PQC?**
+R: Sim. `Settings → Segurança → Benchmark PQC` → local (PoC) ou servidor (real). Exporta JSON/Markdown.
 
 ---
 
-## Contacto
+## Licença
 
-- **GitHub**: [VagnerBomJesus/BJBank](https://github.com/VagnerBomJesus/BJBank)
-- **Email**: vagneripg@gmail.com
-- **Backend Supabase**: `jdybjrpmybkmmfdlwrzp.supabase.co`
+**Investigação Académica**. Uso comercial requer autorização explícita.
+
+© 2026 Vagner Bom Jesus · Instituto Politécnico da Guarda · Todos os direitos reservados.
+
+Termos completos: [`LICENSE`](LICENSE) (Academic Research License com restrições comerciais).
+
+---
+
+## Contacto & Suporte
+
+| Tipo | Contacto |
+|---|---|
+| **Issues técnicas** | [GitHub Issues](https://github.com/VagnerBomJesus/BJBank/issues) |
+| **Segurança** | `vagneripg@gmail.com` (com `[SECURITY]` em assunto) |
+| **Autor** | Vagner Bom Jesus — vagneripg@gmail.com |
+| **Orientador** | Prof. Doutor Rui A. P. Perdigão |
+| **Instituição** | Instituto Politécnico da Guarda |
+| **Backend URL** | `https://jdybjrpmybkmmfdlwrzp.supabase.co` |
+| **GitHub** | [VagnerBomJesus/BJBank](https://github.com/VagnerBomJesus/BJBank) |
+
+---
+
+**Obrigado por explorar o futuro da banca móvel pós-quântica.** 🚀
