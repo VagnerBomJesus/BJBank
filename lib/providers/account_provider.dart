@@ -3,12 +3,12 @@ import 'package:flutter/foundation.dart';
 import '../models/account_model.dart';
 import '../models/financial_summary.dart';
 import '../models/transaction_model.dart';
-import '../services/firestore_service.dart';
+import '../services/supabase_account_service.dart';
 
 /// Account Provider for BJBank
 /// Manages account data and transactions across the app
 class AccountProvider extends ChangeNotifier {
-  final FirestoreService _firestoreService = FirestoreService();
+  final SupabaseAccountService _accountService = SupabaseAccountService();
 
   AccountModel? _primaryAccount;
   List<Transaction> _transactions = [];
@@ -40,22 +40,40 @@ class AccountProvider extends ChangeNotifier {
     _currentUserId = userId;
     _isLoading = true;
     _errorMessage = null;
-    notifyListeners();
+    // Defer para depois do frame actual: o initState do HomeScreen chama
+    // loadAccount() durante o build, e notifyListeners() durante o build
+    // dispara assertion. scheduleMicrotask resolve sem alterar timing.
+    Future.microtask(notifyListeners);
 
     try {
-      // Stream account changes for real-time updates
+      // Stream accounts (Supabase Realtime).
       _accountSubscription?.cancel();
-      _accountSubscription = _firestoreService
-          .streamUserAccounts(userId)
-          .listen(
+      _accountSubscription = _accountService.observarContas().listen(
         (accounts) {
           if (accounts.isNotEmpty) {
             _primaryAccount = accounts.firstWhere(
               (a) => a.type == AccountType.checking,
               orElse: () => accounts.first,
             );
+            // Inicia stream das transacoes da conta principal.
+            _transactionsSubscription?.cancel();
+            _transactionsSubscription = _accountService
+                .observarTransacoes(_primaryAccount!.id, limite: 50)
+                .listen(
+              (transactions) {
+                _transactions = transactions;
+                _isLoadingTransactions = false;
+                notifyListeners();
+              },
+              onError: (error) {
+                debugPrint('Error streaming transactions: $error');
+                _isLoadingTransactions = false;
+                notifyListeners();
+              },
+            );
           } else {
             _primaryAccount = null;
+            _transactions = [];
           }
           _isLoading = false;
           notifyListeners();
@@ -68,27 +86,8 @@ class AccountProvider extends ChangeNotifier {
         },
       );
 
-      // Stream transactions for real-time updates
-      _transactionsSubscription?.cancel();
-      _transactionsSubscription = _firestoreService
-          .streamUserTransactions(userId)
-          .listen(
-        (transactions) {
-          _transactions = transactions;
-          _isLoadingTransactions = false;
-          notifyListeners();
-        },
-        onError: (error) {
-          debugPrint('Error streaming transactions: $error');
-          _isLoadingTransactions = false;
-          notifyListeners();
-        },
-      );
-
-      // Also load initial transactions
       _isLoadingTransactions = true;
       notifyListeners();
-      await refreshTransactions(userId);
     } catch (e) {
       debugPrint('Error loading account: $e');
       _errorMessage = 'Erro ao carregar dados da conta';
@@ -97,21 +96,25 @@ class AccountProvider extends ChangeNotifier {
     }
   }
 
-  /// Refresh transactions from Firestore
+  /// Refetch transactions (one-shot, ignora cache).
   Future<void> refreshTransactions(String userId) async {
+    if (_primaryAccount == null) return;
     try {
-      _transactions = await _firestoreService.getUserTransactions(userId);
+      _transactions = await _accountService.obterTransacoes(
+        _primaryAccount!.id,
+        limite: 50,
+      );
       notifyListeners();
     } catch (e) {
       debugPrint('Error loading transactions: $e');
     }
   }
 
-  /// Refresh account data
+  /// Refetch contas.
   Future<void> refreshAccount() async {
     if (_currentUserId == null) return;
     try {
-      final accounts = await _firestoreService.getUserAccounts(_currentUserId!);
+      final accounts = await _accountService.obterContas();
       if (accounts.isNotEmpty) {
         _primaryAccount = accounts.firstWhere(
           (a) => a.type == AccountType.checking,

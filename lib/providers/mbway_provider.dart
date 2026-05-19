@@ -1,102 +1,64 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../models/mbway_contact_model.dart';
-import '../services/mbway_service.dart';
+import '../services/supabase_account_service.dart';
+import '../services/supabase_mbway_service.dart';
 
-/// MB WAY Provider for managing MB WAY payments and contacts
+/// Provider MBWay migrado para Supabase com PQC end-to-end.
 class MbWayProvider extends ChangeNotifier {
-  final MbWayService _mbwayService = MbWayService();
+  final SupabaseMbwayService _mbway = SupabaseMbwayService();
+  final SupabaseAccountService _accounts = SupabaseAccountService();
 
   List<MbWayContact> _contacts = [];
   List<MbWayContact> _frequentContacts = [];
-  List<Map<String, dynamic>> _transactionHistory = [];
   bool _isLoading = false;
   String? _errorMessage;
-  StreamSubscription? _contactsSubscription;
-  StreamSubscription? _historySubscription;
-  String? _currentUserId;
+  StreamSubscription<List<MbWayContact>>? _contactsSub;
+  String? _origemIbanCache;
 
-  // Statistics
-  double _totalMbWayAmount = 0.0;
-  int _transactionCount = 0;
-
-  // Getters
   List<MbWayContact> get contacts => _contacts;
   List<MbWayContact> get frequentContacts => _frequentContacts;
-  List<Map<String, dynamic>> get transactionHistory => _transactionHistory;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   bool get hasContacts => _contacts.isNotEmpty;
-  double get totalMbWayAmount => _totalMbWayAmount;
-  int get transactionCount => _transactionCount;
 
-  /// Initialize provider
-  void initialize(String userId) {
-    _currentUserId = userId;
-    _listenToContacts(userId);
-    _listenToHistory(userId);
-    _loadStatistics(userId);
-  }
-
-  /// Listen to real-time contact updates
-  void _listenToContacts(String userId) {
-    _contactsSubscription?.cancel();
-    _contactsSubscription = _mbwayService.streamContacts(userId).listen(
-      (contacts) {
-        _contacts = contacts;
+  /// `userId` mantido por compat com proxy provider em app.dart; nao usado.
+  void initialize([String? userId]) {
+    _contactsSub?.cancel();
+    _contactsSub = _mbway.observarContactos().listen(
+      (lista) {
+        _contacts = lista;
         _errorMessage = null;
         notifyListeners();
       },
-      onError: (error) {
-        debugPrint('Error streaming contacts: $error');
-        _errorMessage = 'Erro ao carregar contactos';
+      onError: (e) {
+        _errorMessage = 'Erro ao carregar contactos: $e';
         notifyListeners();
       },
     );
+    _carregarFrequentes();
+    _resolverOrigemIban();
   }
 
-  /// Listen to real-time transaction history
-  void _listenToHistory(String userId) {
-    _historySubscription?.cancel();
-    _historySubscription = _mbwayService.streamMbWayHistory(userId).listen(
-      (history) {
-        _transactionHistory = history;
-        _errorMessage = null;
-        notifyListeners();
-      },
-      onError: (error) {
-        debugPrint('Error streaming history: $error');
-        _errorMessage = 'Erro ao carregar histórico';
-        notifyListeners();
-      },
-    );
-  }
-
-  /// Load statistics
-  Future<void> _loadStatistics(String userId) async {
-    try {
-      _totalMbWayAmount = await _mbwayService.getTotalMbWayAmount(userId);
-      _transactionCount = await _mbwayService.getMbWayTransactionCount(userId);
-      notifyListeners();
-    } catch (e) {
-      debugPrint('Error loading statistics: $e');
+  Future<void> _resolverOrigemIban() async {
+    final contas = await _accounts.obterContas();
+    if (contas.isNotEmpty) {
+      _origemIbanCache = contas.first.iban;
     }
   }
 
-  /// Load frequent contacts
-  Future<void> loadFrequentContacts() async {
-    if (_currentUserId == null) return;
-
+  Future<void> _carregarFrequentes() async {
     try {
-      _frequentContacts =
-          await _mbwayService.getFrequentContacts(_currentUserId!);
+      _frequentContacts = await _mbway.obterContactosFrequentes();
       notifyListeners();
     } catch (e) {
-      debugPrint('Error loading frequent contacts: $e');
+      debugPrint('Erro frequentes: $e');
     }
   }
 
-  /// Initiate MB WAY payment
+  Future<void> loadFrequentContacts() => _carregarFrequentes();
+
+  /// Pagamento MBWay com cripto pos-quantica.
   Future<bool> initiateMbWayPayment({
     required String recipientPhone,
     required String recipientName,
@@ -105,102 +67,70 @@ class MbWayProvider extends ChangeNotifier {
     String? reference,
     required String senderName,
   }) async {
-    if (_currentUserId == null) {
-      _errorMessage = 'Utilizador não autenticado';
+    if (!SupabaseMbwayService.isValidPhoneNumber(recipientPhone)) {
+      _errorMessage = 'Numero de telefone invalido';
       notifyListeners();
       return false;
     }
-
-    // Validate phone number
-    if (!MbWayService.isValidPhoneNumber(recipientPhone)) {
-      _errorMessage = 'Número de telefone inválido';
-      notifyListeners();
-      return false;
-    }
-
-    _isLoading = true;
-    _errorMessage = null;
-    notifyListeners();
-
-    try {
-      final success = await _mbwayService.initiateMbWayPayment(
-        senderId: _currentUserId!,
-        senderName: senderName,
-        recipientPhone: recipientPhone,
-        recipientName: recipientName,
-        amount: amount,
-        description: description,
-        reference: reference,
-      );
-
-      _isLoading = false;
-
-      if (success) {
-        _errorMessage = null;
-        await _loadStatistics(_currentUserId!);
-        notifyListeners();
-        return true;
-      } else {
-        _errorMessage = 'Erro ao processar pagamento MB WAY';
+    if (_origemIbanCache == null) {
+      await _resolverOrigemIban();
+      if (_origemIbanCache == null) {
+        _errorMessage = 'Nao foi possivel determinar a conta de origem.';
         notifyListeners();
         return false;
       }
-    } catch (e) {
-      _isLoading = false;
-      _errorMessage = 'Erro: ${e.toString()}';
-      notifyListeners();
-      return false;
     }
-  }
-
-  /// Delete contact
-  Future<bool> deleteContact(String contactId) async {
-    if (_currentUserId == null) return false;
-
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
     try {
-      final success =
-          await _mbwayService.deleteContact(_currentUserId!, contactId);
-
-      if (success) {
-        _contacts.removeWhere((c) => c.id == contactId);
-        notifyListeners();
-        return true;
-      }
-      return false;
+      await _mbway.pagar(
+        origemIban: _origemIbanCache!,
+        destinoPhone: recipientPhone,
+        montante: amount,
+        descricao: description.isEmpty ? recipientName : description,
+      );
+      return true;
     } catch (e) {
-      debugPrint('Error deleting contact: $e');
+      _errorMessage = e.toString();
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> deleteContact(String contactId) async {
+    try {
+      await _mbway.apagarContacto(contactId);
+      _contacts.removeWhere((c) => c.id == contactId);
+      notifyListeners();
+      return true;
+    } catch (e) {
+      debugPrint('Erro a apagar contacto: $e');
       return false;
     }
   }
 
-  /// Validate phone number
-  bool validatePhoneNumber(String phone) {
-    return MbWayService.isValidPhoneNumber(phone);
-  }
+  bool validatePhoneNumber(String phone) =>
+      SupabaseMbwayService.isValidPhoneNumber(phone);
 
-  /// Format phone number
-  String formatPhoneNumber(String phone) {
-    return MbWayService.formatPhoneNumber(phone);
-  }
+  String formatPhoneNumber(String phone) =>
+      SupabaseMbwayService.formatPhoneNumber(phone);
 
-  /// Clear error message
   void clearError() {
     _errorMessage = null;
     notifyListeners();
   }
 
-  /// Refresh data
   Future<void> refreshData() async {
-    if (_currentUserId != null) {
-      await loadFrequentContacts();
-      await _loadStatistics(_currentUserId!);
-    }
+    await _carregarFrequentes();
+    await _resolverOrigemIban();
   }
 
   @override
   void dispose() {
-    _contactsSubscription?.cancel();
-    _historySubscription?.cancel();
+    _contactsSub?.cancel();
     super.dispose();
   }
 }

@@ -1,76 +1,66 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../models/user_model.dart';
-import '../services/auth_service.dart';
+import '../services/supabase_auth_service.dart';
 import '../services/firestore_service.dart';
-import '../services/notification_service.dart';
 
-/// Auth Provider for BJBank
-/// Manages authentication state across the app
+/// Provider de autenticacao migrado para Supabase.
+///
+/// Mantem a API publica (login, register, logout, user, isLoading, ...)
+/// compativel com os ecras existentes para minimizar churn.
 class AuthProvider extends ChangeNotifier {
-  final FirestoreService _firestoreService = FirestoreService();
+  final SupabaseAuthService _auth = SupabaseAuthService();
+  final FirestoreService _profile = FirestoreService();
+  StreamSubscription<UserModel?>? _userSub;
 
   UserModel? _user;
   bool _isLoading = false;
   String? _errorMessage;
-  StreamSubscription? _userSubscription;
 
   UserModel? get user => _user;
-  bool get isLoggedIn => AuthService.isLoggedIn;
+  bool get isLoggedIn => _user != null;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
-  String? get userId => AuthService.currentUserId;
+  String? get userId => _user?.id;
 
-  /// Initialize provider and listen to auth state changes
+  /// Subscreve mudancas de sessao (sign-in / sign-out / token refresh).
   void initialize() {
-    AuthService.authStateChanges.listen((firebaseUser) {
-      if (firebaseUser != null) {
-        _loadUser(firebaseUser.uid);
-      } else {
-        _userSubscription?.cancel();
-        _user = null;
-        notifyListeners();
+    _userSub?.cancel();
+    _user = _auth.currentUser;
+    if (_user != null) {
+      // ignore: discarded_futures
+      refreshProfile();
+    }
+    _userSub = _auth.currentUserStream.listen((u) {
+      _user = u;
+      notifyListeners();
+      if (u != null) {
+        // ignore: discarded_futures
+        refreshProfile();
       }
     });
   }
 
-  /// Load user data from Firestore and listen for changes
-  void _loadUser(String userId) {
-    _userSubscription?.cancel();
-    _userSubscription = _firestoreService.streamUser(userId).listen(
-      (user) {
-        _user = user;
-        // Subscribe to user-specific notification topic
-        _subscribeToNotifications(userId);
+  /// Recarrega o perfil do utilizador a partir de public.users (inclui
+  /// nome, telefone, photoUrl). Necessario para mostrar avatar apos upload.
+  Future<void> refreshProfile() async {
+    final uid = _user?.id;
+    if (uid == null) return;
+    try {
+      final fresh = await _profile.getUser(uid);
+      if (fresh != null) {
+        _user = _user?.copyWith(
+          name: fresh.name.isEmpty ? _user!.name : fresh.name,
+          phone: fresh.phone,
+          photoUrl: fresh.photoUrl,
+        );
         notifyListeners();
-      },
-      onError: (error) {
-        debugPrint('Error streaming user: $error');
-      },
-    );
+      }
+    } catch (e) {
+      debugPrint('refreshProfile erro: $e');
+    }
   }
 
-  /// Subscribe to notification topics for the user
-  void _subscribeToNotifications(String userId) async {
-    // Subscribe to user-specific topic
-    await NotificationService.subscribeToTopic('user_$userId');
-    // Subscribe to transaction notifications
-    await NotificationService.subscribeToTopic('transactions');
-    // Subscribe to security notifications
-    await NotificationService.subscribeToTopic('security');
-    // Subscribe to system notifications
-    await NotificationService.subscribeToTopic('system');
-  }
-
-  /// Unsubscribe from notification topics
-  void _unsubscribeFromNotifications(String userId) async {
-    await NotificationService.unsubscribeFromTopic('user_$userId');
-    await NotificationService.unsubscribeFromTopic('transactions');
-    await NotificationService.unsubscribeFromTopic('security');
-    await NotificationService.unsubscribeFromTopic('system');
-  }
-
-  /// Login
   Future<bool> login({
     required String email,
     required String password,
@@ -78,26 +68,23 @@ class AuthProvider extends ChangeNotifier {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
-
-    final result = await AuthService.login(
-      email: email,
-      password: password,
-    );
-
-    _isLoading = false;
-
-    if (result.success) {
-      _user = result.user;
-      notifyListeners();
-      return true;
-    } else {
-      _errorMessage = result.errorMessage;
-      notifyListeners();
+    try {
+      final u = await _auth.signIn(email: email, password: password);
+      _user = u;
+      if (u != null) {
+        // ignore: discarded_futures
+        refreshProfile();
+      }
+      return u != null;
+    } catch (e) {
+      _errorMessage = _humanize(e);
       return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
   }
 
-  /// Register
   Future<bool> register({
     required String email,
     required String password,
@@ -107,51 +94,84 @@ class AuthProvider extends ChangeNotifier {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
+    try {
+      final r = await _auth.signUp(
+        email: email,
+        password: password,
+        nomeCompleto: name,
+        phone: phone,
+      );
+      _user = r.user;
+      if (r.precisaConfirmarEmail) {
+        _errorMessage = 'Verifica o teu email para confirmar a conta.';
+      }
+      return r.user != null || r.precisaConfirmarEmail;
+    } catch (e) {
+      _errorMessage = _humanize(e);
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
 
-    final result = await AuthService.register(
-      email: email,
-      password: password,
-      name: name,
-      phone: phone,
-    );
-
-    _isLoading = false;
-
-    if (result.success) {
-      _user = result.user;
+  Future<bool> sendPasswordReset(String email) async {
+    try {
+      await _auth.sendPasswordReset(email);
+      _errorMessage = 'Email de recuperacao enviado.';
       notifyListeners();
       return true;
-    } else {
-      _errorMessage = result.errorMessage;
+    } catch (e) {
+      _errorMessage = _humanize(e);
       notifyListeners();
       return false;
     }
   }
 
-  /// Logout
-  Future<void> logout() async {
-    // Unsubscribe from notifications before logout
-    if (_user?.id != null) {
-      _unsubscribeFromNotifications(_user!.id);
+  /// Apos consumir deep link `bjbank://reset`.
+  Future<bool> updatePassword(String novaPassword) async {
+    _isLoading = true;
+    notifyListeners();
+    try {
+      await _auth.updatePassword(novaPassword);
+      return true;
+    } catch (e) {
+      _errorMessage = _humanize(e);
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
-    // Delete FCM token
-    await NotificationService.deleteToken();
-    // Perform logout
-    await AuthService.logout();
-    _userSubscription?.cancel();
+  }
+
+  Future<void> logout() async {
+    await _auth.signOut();
     _user = null;
     notifyListeners();
   }
 
-  /// Clear error message
   void clearError() {
     _errorMessage = null;
     notifyListeners();
   }
 
+  String _humanize(Object e) {
+    final s = e.toString();
+    if (s.contains('Invalid login credentials')) {
+      return 'Email ou palavra-passe incorretos.';
+    }
+    if (s.contains('Email not confirmed')) {
+      return 'Confirma o teu email antes de entrar.';
+    }
+    if (s.contains('User already registered')) {
+      return 'Ja existe uma conta com esse email.';
+    }
+    return s;
+  }
+
   @override
   void dispose() {
-    _userSubscription?.cancel();
+    _userSub?.cancel();
     super.dispose();
   }
 }
