@@ -38,11 +38,22 @@ dependencies:
   # Local storage for onboarding state
   shared_preferences: ^2.2.2
 
-  # Firebase - Backend
-  firebase_core: ^4.4.0
-  firebase_auth: ^6.1.4
-  cloud_firestore: ^6.1.2
-  firebase_messaging: ^16.1.1
+  # === BACKEND PRINCIPAL: Supabase ===
+  # As Edge Functions Supabase ja deployadas (pqc_bootstrap, pqc_handshake,
+  # pqc_handshake_flutter, executar_transferencia, flutter_sign_transfer,
+  # verify_dsa) implementam ML-KEM-768 e ML-DSA-65 reais via
+  # @noble/post-quantum. Os providers principais (auth, transfer, account)
+  # ja usam Supabase. Screens legacy ainda importam Firebase ate migracao.
+  supabase_flutter: ^2.5.6
+
+  # Cripto local: AES-GCM, HKDF-SHA256
+  pointycastle: ^3.9.1
+
+  # === FIREBASE REMOVIDO ===
+  # Toda a app usa Supabase. Codigo legacy que importava firebase_core,
+  # firebase_auth, cloud_firestore, firebase_messaging, cloud_functions
+  # agora aponta para shims locais em `lib/compat/` que devolvem no-ops em
+  # runtime, garantindo que o build passa enquanto se migra screen-a-screen.
 
   # Security
   flutter_secure_storage: ^10.0.0
@@ -66,11 +77,9 @@ dependencies:
   # State Management
   provider: ^6.1.2
 
-  # PQC via liboqs FFI (Open Quantum Safe)
-  oqs: ^3.1.0
-
-  # FFI for PQC (liboqs)
-  ffi: ^2.1.0
+  # --- Removidos definitivamente ---
+  # oqs / ffi: liboqs FFI nao carregava no Android; PQC delegado ao servidor
+  # via Edge Functions.
 
 dev_dependencies:
   flutter_test:
