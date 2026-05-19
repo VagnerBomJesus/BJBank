@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../theme/colors.dart';
 import '../../theme/spacing.dart';
 import '../../providers/account_provider.dart';
+import '../../providers/auth_provider.dart';
 import '../../services/firestore_service.dart';
 import '../../routes/app_routes.dart';
 
@@ -44,10 +45,13 @@ class _MbWaySettingsScreenState extends State<MbWaySettingsScreen> {
     if (account == null) return;
 
     if (enable) {
+      // Pre-popula com telefone do utilizador (se ja registado em users.phone).
+      final preFilled = context.read<AuthProvider>().user?.phone;
       // Navigate to phone verification
       final phone = await Navigator.pushNamed(
         context,
         AppRoutes.mbwayPhoneVerification,
+        arguments: preFilled,
       );
 
       if (phone != null && phone is String) {
@@ -285,20 +289,10 @@ class _MbWaySettingsScreenState extends State<MbWaySettingsScreen> {
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: BJBankColors.mbwayRed,
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: const Text(
-                'MB',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+            Image.asset(
+              'assets/mbway.png',
+              height: 24,
+              fit: BoxFit.contain,
             ),
             const SizedBox(width: 8),
             const Text('Definicoes MB WAY'),

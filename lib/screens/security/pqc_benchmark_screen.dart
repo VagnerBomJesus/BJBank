@@ -3,18 +3,24 @@ import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../models/pqc_metrics_model.dart';
 import '../../services/pqc_benchmark_service.dart';
-import '../../services/pqc_service.dart';
+import '../../services/server_pqc_benchmark_service.dart';
 import '../../theme/colors.dart';
 import '../../theme/spacing.dart';
 
 /// PQC Benchmark Screen
 ///
-/// Compares Post-Quantum Cryptography (Dilithium/Kyber) performance against
-/// classical algorithms (RSA/ECDSA) using on-device measurements and NIST
-/// reference data.
+/// Compara performance de ML-KEM-768 / ML-DSA-65 (FIPS 203/204) com
+/// algoritmos classicos (RSA / ECDSA) usando medicoes locais + dados de
+/// referencia NIST/SUPERCOP @ Intel i7-6500U.
 ///
-/// See ADR-001 (implementation mode), ADR-002 (hybrid handshake),
-/// ADR-003 (benchmarking methodology) for context.
+/// Estado actual:
+///  - Flutter: assinatura ML-DSA-65 delegada ao servidor (Edge Function
+///    `flutter_sign_transfer` com @noble/post-quantum). O benchmark deste
+///    ecra mede a parte cliente (serializacao + invocacao da function +
+///    RTT). Para numeros puros de KEM/DSA, usar a app Kotlin (BouncyCastle
+///    local) ou o benchmark do servidor.
+///  - Kotlin: ML-KEM-768 + ML-DSA-65 reais via BouncyCastle 1.82
+///    no proprio dispositivo.
 class PqcBenchmarkScreen extends StatefulWidget {
   const PqcBenchmarkScreen({super.key});
 
@@ -24,12 +30,21 @@ class PqcBenchmarkScreen extends StatefulWidget {
 
 class _PqcBenchmarkScreenState extends State<PqcBenchmarkScreen> {
   final _benchmarkService = PqcBenchmarkService();
+  final _serverBenchmark = ServerPqcBenchmarkService();
 
   PqcBenchmarkReport? _report;
   bool _isRunning = false;
   double _progress = 0.0;
   String _currentOp = '';
   String? _error;
+
+  // Server-side benchmark state
+  ServerPqcBenchmarkReport? _serverReport;
+  bool _isRunningServer = false;
+  String? _serverError;
+  int _serverIterations = 50;
+  double _serverProgress = 0.0;
+  String _serverProgressLabel = '';
 
   Future<void> _runBenchmark() async {
     setState(() {
@@ -64,6 +79,67 @@ class _PqcBenchmarkScreenState extends State<PqcBenchmarkScreen> {
           _isRunning = false;
         });
       }
+    }
+  }
+
+  Future<void> _runServerBenchmark() async {
+    setState(() {
+      _isRunningServer = true;
+      _serverError = null;
+      _serverProgress = 0.0;
+      _serverProgressLabel = 'A começar...';
+    });
+    try {
+      final report = await _serverBenchmark.run(
+        iterations: _serverIterations,
+        onProgress: (p, nextAlg) {
+          if (mounted) {
+            setState(() {
+              _serverProgress = p;
+              _serverProgressLabel = nextAlg.isEmpty
+                  ? 'A finalizar…'
+                  : 'A medir $nextAlg…';
+            });
+          }
+        },
+      );
+      if (mounted) {
+        setState(() {
+          _serverReport = report;
+          _isRunningServer = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _serverError = e.toString();
+          _isRunningServer = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _exportServerJson() async {
+    if (_serverReport == null) return;
+    await Share.share(
+      _serverReport!.toJson().toString(),
+      subject:
+          'BJBank Server PQC Benchmark — ${_serverReport!.executedAt.toIso8601String()}',
+    );
+  }
+
+  Future<void> _copyServerMarkdown() async {
+    if (_serverReport == null) return;
+    await Clipboard.setData(
+      ClipboardData(text: _serverReport!.toMarkdown()),
+    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Markdown server-side copiado'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 
@@ -115,30 +191,20 @@ class _PqcBenchmarkScreenState extends State<PqcBenchmarkScreen> {
 
           if (_report != null) ...[
             const SizedBox(height: BJBankSpacing.lg),
-
-            // 3. Results table
             _buildResultsTable(),
-
             const SizedBox(height: BJBankSpacing.md),
-
-            // 4. Size overhead bars
             _buildSizeOverheadCard(),
-
             const SizedBox(height: BJBankSpacing.md),
-
-            // 5. Hybrid handshake card
             _buildHybridHandshakeCard(),
-
             const SizedBox(height: BJBankSpacing.md),
-
-            // 6. Export buttons
             _buildExportButtons(),
-
             const SizedBox(height: BJBankSpacing.md),
-
-            // 7. Methodological note
             _buildMethodNote(),
           ],
+
+          // Server-side benchmark (sempre disponivel — independente do local)
+          const SizedBox(height: BJBankSpacing.lg),
+          _buildServerBenchmarkSection(),
 
           const SizedBox(height: BJBankSpacing.xl),
         ],
@@ -170,41 +236,55 @@ class _PqcBenchmarkScreenState extends State<PqcBenchmarkScreen> {
               ],
             ),
             const SizedBox(height: BJBankSpacing.sm),
-            Builder(builder: (context) {
-              final mode = PqcService.currentMode;
-              final badgeText = mode == PqcImplementationMode.production
-                  ? 'Modo: Produção (liboqs real)'
-                  : 'Modo: Simulação (PoC Arquitetural) — ver ADR-001';
-              final badgeColor = mode == PqcImplementationMode.production
-                  ? BJBankColors.success
-                  : BJBankColors.warning;
-              return Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: BJBankSpacing.sm,
-                  vertical: BJBankSpacing.xxs,
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                _modeBadge(
+                  'Flutter · ML-DSA server-side',
+                  BJBankColors.primary,
                 ),
-                decoration: BoxDecoration(
-                  color: badgeColor.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: badgeColor.withValues(alpha: 0.4)),
+                _modeBadge(
+                  'Kotlin · BouncyCastle local',
+                  BJBankColors.success,
                 ),
-                child: Text(
-                  badgeText,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: badgeColor,
-                    fontWeight: FontWeight.w500,
-                  ),
+                _modeBadge(
+                  'Backend · @noble/post-quantum',
+                  BJBankColors.quantum,
                 ),
-              );
-            }),
+              ],
+            ),
             const SizedBox(height: BJBankSpacing.sm),
             const Text(
-              'Mede latências de serialização para Dilithium2/3/5 e Kyber512/768/1024 '
-              'e compara com valores de referência NIST/SUPERCOP para RSA e ECDSA.',
+              'Compara latência e tamanho de ML-KEM-512/768/1024 e ML-DSA-44/65/87 '
+              '(FIPS 203/204) com RSA-2048/3072 e ECDSA-P256 usando dados '
+              'NIST/SUPERCOP. As medições locais incluem serialização e RTT até '
+              'à Edge Function do Supabase.',
               style: TextStyle(fontSize: 13),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _modeBadge(String text, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: BJBankSpacing.sm,
+        vertical: 2,
+      ),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 10,
+          color: color,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );
@@ -634,6 +714,299 @@ class _PqcBenchmarkScreenState extends State<PqcBenchmarkScreen> {
     );
   }
 
+  // ── Server-side benchmark UI ──────────────────────────────────────────────
+
+  Widget _buildServerBenchmarkSection() {
+    return Card(
+      color: BJBankColors.quantumLight,
+      child: Padding(
+        padding: const EdgeInsets.all(BJBankSpacing.md),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.cloud_sync_outlined, color: BJBankColors.quantum),
+                const SizedBox(width: BJBankSpacing.sm),
+                Expanded(
+                  child: Text(
+                    'Benchmark Server-side (primitivas reais)',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: BJBankColors.quantum,
+                        ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: BJBankSpacing.xs),
+            const Text(
+              'Executa ML-KEM-512/768/1024 e ML-DSA-44/65/87 na Edge Function '
+              'Supabase (Deno + @noble/post-quantum). Mede só as primitivas, '
+              'sem JSON/Base64/RTT. Estes são os números defensáveis para a tese.',
+              style: TextStyle(fontSize: 12),
+            ),
+            const SizedBox(height: BJBankSpacing.md),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Iterações: $_serverIterations',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Slider(
+                    value: _serverIterations.toDouble(),
+                    min: 10,
+                    max: 100,
+                    divisions: 9,
+                    label: '$_serverIterations',
+                    onChanged: _isRunningServer
+                        ? null
+                        : (v) =>
+                            setState(() => _serverIterations = v.toInt()),
+                  ),
+                ),
+              ],
+            ),
+            Text(
+              'Máx. 100 (limite CPU 2s das Edge Functions). 6 algoritmos × '
+              '$_serverIterations iterações em chamadas sequenciais.',
+              style: TextStyle(fontSize: 10, color: Colors.grey[700]),
+            ),
+            const SizedBox(height: BJBankSpacing.sm),
+            FilledButton.icon(
+              onPressed: _isRunningServer ? null : _runServerBenchmark,
+              icon: _isRunningServer
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.play_arrow),
+              label: Text(
+                _isRunningServer
+                    ? 'A executar no servidor…'
+                    : 'Executar no servidor',
+              ),
+              style: FilledButton.styleFrom(
+                backgroundColor: BJBankColors.quantum,
+              ),
+            ),
+            if (_isRunningServer) ...[
+              const SizedBox(height: BJBankSpacing.sm),
+              LinearProgressIndicator(
+                value: _serverProgress,
+                color: BJBankColors.quantum,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                _serverProgressLabel,
+                style: const TextStyle(fontSize: 11),
+                textAlign: TextAlign.center,
+              ),
+            ],
+            if (_serverError != null) ...[
+              const SizedBox(height: BJBankSpacing.sm),
+              Container(
+                padding: const EdgeInsets.all(BJBankSpacing.sm),
+                decoration: BoxDecoration(
+                  color: BJBankColors.error.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  _serverError!,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: BJBankColors.error,
+                  ),
+                ),
+              ),
+            ],
+            if (_serverReport != null) ...[
+              const SizedBox(height: BJBankSpacing.md),
+              _buildServerResultsTable(),
+              const SizedBox(height: BJBankSpacing.sm),
+              _buildServerExportButtons(),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildServerResultsTable() {
+    final r = _serverReport!;
+    return Container(
+      padding: const EdgeInsets.all(BJBankSpacing.sm),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Resultados (N=${r.iterations})',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+              Text(
+                'Total: ${r.totalMs.toStringAsFixed(0)} ms',
+                style: TextStyle(fontSize: 11, color: Colors.grey[700]),
+              ),
+            ],
+          ),
+          const SizedBox(height: BJBankSpacing.xs),
+          Row(
+            children: const [
+              Expanded(
+                flex: 3,
+                child: Text(
+                  'Algoritmo · Op',
+                  style:
+                      TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  'Média',
+                  textAlign: TextAlign.right,
+                  style:
+                      TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  'P95',
+                  textAlign: TextAlign.right,
+                  style:
+                      TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  'Min',
+                  textAlign: TextAlign.right,
+                  style:
+                      TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
+                ),
+              ),
+              SizedBox(
+                width: 32,
+                child: Text(
+                  'Lv',
+                  textAlign: TextAlign.right,
+                  style:
+                      TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+          const Divider(height: 8),
+          ...r.results.entries.expand((algEntry) {
+            final alg = algEntry.key;
+            final level = r.sizes[alg]?.level ?? 0;
+            return algEntry.value.entries.map((opEntry) {
+              final op = opEntry.key;
+              final s = opEntry.value;
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 1.5),
+                child: Row(
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: Text(
+                        '$alg · $op',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontFamily: 'monospace',
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        s.mean.toStringAsFixed(2),
+                        textAlign: TextAlign.right,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: BJBankColors.quantum,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        s.p95.toStringAsFixed(2),
+                        textAlign: TextAlign.right,
+                        style: const TextStyle(fontSize: 11),
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        s.min.toStringAsFixed(2),
+                        textAlign: TextAlign.right,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ),
+                    SizedBox(
+                      width: 32,
+                      child: Text(
+                        '$level',
+                        textAlign: TextAlign.right,
+                        style: const TextStyle(fontSize: 11),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            });
+          }),
+          const SizedBox(height: BJBankSpacing.xs),
+          Text(
+            'Runtime: Deno ${r.runtime['deno']} · V8 ${r.runtime['v8']}',
+            style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildServerExportButtons() {
+    return Row(
+      children: [
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: _exportServerJson,
+            icon: const Icon(Icons.share, size: 16),
+            label: const Text('JSON', style: TextStyle(fontSize: 12)),
+          ),
+        ),
+        const SizedBox(width: BJBankSpacing.sm),
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: _copyServerMarkdown,
+            icon: const Icon(Icons.content_copy, size: 16),
+            label: const Text('Markdown', style: TextStyle(fontSize: 12)),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildMethodNote() {
     return Card(
       color: Colors.amber.withValues(alpha: 0.08),
@@ -656,13 +1029,18 @@ class _PqcBenchmarkScreenState extends State<PqcBenchmarkScreen> {
             ),
             const SizedBox(height: BJBankSpacing.xs),
             const Text(
-              'As latências medidas refletem overhead de serialização e I/O do PoC '
-              'Arquitetural, NÃO o custo criptográfico real das operações Module-LWE '
-              'ou Fiat-Shamir. Consulte os valores NIST/SUPERCOP (ADR-003) para '
-              'comparação com hardware de referência (Intel i7-6500U @ 2.5GHz).\n\n'
-              'Exemplo: Kyber768 KeyGen real ≈ 0.038ms (94K cycles). '
-              'A latência medida aqui (~18ms) inclui geração de bytes aleatórios, '
-              'codificação Base64, e overhead do Dart VM.',
+              'Onde acontece a cripto:\n'
+              '  • Flutter: ML-DSA-65 corre na Edge Function Supabase '
+              '(@noble/post-quantum, Deno). As latências locais incluem '
+              'serialização, JWT, TLS e RTT.\n'
+              '  • Kotlin: ML-KEM-768 + ML-DSA-65 reais via BouncyCastle 1.82 '
+              'no proprio dispositivo (numeros mais limpos para a tese).\n\n'
+              'Para custos puros das primitivas, comparar com NIST/SUPERCOP '
+              '@ Intel i7-6500U: ML-KEM-768 KeyGen ≈ 0.038 ms (94K cycles), '
+              'ML-DSA-65 Sign ≈ 0.18 ms (455K cycles), ML-DSA-65 Verify ≈ 0.06 ms.\n\n'
+              'Tamanhos fixos por norma (FIPS 203/204):\n'
+              '  • ML-KEM-768: pk 1184 B · sk 2400 B · ct 1088 B\n'
+              '  • ML-DSA-65:  pk 1952 B · sk 4032 B · sig 3309 B',
               style: TextStyle(fontSize: 11),
             ),
           ],

@@ -104,19 +104,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 const Divider(height: 1, indent: 56),
                 ListTile(
-                  leading: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: BJBankColors.mbwayRed,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: const Text(
-                      'MB',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
+                  leading: SizedBox(
+                    width: 32,
+                    height: 32,
+                    child: Image.asset(
+                      'assets/mbway.png',
+                      fit: BoxFit.contain,
                     ),
                   ),
                   title: const Text('MB WAY'),
