@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import '../../theme/colors.dart';
 import '../../theme/spacing.dart';
 import '../../theme/typography.dart';
 import '../../theme/app_strings.dart';
-import '../../services/auth_service.dart';
+import '../../providers/auth_provider.dart';
 import '../../routes/app_routes.dart';
 import '../../widgets/animated_bubbles.dart';
 
@@ -67,13 +68,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _errorMessage = null;
     });
 
-    final cleanedPhone = _phoneController.text.replaceAll(RegExp(r'\D'), '');
-
-    final result = await AuthService.register(
+    // cleanedPhone preservado no UserMetadata via signUp ja inclui no perfil
+    // depois — Supabase Auth nao expoe phone directamente neste fluxo.
+    final auth = context.read<AuthProvider>();
+    final ok = await auth.register(
       email: _emailController.text.trim(),
       password: _passwordController.text,
       name: _nameController.text.trim(),
-      phone: '+351$cleanedPhone',
+      phone: _phoneController.text.replaceAll(RegExp(r'\D'), ''),
     );
 
     if (!mounted) return;
@@ -82,11 +84,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _isLoading = false;
     });
 
-    if (result.success) {
+    if (ok) {
       _showSuccessDialog();
     } else {
       setState(() {
-        _errorMessage = result.errorMessage;
+        _errorMessage = auth.errorMessage ?? 'Erro ao registar.';
       });
     }
   }

@@ -1,345 +1,167 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../theme/colors.dart';
 import '../../theme/spacing.dart';
-import '../../services/seed_data_service.dart';
+import '../../services/supabase_config.dart';
 
-/// Seed Data Screen for BJBank
-/// Dev tool to populate Firestore with demo data
-class SeedScreen extends StatefulWidget {
+/// Seed / Info Screen
+///
+/// Ferramenta de dev que mostra informacao sobre o backend Supabase (URL do
+/// projecto, contagem de utilizadores) e credenciais demo. Nao executa
+/// operacoes destrutivas — para limpar dados, usar o SQL Editor do
+/// Supabase Dashboard com as credenciais do projecto.
+class SeedScreen extends StatelessWidget {
   const SeedScreen({super.key});
 
+  static const _demoEmail = 'demo@bjbank.com';
+  static const _demoPassword = 'BjBank2026!';
+
   @override
-  State<SeedScreen> createState() => _SeedScreenState();
-}
-
-class _SeedScreenState extends State<SeedScreen> {
-  bool _isSeeding = false;
-  bool _isSeedingDemo = false;
-  bool _isClearing = false;
-  String _status = '';
-  List<String> _logs = [];
-  SeedResult? _result;
-
-  Future<void> _runSeed() async {
-    setState(() {
-      _isSeeding = true;
-      _status = 'A criar dados de demonstração...';
-      _logs = ['Início do seed data...'];
-    });
-
-    // Check if data already exists
-    final hasData = await SeedDataService.isSeedDataPresent();
-    if (hasData) {
-      setState(() {
-        _logs.add('Dados existentes encontrados.');
-        _logs.add('A criar utilizadores (ignora duplicados)...');
-      });
-    }
-
-    final result = await SeedDataService.seedAll();
-
-    setState(() {
-      _isSeeding = false;
-      _result = result;
-      _status = result.success ? 'Seed concluído com sucesso!' : 'Seed concluído com erros';
-      _logs.add('');
-      _logs.add('=== Resultado ===');
-      _logs.add('Utilizadores criados: ${result.usersCreated}');
-      _logs.add('Utilizadores existentes: ${result.usersSkipped}');
-      _logs.add('Transações criadas: ${result.transactionsCreated}');
-      if (result.errors.isNotEmpty) {
-        _logs.add('');
-        _logs.add('Erros:');
-        for (var error in result.errors) {
-          _logs.add('  - $error');
-        }
-      }
-    });
-  }
-
-  Future<void> _runSeedDemo() async {
-    setState(() {
-      _isSeedingDemo = true;
-      _status = 'A criar conta demo (Google Play)...';
-      _logs = ['Início do seed demo account...'];
-    });
-
-    final result = await SeedDataService.seedDemoAccount();
-
-    setState(() {
-      _isSeedingDemo = false;
-      _result = result;
-      _status = result.success
-          ? 'Conta demo criada com sucesso!'
-          : 'Seed demo concluído com erros';
-      _logs.add('');
-      _logs.add('=== Resultado ===');
-      _logs.add('Email: demo@bjbank.com');
-      _logs.add('Password: BjBank2026!');
-      _logs.add('Utilizadores criados: ${result.usersCreated}');
-      _logs.add('Utilizadores existentes: ${result.usersSkipped}');
-      _logs.add('Transações criadas: ${result.transactionsCreated}');
-      if (result.errors.isNotEmpty) {
-        _logs.add('');
-        _logs.add('Erros:');
-        for (var error in result.errors) {
-          _logs.add('  - $error');
-        }
-      }
-    });
-  }
-
-  Future<void> _clearData() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Limpar dados?'),
-        content: const Text(
-          'Isto irá apagar TODOS os dados do Firestore (utilizadores, contas e transações). Esta ação é irreversível!',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancelar'),
+  Widget build(BuildContext context) {
+    final url = SupabaseConfig.url;
+    return Scaffold(
+      backgroundColor: BJBankColors.background,
+      appBar: AppBar(
+        title: const Text('Backend (Dev)'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(BJBankSpacing.lg),
+        children: [
+          _infoCard(
+            color: BJBankColors.info,
+            icon: Icons.cloud_done_outlined,
+            title: 'Backend: Supabase',
+            body: 'URL do projecto:\n$url\n\nAuth, Postgrest, Realtime e '
+                'Edge Functions todos servidos por este projecto Supabase. '
+                'Sem dependencia de Firebase.',
           ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: FilledButton.styleFrom(
-              backgroundColor: BJBankColors.error,
-            ),
-            child: const Text('Apagar tudo'),
+          const SizedBox(height: BJBankSpacing.lg),
+          _infoCard(
+            color: BJBankColors.success,
+            icon: Icons.shield_outlined,
+            title: 'Cripto pos-quantica',
+            body: 'Transferencias assinadas com ML-DSA-65 (FIPS 204) e '
+                'cifradas com AES-256-GCM dentro do canal TLS Supabase. '
+                'Chaves do servidor em public_config; chaves do cliente '
+                'Flutter em flutter_client_keys (server-managed por nao '
+                'haver implementacao Dart fiavel de ML-DSA).',
+          ),
+          const SizedBox(height: BJBankSpacing.lg),
+          _credentialsCard(context),
+          const SizedBox(height: BJBankSpacing.lg),
+          _infoCard(
+            color: BJBankColors.warning,
+            icon: Icons.warning_amber_outlined,
+            title: 'Limpeza de dados',
+            body: 'Operacoes destrutivas (apagar utilizadores, contas ou '
+                'transacoes) devem ser feitas pelo SQL Editor do Supabase '
+                'Dashboard com a service_role key. O cliente nao tem '
+                'permissoes para apagar massivamente.',
+          ),
+          const SizedBox(height: BJBankSpacing.xl),
+        ],
+      ),
+    );
+  }
+
+  Widget _infoCard({
+    required Color color,
+    required IconData icon,
+    required String title,
+    required String body,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(BJBankSpacing.md),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: color),
+              const SizedBox(width: BJBankSpacing.sm),
+              Text(
+                title,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: BJBankSpacing.sm),
+          Text(
+            body,
+            style: const TextStyle(fontSize: 13),
           ),
         ],
       ),
     );
-
-    if (confirm != true) return;
-
-    setState(() {
-      _isClearing = true;
-      _status = 'A limpar dados...';
-      _logs = ['A apagar todos os dados do Firestore...'];
-    });
-
-    await SeedDataService.clearAllData();
-
-    setState(() {
-      _isClearing = false;
-      _status = 'Dados limpos com sucesso!';
-      _logs.add('Todos os dados foram removidos.');
-    });
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: BJBankColors.background,
-      appBar: AppBar(
-        title: const Text('Seed Data (Dev)'),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
+  Widget _credentialsCard(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(BJBankSpacing.md),
+      decoration: BoxDecoration(
+        color: BJBankColors.surfaceVariant,
+        borderRadius: BorderRadius.circular(12),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(BJBankSpacing.lg),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Info card
-            Container(
-              padding: const EdgeInsets.all(BJBankSpacing.md),
-              decoration: BoxDecoration(
-                color: BJBankColors.info.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: BJBankColors.info.withValues(alpha: 0.3),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.info_outline, color: BJBankColors.info),
-                      const SizedBox(width: BJBankSpacing.sm),
-                      Text(
-                        'Dados de Demonstração',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: BJBankColors.info,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: BJBankSpacing.sm),
-                  const Text(
-                    '• 10 utilizadores com contas bancárias\n'
-                    '• 12 transações (transferências e MB WAY)\n'
-                    '• Saldos variados em EUR\n'
-                    '• Assinaturas PQC (simuladas)',
-                    style: TextStyle(fontSize: 13),
-                  ),
-                ],
-              ),
-            ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Credenciais demo (Google Play review)',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+          ),
+          const SizedBox(height: 8),
+          _credRow(context, 'Email', _demoEmail),
+          const SizedBox(height: 4),
+          _credRow(context, 'Password', _demoPassword),
+          const SizedBox(height: 8),
+          const Text(
+            'A conta deve existir no Supabase Auth (criar manualmente no '
+            'Dashboard ou via SQL).',
+            style: TextStyle(fontSize: 12, color: Colors.grey),
+          ),
+        ],
+      ),
+    );
+  }
 
-            const SizedBox(height: BJBankSpacing.lg),
-
-            // Demo credentials card
-            Container(
-              padding: const EdgeInsets.all(BJBankSpacing.md),
-              decoration: BoxDecoration(
-                color: BJBankColors.surfaceVariant,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Credenciais de teste:',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    'Seed users: joao.silva@bjbank.pt / Joao123456\n'
-                    'Demo (Google Play): demo@bjbank.com / BjBank2026!',
-                    style: TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: BJBankSpacing.lg),
-
-            // Demo account button (Google Play)
-            FilledButton.icon(
-              onPressed: (_isSeeding || _isSeedingDemo || _isClearing) ? null : _runSeedDemo,
-              icon: _isSeedingDemo
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Icon(Icons.play_arrow),
-              label: Text(_isSeedingDemo ? 'A criar conta demo...' : 'Criar Conta Demo (Google Play)'),
-              style: FilledButton.styleFrom(
-                minimumSize: const Size.fromHeight(52),
-                backgroundColor: BJBankColors.success,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: BJBankSpacing.sm),
-
-            // Seed all button
-            FilledButton.icon(
-              onPressed: (_isSeeding || _isSeedingDemo || _isClearing) ? null : _runSeed,
-              icon: _isSeeding
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Icon(Icons.dataset),
-              label: Text(_isSeeding ? 'A criar dados...' : 'Criar Seed Data'),
-              style: FilledButton.styleFrom(
-                minimumSize: const Size.fromHeight(52),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: BJBankSpacing.sm),
-
-            // Clear button
-            OutlinedButton.icon(
-              onPressed: (_isSeeding || _isSeedingDemo || _isClearing) ? null : _clearData,
-              icon: _isClearing
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Icon(Icons.delete_outline, color: BJBankColors.error),
-              label: Text(
-                _isClearing ? 'A limpar...' : 'Limpar todos os dados',
-                style: TextStyle(color: _isClearing ? null : BJBankColors.error),
-              ),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size.fromHeight(52),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                side: BorderSide(color: BJBankColors.error.withValues(alpha: 0.5)),
-              ),
-            ),
-
-            const SizedBox(height: BJBankSpacing.lg),
-
-            // Status
-            if (_status.isNotEmpty) ...[
-              Text(
-                _status,
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: _result?.success == true
-                      ? BJBankColors.success
-                      : BJBankColors.onSurface,
-                ),
-              ),
-              const SizedBox(height: BJBankSpacing.sm),
-            ],
-
-            // Log output
-            Expanded(
-              child: Container(
-                padding: const EdgeInsets.all(BJBankSpacing.md),
-                decoration: BoxDecoration(
-                  color: BJBankColors.surfaceDark,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: ListView.builder(
-                  itemCount: _logs.length,
-                  itemBuilder: (context, index) {
-                    final log = _logs[index];
-                    Color textColor = Colors.green.shade300;
-                    if (log.contains('Erro') || log.contains('error')) {
-                      textColor = Colors.red.shade300;
-                    } else if (log.contains('===')) {
-                      textColor = Colors.yellow.shade300;
-                    } else if (log.isEmpty) {
-                      return const SizedBox(height: 8);
-                    }
-
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 1),
-                      child: Text(
-                        log,
-                        style: TextStyle(
-                          fontFamily: 'monospace',
-                          fontSize: 12,
-                          color: textColor,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
-          ],
+  Widget _credRow(BuildContext context, String label, String value) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 80,
+          child: Text(label, style: const TextStyle(fontSize: 13)),
         ),
-      ),
+        Expanded(
+          child: SelectableText(
+            value,
+            style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+          ),
+        ),
+        IconButton(
+          icon: const Icon(Icons.copy, size: 18),
+          onPressed: () {
+            Clipboard.setData(ClipboardData(text: value));
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('$label copiado'),
+                behavior: SnackBarBehavior.floating,
+                duration: const Duration(seconds: 1),
+              ),
+            );
+          },
+          tooltip: 'Copiar',
+        ),
+      ],
     );
   }
 }

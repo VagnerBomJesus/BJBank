@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../theme/colors.dart';
 import '../../theme/spacing.dart';
 import '../../theme/typography.dart';
 import '../../theme/app_strings.dart';
-import '../../services/auth_service.dart';
+import '../../providers/auth_provider.dart';
 import '../../services/secure_storage_service.dart';
 import '../../routes/app_routes.dart';
 import '../../widgets/animated_bubbles.dart';
@@ -96,7 +97,8 @@ class _LoginScreenState extends State<LoginScreen>
       _errorMessage = null;
     });
 
-    final result = await AuthService.login(
+    final auth = context.read<AuthProvider>();
+    final ok = await auth.login(
       email: _emailController.text.trim(),
       password: _passwordController.text,
     );
@@ -107,7 +109,7 @@ class _LoginScreenState extends State<LoginScreen>
       _isLoading = false;
     });
 
-    if (result.success) {
+    if (ok) {
       final pinEnabled = await SecureStorageService.isPinEnabled();
       if (!mounted) return;
 
@@ -127,7 +129,7 @@ class _LoginScreenState extends State<LoginScreen>
       }
     } else {
       setState(() {
-        _errorMessage = result.errorMessage;
+        _errorMessage = auth.errorMessage ?? 'Erro ao iniciar sessao.';
       });
     }
   }

@@ -7,7 +7,7 @@ import '../../theme/typography.dart';
 import '../../theme/app_strings.dart';
 import '../../routes/app_routes.dart';
 import '../../services/storage_service.dart';
-import '../../services/auth_service.dart';
+import '../../services/supabase_config.dart';
 import '../../services/secure_storage_service.dart';
 
 /// Splash Screen
@@ -68,7 +68,7 @@ class _SplashScreenState extends State<SplashScreen>
       return;
     }
 
-    final isLoggedIn = AuthService.isLoggedIn;
+    final isLoggedIn = SupabaseConfig.client.auth.currentUser != null;
     if (!isLoggedIn) {
       Navigator.of(context).pushReplacementNamed(AppRoutes.login);
       return;
