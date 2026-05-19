@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:bjbank/compat/firestore_compat.dart';
 
 /// Card Type Enum
 enum CardType {

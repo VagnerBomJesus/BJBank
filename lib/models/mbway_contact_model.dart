@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:bjbank/compat/firestore_compat.dart';
 
 /// MB WAY Contact Model
 /// Represents a recent contact for MB WAY transfers
@@ -44,29 +44,35 @@ class MbWayContact {
     return parts.isNotEmpty ? parts[0] : name;
   }
 
-  /// Create from Firestore document
-  factory MbWayContact.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
+  /// Create from a generic map (Supabase row, JSON, etc.).
+  factory MbWayContact.fromMap(Map<String, dynamic> data, {String? id}) {
     return MbWayContact(
-      id: doc.id,
+      id: id ?? data['id']?.toString() ?? '',
       name: data['name'] ?? '',
       phone: data['phone'] ?? '',
-      avatarUrl: data['avatarUrl'],
-      lastUsed: (data['lastUsed'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      useCount: (data['useCount'] ?? 1).toInt(),
+      avatarUrl: data['avatarUrl'] ?? data['avatar_url'],
+      lastUsed: data['lastUsed'] is String
+          ? DateTime.tryParse(data['lastUsed']) ?? DateTime.now()
+          : data['last_used'] is String
+              ? DateTime.tryParse(data['last_used']) ?? DateTime.now()
+              : DateTime.now(),
+      useCount: ((data['useCount'] ?? data['use_count']) ?? 1) as int,
     );
   }
 
-  /// Convert to Firestore map
-  Map<String, dynamic> toFirestore() {
-    return {
-      'name': name,
-      'phone': phone,
-      'avatarUrl': avatarUrl,
-      'lastUsed': Timestamp.fromDate(lastUsed),
-      'useCount': useCount,
-    };
-  }
+  Map<String, dynamic> toMap() => {
+        'name': name,
+        'phone': phone,
+        'avatar_url': avatarUrl,
+        'last_used': lastUsed.toIso8601String(),
+        'use_count': useCount,
+      };
+
+  // Aliases legacy
+  factory MbWayContact.fromFirestore(DocumentSnapshot doc) =>
+      MbWayContact.fromMap((doc.data() as Map<String, dynamic>?) ?? const {},
+          id: doc.id);
+  Map<String, dynamic> toFirestore() => toMap();
 
   /// Create a copy with updated fields
   MbWayContact copyWith({

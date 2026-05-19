@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:bjbank/compat/firestore_compat.dart';
 
 /// User Status Enum
 enum UserStatus {
@@ -39,41 +39,44 @@ class UserModel {
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
-  /// Create UserModel from Firestore document
-  factory UserModel.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
+  /// Create UserModel from a generic map (Supabase row, JSON).
+  factory UserModel.fromMap(Map<String, dynamic> data, {String? id}) {
+    DateTime? parse(dynamic v) =>
+        v is String ? DateTime.tryParse(v) : (v is DateTime ? v : null);
     return UserModel(
-      id: doc.id,
+      id: id ?? data['id']?.toString() ?? '',
       email: data['email'] ?? '',
-      name: data['name'] ?? '',
+      name: data['name'] ?? data['nome_completo'] ?? '',
       phone: data['phone'],
       iban: data['iban'],
-      pqcPublicKey: data['pqcPublicKey'],
-      photoUrl: data['photoUrl'],
-      emailVerified: data['emailVerified'] ?? false,
-      phoneVerified: data['phoneVerified'] ?? false,
+      pqcPublicKey: data['pqcPublicKey'] ?? data['pqc_public_key_base64'],
+      photoUrl: data['photoUrl'] ?? data['photo_url'],
+      emailVerified: data['emailVerified'] ?? data['email_verified'] ?? false,
+      phoneVerified: data['phoneVerified'] ?? data['phone_verified'] ?? false,
       status: _parseStatus(data['status']),
-      createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
-      updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
+      createdAt: parse(data['createdAt'] ?? data['created_at']),
+      updatedAt: parse(data['updatedAt'] ?? data['updated_at']),
     );
   }
 
-  /// Convert to Firestore map
-  Map<String, dynamic> toFirestore() {
-    return {
-      'email': email,
-      'name': name,
-      'phone': phone,
-      'iban': iban,
-      'pqcPublicKey': pqcPublicKey,
-      'photoUrl': photoUrl,
-      'emailVerified': emailVerified,
-      'phoneVerified': phoneVerified,
-      'status': status.name,
-      'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-    };
-  }
+  Map<String, dynamic> toMap() => {
+        'email': email,
+        'name': name,
+        'phone': phone,
+        'iban': iban,
+        'pqc_public_key_base64': pqcPublicKey,
+        'photo_url': photoUrl,
+        'email_verified': emailVerified,
+        'phone_verified': phoneVerified,
+        'status': status.name,
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      };
+
+  // Aliases legacy para nao quebrar firestore_service e seed_data_service.
+  factory UserModel.fromFirestore(DocumentSnapshot doc) =>
+      UserModel.fromMap((doc.data() as Map<String, dynamic>?) ?? const {},
+          id: doc.id);
+  Map<String, dynamic> toFirestore() => toMap();
 
   /// Create a copy with updated fields
   UserModel copyWith({

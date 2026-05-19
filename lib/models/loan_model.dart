@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:bjbank/compat/firestore_compat.dart';
 
 /// Loan Status Enum
 enum LoanStatus {
