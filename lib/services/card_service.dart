@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:bjbank/compat/firestore_compat.dart';
 import 'package:flutter/foundation.dart';
 import '../models/card_model.dart';
 

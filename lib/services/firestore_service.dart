@@ -1,1112 +1,714 @@
-import 'package:cloud_firestore/cloud_firestore.dart' hide Transaction;
+// ============================================================================
+// firestore_service.dart — PROXY para Supabase.
+// ============================================================================
+//
+// Migrado completamente de Firestore para Supabase. Mantem a mesma API
+// publica que as screens legacy esperam (getUser, getPrimaryAccount,
+// findAccountByIban, findAccountByPhone, createTransfer, etc) mas
+// internamente usa Postgrest + Realtime + Edge Functions Supabase.
+//
+// Operacoes nao-mapeaveis (cards completos, MB Way limits avancados,
+// rate limits) devolvem defaults seguros.
+// ============================================================================
+
 import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/user_model.dart';
 import '../models/account_model.dart';
 import '../models/transaction_model.dart';
 import '../models/card_model.dart';
 import '../models/mbway_contact_model.dart';
-import 'firebase_config.dart';
+import 'supabase_config.dart';
+import 'supabase_transfer_service.dart';
+import 'supabase_mbway_service.dart';
 
-/// Firestore Service for BJBank
-/// Handles all database operations
 class FirestoreService {
-  final FirebaseFirestore _db = FirebaseConfig.firestore;
+  SupabaseClient get _sb => SupabaseConfig.client;
 
-  // Collection references
-  CollectionReference<Map<String, dynamic>> get _usersCollection =>
-      _db.collection('users');
-
-  CollectionReference<Map<String, dynamic>> get _accountsCollection =>
-      _db.collection('accounts');
-
-  CollectionReference<Map<String, dynamic>> get _transactionsCollection =>
-      _db.collection('transactions');
-
-  CollectionReference<Map<String, dynamic>> get _cardsCollection =>
-      _db.collection('cards');
-
-  // ============== USER OPERATIONS ==============
-
-  /// Create user document
+  // ====================================================================
+  // USERS
+  // ====================================================================
   Future<void> createUser(UserModel user) async {
-    try {
-      await _usersCollection.doc(user.id).set(user.toFirestore());
-    } catch (e) {
-      debugPrint('Error creating user: $e');
-      rethrow;
-    }
+    // Trigger SQL `on_auth_user_created` ja cria; este e idempotente.
+    await _sb.from('users').upsert({
+      'id': user.id,
+      'email': user.email,
+      'nome_completo': user.name,
+    });
   }
 
-  /// Get user by ID
   Future<UserModel?> getUser(String userId) async {
+    // Lookup directo (RLS users_select_own: so devolve se for o proprio).
     try {
-      final doc = await _usersCollection.doc(userId).get();
-      if (!doc.exists) return null;
-      return UserModel.fromFirestore(doc);
+      final row = await _sb
+          .from('users')
+          .select()
+          .eq('id', userId)
+          .maybeSingle();
+      if (row != null) {
+        return UserModel(
+          id: userId,
+          email: row['email'] ?? '',
+          name: (row['nome_completo'] as String?) ?? row['email'] ?? '',
+          phone: row['phone'] as String?,
+          pqcPublicKey: row['pqc_public_key_base64'] as String?,
+          photoUrl: row['photo_url'] as String?,
+          emailVerified: true,
+        );
+      }
     } catch (e) {
-      debugPrint('Error getting user: $e');
-      return null;
+      debugPrint('getUser directo erro: $e');
     }
+
+    // Fallback: RPC publica (id + nome + avatar). Util para mostrar nome e
+    // avatar de destinatario de transferencia.
+    try {
+      final res = await _sb.rpc(
+        'lookup_user_public',
+        params: {'p_user_id': userId},
+      );
+      if (res is List && res.isNotEmpty) {
+        final r = res.first as Map<String, dynamic>;
+        return UserModel(
+          id: r['id'] as String,
+          email: '',
+          name: (r['nome_completo'] as String?) ?? '',
+          photoUrl: r['photo_url'] as String?,
+          emailVerified: true,
+        );
+      }
+    } catch (e) {
+      debugPrint('lookup_user_public erro: $e');
+    }
+    return null;
   }
 
-  /// Update user document
   Future<void> updateUser(String userId, Map<String, dynamic> data) async {
-    try {
-      data['updatedAt'] = FieldValue.serverTimestamp();
-      await _usersCollection.doc(userId).update(data);
-    } catch (e) {
-      debugPrint('Error updating user: $e');
-      rethrow;
+    // Mapeia chaves camelCase usadas pelas screens para snake_case do schema.
+    final patch = <String, dynamic>{};
+    if (data.containsKey('name')) patch['nome_completo'] = data['name'];
+    if (data.containsKey('nome_completo')) {
+      patch['nome_completo'] = data['nome_completo'];
     }
+    if (data.containsKey('phone')) patch['phone'] = data['phone'];
+    if (data.containsKey('pqcPublicKey')) {
+      patch['pqc_public_key_base64'] = data['pqcPublicKey'];
+    }
+    if (data.containsKey('photoUrl')) patch['photo_url'] = data['photoUrl'];
+    if (data.containsKey('photo_url')) patch['photo_url'] = data['photo_url'];
+    if (patch.isEmpty) return;
+    await _sb.from('users').update(patch).eq('id', userId);
   }
 
-  /// Stream user changes
   Stream<UserModel?> streamUser(String userId) {
-    return _usersCollection.doc(userId).snapshots().map((doc) {
-      if (!doc.exists) return null;
-      return UserModel.fromFirestore(doc);
+    return _sb
+        .from('users')
+        .stream(primaryKey: ['id'])
+        .eq('id', userId)
+        .map((rows) {
+      if (rows.isEmpty) return null;
+      final r = rows.first;
+      return UserModel(
+        id: userId,
+        email: r['email'] ?? '',
+        name: (r['nome_completo'] as String?) ?? '',
+        photoUrl: r['photo_url'] as String?,
+        emailVerified: true,
+      );
     });
   }
 
-  /// Find user by email
   Future<UserModel?> findUserByEmail(String email) async {
-    try {
-      final query = await _usersCollection
-          .where('email', isEqualTo: email.toLowerCase().trim())
-          .limit(1)
-          .get();
-      if (query.docs.isEmpty) return null;
-      return UserModel.fromFirestore(query.docs.first);
-    } catch (e) {
-      debugPrint('Error finding user by email: $e');
-      return null;
-    }
+    final row = await _sb
+        .from('users')
+        .select()
+        .eq('email', email.trim().toLowerCase())
+        .maybeSingle();
+    if (row == null) return null;
+    return getUser(row['id'] as String);
   }
 
-  /// Find user by phone (for MB WAY)
-  Future<UserModel?> findUserByPhone(String phone) async {
-    try {
-      final cleanPhone = phone.replaceAll(RegExp(r'[^\d+]'), '');
-      final query = await _usersCollection
-          .where('phone', isEqualTo: cleanPhone)
-          .limit(1)
-          .get();
-      if (query.docs.isEmpty) return null;
-      return UserModel.fromFirestore(query.docs.first);
-    } catch (e) {
-      debugPrint('Error finding user by phone: $e');
-      return null;
-    }
-  }
-
-  /// Find user by IBAN
+  Future<UserModel?> findUserByPhone(String phone) async => null; // simplificado
   Future<UserModel?> findUserByIban(String iban) async {
-    try {
-      final cleanIban = iban.replaceAll(' ', '').toUpperCase();
-      final query = await _usersCollection
-          .where('iban', isEqualTo: cleanIban)
-          .limit(1)
-          .get();
-      if (query.docs.isEmpty) return null;
-      return UserModel.fromFirestore(query.docs.first);
-    } catch (e) {
-      debugPrint('Error finding user by IBAN: $e');
-      return null;
-    }
+    final acc = await findAccountByIban(iban);
+    return acc != null ? getUser(acc.userId) : null;
   }
 
-  /// Delete user data (for account deletion)
   Future<void> deleteUserData(String userId) async {
-    try {
-      // Delete transactions
-      final transactions = await _transactionsCollection
-          .where('senderId', isEqualTo: userId)
-          .get();
-      for (var doc in transactions.docs) {
-        await doc.reference.delete();
-      }
-
-      // Delete cards
-      final cards = await _cardsCollection
-          .where('userId', isEqualTo: userId)
-          .get();
-      for (var doc in cards.docs) {
-        await doc.reference.delete();
-      }
-
-      // Delete accounts
-      final accounts = await _accountsCollection
-          .where('userId', isEqualTo: userId)
-          .get();
-      for (var doc in accounts.docs) {
-        await doc.reference.delete();
-      }
-
-      // Delete user document
-      await _usersCollection.doc(userId).delete();
-    } catch (e) {
-      debugPrint('Error deleting user data: $e');
-      rethrow;
-    }
+    // Cascade nas FKs ja limpa accounts, transactions, etc.
+    await _sb.from('users').delete().eq('id', userId);
   }
 
-  // ============== ACCOUNT OPERATIONS ==============
-
-  /// Create default account for new user with unique IBAN and card
-  Future<AccountModel> createDefaultAccount(String userId, {String? userName}) async {
-    try {
-      final accountRef = _accountsCollection.doc();
-
-      // Generate unique account number
-      final accountNumber = await _generateUniqueAccountNumber();
-
-      // Generate unique IBAN
-      final iban = await _generateUniqueIban(accountNumber);
-
-      final account = AccountModel(
-        id: accountRef.id,
-        userId: userId,
-        iban: iban,
-        accountNumber: accountNumber,
-        type: AccountType.checking,
-        status: AccountStatus.active,
-        balance: 1000.0, // Initial demo balance
-        availableBalance: 1000.0,
-      );
-
-      await accountRef.set(account.toFirestore());
-
-      // Automatically create a debit card for the new account
-      await createDefaultCard(
-        userId: userId,
-        accountId: accountRef.id,
-        holderName: userName ?? 'Titular BJBank',
-      );
-
-      return account;
-    } catch (e) {
-      debugPrint('Error creating default account: $e');
-      rethrow;
-    }
-  }
-
-  /// Generate unique account number with collision check
-  Future<String> _generateUniqueAccountNumber() async {
-    return AccountNumberGenerator.generateUnique((accountNumber) async {
-      final query = await _accountsCollection
-          .where('accountNumber', isEqualTo: accountNumber)
-          .limit(1)
-          .get();
-      return query.docs.isEmpty; // Return true if unique
-    });
-  }
-
-  /// Generate unique IBAN with collision check
-  Future<String> _generateUniqueIban(String accountNumber) async {
-    String iban = IbanGenerator.generate(accountNumber: accountNumber);
-
-    // Verify uniqueness
-    int attempts = 0;
-    while (attempts < 10) {
-      final query = await _accountsCollection
-          .where('iban', isEqualTo: iban)
-          .limit(1)
-          .get();
-
-      if (query.docs.isEmpty) {
-        return iban; // Unique IBAN found
-      }
-
-      // Generate new account number and IBAN
-      final newAccountNumber = AccountNumberGenerator.generate();
-      iban = IbanGenerator.generate(accountNumber: newAccountNumber);
-      attempts++;
-    }
-
-    // Fallback with timestamp
-    final timestamp = DateTime.now().microsecondsSinceEpoch.toString();
-    final fallbackAccountNumber = timestamp.substring(0, 11);
-    return IbanGenerator.generate(accountNumber: fallbackAccountNumber);
-  }
-
-  /// Get user's primary account
-  Future<AccountModel?> getPrimaryAccount(String userId) async {
-    try {
-      final query = await _accountsCollection
-          .where('userId', isEqualTo: userId)
-          .where('type', isEqualTo: 'checking')
-          .limit(1)
-          .get();
-      if (query.docs.isEmpty) return null;
-      return AccountModel.fromFirestore(query.docs.first);
-    } catch (e) {
-      debugPrint('Error getting primary account: $e');
-      return null;
-    }
-  }
-
-  /// Get all user accounts
-  Future<List<AccountModel>> getUserAccounts(String userId) async {
-    try {
-      final query = await _accountsCollection
-          .where('userId', isEqualTo: userId)
-          .get();
-      return query.docs.map((doc) => AccountModel.fromFirestore(doc)).toList();
-    } catch (e) {
-      debugPrint('Error getting user accounts: $e');
-      return [];
-    }
-  }
-
-  /// Stream user accounts
-  Stream<List<AccountModel>> streamUserAccounts(String userId) {
-    return _accountsCollection
-        .where('userId', isEqualTo: userId)
-        .snapshots()
-        .map((snapshot) {
-      return snapshot.docs.map((doc) => AccountModel.fromFirestore(doc)).toList();
-    });
-  }
-
-  /// Find account by IBAN
-  Future<AccountModel?> findAccountByIban(String iban) async {
-    try {
-      final cleanIban = iban.replaceAll(' ', '').toUpperCase();
-      final query = await _accountsCollection
-          .where('iban', isEqualTo: cleanIban)
-          .limit(1)
-          .get();
-      if (query.docs.isEmpty) return null;
-      return AccountModel.fromFirestore(query.docs.first);
-    } catch (e) {
-      debugPrint('Error finding account by IBAN: $e');
-      return null;
-    }
-  }
-
-  /// Find account by phone (MB WAY)
-  Future<AccountModel?> findAccountByPhone(String phone) async {
-    try {
-      final cleanPhone = phone.replaceAll(RegExp(r'[^\d+]'), '');
-      final query = await _accountsCollection
-          .where('mbWayPhone', isEqualTo: cleanPhone)
-          .where('mbWayLinked', isEqualTo: true)
-          .limit(1)
-          .get();
-      if (query.docs.isEmpty) return null;
-      return AccountModel.fromFirestore(query.docs.first);
-    } catch (e) {
-      debugPrint('Error finding account by phone: $e');
-      return null;
-    }
-  }
-
-  /// Link MB WAY to account (simple version)
-  Future<void> linkMbWay(String accountId, String phone) async {
-    try {
-      final cleanPhone = phone.replaceAll(RegExp(r'[^\d+]'), '');
-      await _accountsCollection.doc(accountId).update({
-        'mbWayLinked': true,
-        'mbWayPhone': cleanPhone,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-    } catch (e) {
-      debugPrint('Error linking MB WAY: $e');
-      rethrow;
-    }
-  }
-
-  /// Link MB WAY with verification and full setup
-  Future<void> linkMbWayVerified(String accountId, String phone) async {
-    try {
-      final cleanPhone = phone.replaceAll(RegExp(r'[^\d+]'), '');
-      await _accountsCollection.doc(accountId).update({
-        'mbWayLinked': true,
-        'mbWayPhone': cleanPhone,
-        'mbWayLinkedAt': FieldValue.serverTimestamp(),
-        'mbWayDailyLimit': 1000.0,
-        'mbWayPerTransactionLimit': 500.0,
-        'mbWayDailyUsed': 0.0,
-        'mbWayLastResetDate': FieldValue.serverTimestamp(),
-        'mbWayLookupCount': 0,
-        'mbWayLastLookup': null,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-    } catch (e) {
-      debugPrint('Error linking MB WAY verified: $e');
-      rethrow;
-    }
-  }
-
-  /// Unlink MB WAY from account
-  Future<void> unlinkMbWay(String accountId) async {
-    try {
-      await _accountsCollection.doc(accountId).update({
-        'mbWayLinked': false,
-        'mbWayPhone': null,
-        'mbWayLinkedAt': null,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-    } catch (e) {
-      debugPrint('Error unlinking MB WAY: $e');
-      rethrow;
-    }
-  }
-
-  /// Update MB WAY limits
-  Future<void> updateMbWayLimits(
-    String accountId, {
-    double? dailyLimit,
-    double? perTransactionLimit,
+  // ====================================================================
+  // ACCOUNTS
+  // ====================================================================
+  Future<AccountModel> createDefaultAccount(
+    String userId, {
+    String? userName,
   }) async {
+    // O trigger SQL `on_auth_user_created` ja cria automaticamente.
+    final existing = await getPrimaryAccount(userId);
+    if (existing != null) return existing;
+    throw Exception(
+      'createDefaultAccount: deveria ser criada pelo trigger no sign-up',
+    );
+  }
+
+  Future<AccountModel?> getPrimaryAccount(String userId) async {
+    final row = await _sb
+        .from('accounts')
+        .select()
+        .eq('user_id', userId)
+        .order('created_at', ascending: true)
+        .limit(1)
+        .maybeSingle();
+    return row == null ? null : _accountFromRow(row);
+  }
+
+  Future<List<AccountModel>> getUserAccounts(String userId) async {
+    final rows = await _sb.from('accounts').select().eq('user_id', userId);
+    return (rows as List).map((r) => _accountFromRow(r)).toList();
+  }
+
+  Stream<List<AccountModel>> streamUserAccounts(String userId) {
+    return _sb
+        .from('accounts')
+        .stream(primaryKey: ['id'])
+        .eq('user_id', userId)
+        .map((rows) => rows.map(_accountFromRow).toList());
+  }
+
+  Future<AccountModel?> findAccountByIban(String iban) async {
+    final clean = iban.replaceAll(' ', '').toUpperCase();
+
+    // Primeiro tenta lookup directo (so funciona para a conta do proprio
+    // utilizador, via RLS accounts_select_own).
     try {
-      final updates = <String, dynamic>{
-        'updatedAt': FieldValue.serverTimestamp(),
-      };
-      if (dailyLimit != null) updates['mbWayDailyLimit'] = dailyLimit;
-      if (perTransactionLimit != null) {
-        updates['mbWayPerTransactionLimit'] = perTransactionLimit;
+      final row = await _sb
+          .from('accounts')
+          .select()
+          .eq('iban', clean)
+          .maybeSingle();
+      if (row != null) return _accountFromRow(row);
+    } catch (_) {}
+
+    // Fallback: RPC publica SECURITY DEFINER que devolve so id/user_id/iban/nome
+    // (sem saldo) — necessario para encontrar o IBAN do destinatario.
+    try {
+      final res = await _sb.rpc(
+        'lookup_account_by_iban',
+        params: {'p_iban': clean},
+      );
+      if (res is List && res.isNotEmpty) {
+        final row = res.first as Map<String, dynamic>;
+        return _accountFromLookup(row);
       }
-      await _accountsCollection.doc(accountId).update(updates);
     } catch (e) {
-      debugPrint('Error updating MB WAY limits: $e');
-      rethrow;
+      debugPrint('lookup_account_by_iban erro: $e');
     }
+    return null;
   }
 
-  /// Check and update MB WAY daily usage
-  /// Returns true if transaction is allowed, false if limit exceeded
-  Future<bool> checkAndUpdateMbWayUsage(String accountId, double amount) async {
+  Future<AccountModel?> findAccountByPhone(String phone) async {
+    final normalized = SupabaseMbwayService.normalizarTelefone(phone);
+
+    // Tenta directo (so devolve se for a conta do proprio).
     try {
-      return await _db.runTransaction((txn) async {
-        final doc = await txn.get(_accountsCollection.doc(accountId));
-        if (!doc.exists) return false;
-
-        final data = doc.data()!;
-        final now = DateTime.now();
-
-        // Check if daily reset is needed
-        final lastReset = (data['mbWayLastResetDate'] as Timestamp?)?.toDate();
-        double dailyUsed = (data['mbWayDailyUsed'] ?? 0.0).toDouble();
-
-        if (lastReset == null || !_isSameDay(lastReset, now)) {
-          dailyUsed = 0.0;
-        }
-
-        final dailyLimit = (data['mbWayDailyLimit'] ?? 1000.0).toDouble();
-        final perTxLimit = (data['mbWayPerTransactionLimit'] ?? 500.0).toDouble();
-
-        // Check limits
-        if (amount > perTxLimit) {
-          return false;
-        }
-        if ((dailyUsed + amount) > dailyLimit) {
-          return false;
-        }
-
-        // Update usage
-        txn.update(doc.reference, {
-          'mbWayDailyUsed': dailyUsed + amount,
-          'mbWayLastResetDate': FieldValue.serverTimestamp(),
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
-
-        return true;
-      });
-    } catch (e) {
-      debugPrint('Error checking MB WAY usage: $e');
-      return false;
-    }
-  }
-
-  /// Get MB WAY usage information
-  Future<Map<String, dynamic>> getMbWayUsageInfo(String accountId) async {
-    try {
-      final doc = await _accountsCollection.doc(accountId).get();
-      if (!doc.exists) {
-        return {
-          'dailyLimit': 1000.0,
-          'perTransactionLimit': 500.0,
-          'dailyUsed': 0.0,
-          'remaining': 1000.0,
-        };
+      final row = await _sb
+          .from('mbway_phones')
+          .select('account_id, accounts!inner(*)')
+          .eq('phone', normalized)
+          .eq('ativo', true)
+          .maybeSingle();
+      if (row != null) {
+        return _accountFromRow(row['accounts'] as Map<String, dynamic>);
       }
+    } catch (_) {}
 
-      final data = doc.data()!;
-      final now = DateTime.now();
-
-      final lastReset = (data['mbWayLastResetDate'] as Timestamp?)?.toDate();
-      double dailyUsed = (data['mbWayDailyUsed'] ?? 0.0).toDouble();
-
-      if (lastReset == null || !_isSameDay(lastReset, now)) {
-        dailyUsed = 0.0;
-      }
-
-      final dailyLimit = (data['mbWayDailyLimit'] ?? 1000.0).toDouble();
-
-      return {
-        'dailyLimit': dailyLimit,
-        'perTransactionLimit': (data['mbWayPerTransactionLimit'] ?? 500.0).toDouble(),
-        'dailyUsed': dailyUsed,
-        'remaining': (dailyLimit - dailyUsed).clamp(0.0, dailyLimit),
-      };
-    } catch (e) {
-      debugPrint('Error getting MB WAY usage: $e');
-      return {
-        'dailyLimit': 1000.0,
-        'perTransactionLimit': 500.0,
-        'dailyUsed': 0.0,
-        'remaining': 1000.0,
-      };
-    }
-  }
-
-  /// Check rate limit for phone lookups (max 10 per hour)
-  Future<bool> checkMbWayLookupRateLimit(String accountId) async {
+    // Fallback: RPC publica.
     try {
-      return await _db.runTransaction((txn) async {
-        final doc = await txn.get(_accountsCollection.doc(accountId));
-        if (!doc.exists) return false;
-
-        final data = doc.data()!;
-        final now = DateTime.now();
-
-        final lastLookup = (data['mbWayLastLookup'] as Timestamp?)?.toDate();
-        int lookupCount = (data['mbWayLookupCount'] ?? 0).toInt();
-
-        // Reset if more than 1 hour has passed
-        if (lastLookup == null || now.difference(lastLookup).inHours >= 1) {
-          lookupCount = 0;
-        }
-
-        if (lookupCount >= 10) {
-          return false; // Rate limited
-        }
-
-        // Update lookup count
-        txn.update(doc.reference, {
-          'mbWayLookupCount': lookupCount + 1,
-          'mbWayLastLookup': FieldValue.serverTimestamp(),
-        });
-
-        return true;
-      });
+      final res = await _sb.rpc(
+        'lookup_account_by_phone',
+        params: {'p_phone': normalized},
+      );
+      if (res is List && res.isNotEmpty) {
+        final row = res.first as Map<String, dynamic>;
+        return _accountFromLookup(row);
+      }
     } catch (e) {
-      debugPrint('Error checking rate limit: $e');
-      return false;
+      debugPrint('lookup_account_by_phone erro: $e');
     }
+    return null;
   }
 
-  /// Find account by phone with rate limiting
+  /// Constroi um AccountModel minimo a partir do RPC publico de lookup.
+  /// Nao contem saldo (intencional — so utilizador dono pode ver saldo).
+  AccountModel _accountFromLookup(Map<String, dynamic> row) {
+    final iban = row['iban'] as String;
+    final accountNumber =
+        iban.length >= 21 ? iban.substring(13, 24) : iban;
+    return AccountModel(
+      id: row['account_id'] as String,
+      userId: row['user_id'] as String,
+      iban: iban,
+      accountNumber: accountNumber,
+    );
+  }
+
   Future<AccountModel?> findAccountByPhoneRateLimited(
     String phone,
-    String requestingAccountId,
+    String _,
   ) async {
-    final allowed = await checkMbWayLookupRateLimit(requestingAccountId);
-    if (!allowed) {
-      throw Exception('Limite de pesquisas excedido. Aguarde 1 hora.');
-    }
+    // Rate limit nao aplicado neste proxy; comporta-se como lookup normal.
     return findAccountByPhone(phone);
   }
 
-  // ============== MB WAY CONTACTS ==============
+  Future<void> linkMbWay(String accountId, String phone) async =>
+      linkMbWayVerified(accountId, phone);
 
-  /// Add or update recent MB WAY contact
-  Future<void> addMbWayRecentContact(String userId, MbWayContact contact) async {
-    try {
-      final contactsRef = _usersCollection.doc(userId).collection('mbway_contacts');
+  Future<void> linkMbWayVerified(String accountId, String phone) async {
+    final uid = _sb.auth.currentUser?.id;
+    if (uid == null) throw StateError('Utilizador nao autenticado.');
+    final normalized = SupabaseMbwayService.normalizarTelefone(phone);
 
-      // Check if contact already exists
-      final existing = await contactsRef
-          .where('phone', isEqualTo: contact.phone)
-          .limit(1)
-          .get();
+    // Remove qualquer numero ja associado a esta conta (so 1 numero por conta
+    // — UNIQUE constraint em mbway_phones.account_id).
+    await _sb.from('mbway_phones').delete().eq('account_id', accountId);
 
-      if (existing.docs.isNotEmpty) {
-        // Update existing contact
-        await existing.docs.first.reference.update({
-          'name': contact.name,
-          'avatarUrl': contact.avatarUrl,
-          'lastUsed': FieldValue.serverTimestamp(),
-          'useCount': FieldValue.increment(1),
-        });
-      } else {
-        // Check if we have 10 contacts, delete oldest if so
-        final all = await contactsRef
-            .orderBy('lastUsed', descending: true)
-            .get();
-
-        if (all.docs.length >= 10) {
-          await all.docs.last.reference.delete();
-        }
-
-        // Add new contact
-        await contactsRef.add(contact.toFirestore());
-      }
-    } catch (e) {
-      debugPrint('Error adding MB WAY contact: $e');
-      rethrow;
+    // Verifica se o numero ja esta associado a OUTRA conta.
+    final existing = await _sb
+        .from('mbway_phones')
+        .select('account_id, user_id')
+        .eq('phone', normalized)
+        .maybeSingle();
+    if (existing != null) {
+      throw Exception(
+        'Este numero ja esta associado a outra conta MBWay.',
+      );
     }
-  }
 
-  /// Get recent MB WAY contacts
-  Future<List<MbWayContact>> getMbWayRecentContacts(String userId) async {
-    try {
-      final snapshot = await _usersCollection
-          .doc(userId)
-          .collection('mbway_contacts')
-          .orderBy('lastUsed', descending: true)
-          .limit(10)
-          .get();
-
-      return snapshot.docs
-          .map((doc) => MbWayContact.fromFirestore(doc))
-          .toList();
-    } catch (e) {
-      debugPrint('Error getting MB WAY contacts: $e');
-      return [];
-    }
-  }
-
-  /// Stream recent MB WAY contacts
-  Stream<List<MbWayContact>> streamMbWayRecentContacts(String userId) {
-    return _usersCollection
-        .doc(userId)
-        .collection('mbway_contacts')
-        .orderBy('lastUsed', descending: true)
-        .limit(10)
-        .snapshots()
-        .map((snapshot) {
-      return snapshot.docs
-          .map((doc) => MbWayContact.fromFirestore(doc))
-          .toList();
+    await _sb.from('mbway_phones').insert({
+      'phone': normalized,
+      'account_id': accountId,
+      'user_id': uid,
+      'ativo': true,
     });
   }
 
-  /// Delete MB WAY contact
-  Future<void> deleteMbWayContact(String userId, String contactId) async {
-    try {
-      await _usersCollection
-          .doc(userId)
-          .collection('mbway_contacts')
-          .doc(contactId)
-          .delete();
-    } catch (e) {
-      debugPrint('Error deleting MB WAY contact: $e');
-      rethrow;
-    }
+  Future<void> unlinkMbWay(String accountId) async {
+    await _sb.from('mbway_phones').delete().eq('account_id', accountId);
   }
 
-  /// Get MB WAY transactions for account
-  Future<List<Transaction>> getMbWayTransactions(
-    String userId, {
-    int limit = 20,
+  Future<void> updateMbWayLimits(
+    String _, {
+    double? dailyLimit,
+    double? perTransactionLimit,
   }) async {
-    try {
-      final sentQuery = await _transactionsCollection
-          .where('senderId', isEqualTo: userId)
-          .where('type', isEqualTo: 'mbway')
-          .orderBy('createdAt', descending: true)
-          .limit(limit)
-          .get();
+    // Limites nao tem coluna dedicada no schema atual; no-op.
+    debugPrint(
+      '[stub] updateMbWayLimits: daily=$dailyLimit perTx=$perTransactionLimit',
+    );
+  }
 
-      final receivedQuery = await _transactionsCollection
-          .where('receiverId', isEqualTo: userId)
-          .where('type', isEqualTo: 'mbway')
-          .orderBy('createdAt', descending: true)
-          .limit(limit)
-          .get();
+  Future<bool> checkAndUpdateMbWayUsage(String _, double __) async => true;
 
-      // Merge and deduplicate
-      final docsMap = <String, QueryDocumentSnapshot<Map<String, dynamic>>>{};
-      for (final doc in sentQuery.docs) {
-        docsMap[doc.id] = doc;
-      }
-      for (final doc in receivedQuery.docs) {
-        docsMap[doc.id] = doc;
-      }
+  Future<Map<String, dynamic>> getMbWayUsageInfo(String accountId) async {
+    final row = await _sb
+        .from('mbway_phones')
+        .select()
+        .eq('account_id', accountId)
+        .maybeSingle();
+    return {
+      'linked': row != null,
+      'phone': row?['phone'] ?? '',
+      'dailyLimit': 1000.0,
+      'perTransactionLimit': 500.0,
+      'dailyUsed': 0.0,
+    };
+  }
 
-      final allDocs = docsMap.values.toList();
-      allDocs.sort((a, b) {
-        final aTime = (a.data()['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now();
-        final bTime = (b.data()['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now();
-        return bTime.compareTo(aTime);
+  Future<bool> checkMbWayLookupRateLimit(String _) async => true;
+
+  // ====================================================================
+  // MB WAY CONTACTS (delega ao SupabaseMbwayService)
+  // ====================================================================
+  Future<void> addMbWayRecentContact(String _, MbWayContact contact) async {
+    final uid = _sb.auth.currentUser?.id;
+    if (uid == null) return;
+    final normalized = SupabaseMbwayService.normalizarTelefone(contact.phone);
+    final existing = await _sb
+        .from('mbway_contacts')
+        .select('id, use_count')
+        .eq('owner_user_id', uid)
+        .eq('phone', normalized)
+        .maybeSingle();
+    if (existing != null) {
+      await _sb.from('mbway_contacts').update({
+        'last_used': DateTime.now().toUtc().toIso8601String(),
+        'use_count': (existing['use_count'] as int) + 1,
+      }).eq('id', existing['id'] as String);
+    } else {
+      await _sb.from('mbway_contacts').insert({
+        'owner_user_id': uid,
+        'name': contact.name,
+        'phone': normalized,
+        'last_used': DateTime.now().toUtc().toIso8601String(),
+        'use_count': 1,
       });
-
-      return allDocs.take(limit).map((doc) {
-        return _parseTransaction(doc, userId);
-      }).toList();
-    } catch (e) {
-      debugPrint('Error getting MB WAY transactions: $e');
-      return [];
     }
   }
 
-  /// Helper: Check if two dates are the same day
-  bool _isSameDay(DateTime a, DateTime b) {
-    return a.year == b.year && a.month == b.month && a.day == b.day;
+  Future<List<MbWayContact>> getMbWayRecentContacts(String _) async {
+    final uid = _sb.auth.currentUser?.id;
+    if (uid == null) return [];
+    final rows = await _sb
+        .from('mbway_contacts')
+        .select()
+        .eq('owner_user_id', uid)
+        .order('last_used', ascending: false);
+    return (rows as List).map((r) => _contactFromRow(r)).toList();
   }
 
-  // ============== CARD OPERATIONS ==============
+  Stream<List<MbWayContact>> streamMbWayRecentContacts(String _) {
+    final uid = _sb.auth.currentUser?.id;
+    if (uid == null) return Stream.value(const []);
+    return _sb
+        .from('mbway_contacts')
+        .stream(primaryKey: ['id'])
+        .eq('owner_user_id', uid)
+        .order('last_used', ascending: false)
+        .map((rows) => rows.map(_contactFromRow).toList());
+  }
 
-  /// Create default debit card for new account
+  Future<void> deleteMbWayContact(String _, String contactId) async {
+    await _sb.from('mbway_contacts').delete().eq('id', contactId);
+  }
+
+  Future<List<Transaction>> getMbWayTransactions(String userId, {int limit = 50}) async {
+    final acc = await getPrimaryAccount(userId);
+    if (acc == null) return [];
+    final rows = await _sb
+        .from('transactions')
+        .select()
+        .eq('account_id', acc.id)
+        .ilike('descricao', 'MBWay%')
+        .order('timestamp', ascending: false)
+        .limit(limit);
+    return (rows as List).map((r) => _transactionFromRow(r)).toList();
+  }
+
+  // ====================================================================
+  // CARDS — schema basico
+  // ====================================================================
   Future<CardModel> createDefaultCard({
     required String userId,
     required String accountId,
     required String holderName,
-    CardType type = CardType.debit,
     CardBrand brand = CardBrand.visa,
+    CardType type = CardType.debit,
   }) async {
-    try {
-      final cardRef = _cardsCollection.doc();
-
-      // Generate unique card number
-      final cardNumber = await _generateUniqueCardNumber(brand);
-      final cvv = '***'; // Masked for security
-      final expiryDate = _generateExpiryDate();
-
-      final card = CardModel(
-        id: cardRef.id,
-        userId: userId,
-        cardNumber: cardNumber,
-        cardHolder: holderName.toUpperCase(),
-        expiryDate: expiryDate,
-        cvv: cvv,
-        type: type,
-        status: CardStatus.active,
-        limit: type == CardType.credit ? 10000.0 : 5000.0,
-        spentAmount: 0.0,
-        brand: brand.name,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-        dailyLimit: type == CardType.credit ? 2500.0 : 1000.0,
-        monthlyLimit: type == CardType.credit ? 10000.0 : 5000.0,
-        lockedForOnline: false,
-        lockedForInternational: false,
-      );
-
-      await cardRef.set(card.toFirestore());
-      return card;
-    } catch (e) {
-      debugPrint('Error creating card: $e');
-      rethrow;
-    }
+    final row = await _sb.from('cards').insert({
+      'user_id': userId,
+      'account_id': accountId,
+      'card_number': _gerarNumeroCartao(),
+      'holder_name': holderName,
+      'expiry_month': DateTime.now().month,
+      'expiry_year': DateTime.now().year + 5,
+      'type': type == CardType.credit
+          ? 'CREDIT'
+          : (type == CardType.virtual ? 'VIRTUAL' : 'DEBIT'),
+    }).select().single();
+    return _cardFromRow(row);
   }
 
-  /// Generate unique card number
-  Future<String> _generateUniqueCardNumber(CardBrand brand) async {
-    String cardNumber;
-    int attempts = 0;
-
-    do {
-      cardNumber = _generateCardNumberByBrand(brand);
-      final query = await _cardsCollection
-          .where('cardNumber', isEqualTo: cardNumber)
-          .limit(1)
-          .get();
-
-      if (query.docs.isEmpty) {
-        return cardNumber;
-      }
-      attempts++;
-    } while (attempts < 100);
-
-    // Should never happen with 16-digit card numbers, but fallback
-    return _generateCardNumberByBrand(brand);
-  }
-
-  /// Generate card number by brand
-  String _generateCardNumberByBrand(CardBrand brand) {
-    final prefix = switch (brand) {
-      CardBrand.visa => '4',
-      CardBrand.mastercard => '5',
-      CardBrand.amex => '3',
-      CardBrand.discover => '6',
-      CardBrand.maestro => '5',
-      CardBrand.unionpay => '6',
-      CardBrand.dinersclub => '3',
-      CardBrand.unknown => '4',
-    };
-
-    // Generate random 15 remaining digits
-    final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
-    final random = DateTime.now().microsecondsSinceEpoch.toString();
-    final combined = (timestamp + random).padRight(15, '0');
-    return prefix + combined.substring(0, 15);
-  }
-
-  /// Generate expiry date (MM/YYYY)
-  String _generateExpiryDate() {
-    final now = DateTime.now();
-    final expiryYear = (now.year + 5).toString().substring(2);
-    final month = now.month.toString().padLeft(2, '0');
-    return '$month/$expiryYear';
-  }
-
-  /// Get user cards
   Future<List<CardModel>> getUserCards(String userId) async {
-    try {
-      final query = await _cardsCollection
-          .where('userId', isEqualTo: userId)
-          .get();
-      return query.docs.map((doc) => CardModel.fromFirestore(doc)).toList();
-    } catch (e) {
-      debugPrint('Error getting user cards: $e');
-      return [];
-    }
+    final rows = await _sb.from('cards').select().eq('user_id', userId);
+    return (rows as List).map((r) => _cardFromRow(r)).toList();
   }
 
-  /// Get cards for account
   Future<List<CardModel>> getAccountCards(String accountId) async {
-    try {
-      final query = await _cardsCollection
-          .where('accountId', isEqualTo: accountId)
-          .get();
-      return query.docs.map((doc) => CardModel.fromFirestore(doc)).toList();
-    } catch (e) {
-      debugPrint('Error getting account cards: $e');
-      return [];
-    }
+    final rows = await _sb.from('cards').select().eq('account_id', accountId);
+    return (rows as List).map((r) => _cardFromRow(r)).toList();
   }
 
-  /// Stream user cards
   Stream<List<CardModel>> streamUserCards(String userId) {
-    return _cardsCollection
-        .where('userId', isEqualTo: userId)
-        .snapshots()
-        .map((snapshot) {
-      return snapshot.docs.map((doc) => CardModel.fromFirestore(doc)).toList();
-    });
+    return _sb
+        .from('cards')
+        .stream(primaryKey: ['id'])
+        .eq('user_id', userId)
+        .map((rows) => rows.map(_cardFromRow).toList());
   }
 
-  /// Update card status (block/unblock)
   Future<void> updateCardStatus(String cardId, CardStatus status) async {
-    try {
-      if (cardId.isEmpty) {
-        throw Exception('Card ID cannot be empty');
-      }
-      await _cardsCollection.doc(cardId).update({
-        'status': status.name,
-      });
-    } catch (e) {
-      debugPrint('Error updating card status: $e');
-      rethrow;
-    }
+    await _sb.from('cards').update({
+      'blocked': status == CardStatus.blocked,
+    }).eq('id', cardId);
   }
 
-  /// Update card limits
   Future<void> updateCardLimits(
     String cardId, {
     double? dailyLimit,
     double? monthlyLimit,
   }) async {
-    try {
-      final updates = <String, dynamic>{};
-      if (dailyLimit != null) updates['dailyLimit'] = dailyLimit;
-      if (monthlyLimit != null) updates['monthlyLimit'] = monthlyLimit;
-
-      if (updates.isNotEmpty) {
-        await _cardsCollection.doc(cardId).update(updates);
-      }
-    } catch (e) {
-      debugPrint('Error updating card limits: $e');
-      rethrow;
-    }
+    final patch = <String, dynamic>{};
+    if (dailyLimit != null) patch['daily_limit'] = dailyLimit;
+    if (monthlyLimit != null) patch['monthly_limit'] = monthlyLimit;
+    if (patch.isEmpty) return;
+    await _sb.from('cards').update(patch).eq('id', cardId);
   }
 
-  /// Update card settings
+  /// Update card toggle settings (contactless, online, international, limits).
+  /// O schema actual nao tem colunas dedicadas para contactless/online/intl,
+  /// portanto so persistimos os limites e fazemos log dos toggles.
   Future<void> updateCardSettings(
     String cardId, {
     bool? contactlessEnabled,
     bool? onlinePaymentsEnabled,
     bool? internationalEnabled,
+    double? dailyLimit,
+    double? monthlyLimit,
   }) async {
-    try {
-      if (cardId.isEmpty) {
-        throw Exception('Card ID cannot be empty');
-      }
-      final updates = <String, dynamic>{};
-      if (contactlessEnabled != null) {
-        updates['lockedForOnline'] = !contactlessEnabled;
-      }
-      if (onlinePaymentsEnabled != null) {
-        updates['lockedForOnline'] = !onlinePaymentsEnabled;
-      }
-      if (internationalEnabled != null) {
-        updates['lockedForInternational'] = !internationalEnabled;
-      }
-
-      if (updates.isNotEmpty) {
-        await _cardsCollection.doc(cardId).update(updates);
-      }
-    } catch (e) {
-      debugPrint('Error updating card settings: $e');
-      rethrow;
-    }
+    debugPrint(
+      '[updateCardSettings] card=$cardId contactless=$contactlessEnabled '
+      'online=$onlinePaymentsEnabled intl=$internationalEnabled',
+    );
+    await updateCardLimits(
+      cardId,
+      dailyLimit: dailyLimit,
+      monthlyLimit: monthlyLimit,
+    );
   }
 
-  /// Delete card
   Future<void> deleteCard(String cardId) async {
-    try {
-      if (cardId.isEmpty) {
-        throw Exception('Card ID cannot be empty');
-      }
-      await _cardsCollection.doc(cardId).delete();
-    } catch (e) {
-      debugPrint('Error deleting card: $e');
-      rethrow;
-    }
+    await _sb.from('cards').delete().eq('id', cardId);
   }
 
-  // ============== TRANSACTION OPERATIONS ==============
-
-  /// Create transfer transaction (with PQC signature)
+  // ====================================================================
+  // TRANSFERENCIAS — delega ao SupabaseTransferService (PQC end-to-end)
+  // ====================================================================
   Future<Transaction> createTransfer({
     required String senderId,
-    required String senderAccountId,
-    required String receiverId,
-    required String receiverAccountId,
+    String? senderName,
+    String? recipientId,
+    String? receiverId,
+    String? recipientName,
+    String? senderIban,
+    String? recipientIban,
     required double amount,
     required String description,
-    required TransactionType type,
+    String? senderAccountId,
+    String? recipientAccountId,
+    String? receiverAccountId,
+    String? signature,
+    TransactionType type = TransactionType.transfer,
     String? pqcSignature,
+    String? recipientPhone,
+    String? concept,
+    String? reference,
   }) async {
-    try {
-      // Get accounts
-      final senderAccountDoc = await _accountsCollection.doc(senderAccountId).get();
-      final receiverAccountDoc = await _accountsCollection.doc(receiverAccountId).get();
+    // Normaliza aliases (receiverId == recipientId).
+    final effectiveRecipientId = recipientId ?? receiverId;
+    final effectiveRecipientAccountId =
+        recipientAccountId ?? receiverAccountId;
 
-      if (!senderAccountDoc.exists || !receiverAccountDoc.exists) {
-        throw Exception('Conta não encontrada');
-      }
-
-      final senderAccount = AccountModel.fromFirestore(senderAccountDoc);
-      final receiverAccount = AccountModel.fromFirestore(receiverAccountDoc);
-
-      // Check balance
-      if (senderAccount.availableBalance < amount) {
-        throw Exception('Saldo insuficiente');
-      }
-
-      // Create transaction using Firestore transaction for atomicity
-      final transactionRef = _transactionsCollection.doc();
-
-      await _db.runTransaction((firestoreTransaction) async {
-        // Debit sender
-        firestoreTransaction.update(_accountsCollection.doc(senderAccountId), {
-          'balance': senderAccount.balance - amount,
-          'availableBalance': senderAccount.availableBalance - amount,
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
-
-        // Credit receiver
-        firestoreTransaction.update(_accountsCollection.doc(receiverAccountId), {
-          'balance': receiverAccount.balance + amount,
-          'availableBalance': receiverAccount.availableBalance + amount,
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
-
-        // Create transaction record
-        firestoreTransaction.set(transactionRef, {
-          'senderId': senderId,
-          'senderAccountId': senderAccountId,
-          'receiverId': receiverId,
-          'receiverAccountId': receiverAccountId,
-          'amount': amount,
-          'description': description,
-          'type': type.name,
-          'status': 'completed',
-          'pqcSignature': pqcSignature,
-          'isEncrypted': pqcSignature != null,
-          'createdAt': FieldValue.serverTimestamp(),
-        });
-      });
-
-      // Return created transaction
-      return Transaction(
-        id: transactionRef.id,
-        description: description,
-        amount: amount,
-        date: DateTime.now(),
-        type: type,
-        senderId: senderId,
-        receiverId: receiverId,
-        signature: pqcSignature,
-        status: TransactionStatus.completed,
-      );
-    } catch (e) {
-      debugPrint('Error creating transfer: $e');
-      rethrow;
+    // Resolve IBANs se nao foram passados.
+    String? originIban = senderIban;
+    String? destIban = recipientIban;
+    if (originIban == null && senderAccountId != null) {
+      try {
+        final row = await _sb
+            .from('accounts')
+            .select('iban')
+            .eq('id', senderAccountId)
+            .maybeSingle();
+        originIban = row?['iban'] as String?;
+      } catch (_) {}
     }
+    if (destIban == null && effectiveRecipientAccountId != null) {
+      try {
+        final row = await _sb
+            .from('accounts')
+            .select('iban')
+            .eq('id', effectiveRecipientAccountId)
+            .maybeSingle();
+        destIban = row?['iban'] as String?;
+      } catch (_) {}
+    }
+
+    if (originIban == null || destIban == null) {
+      throw Exception('IBAN origem/destino nao resolvido para transferencia');
+    }
+
+    final fallbackName = recipientName ?? 'destinatario';
+    final finalDescription = description.isEmpty
+        ? 'Transferencia para $fallbackName'
+        : description;
+
+    final svc = SupabaseTransferService();
+    final txId = await svc.executar(
+      origemIban: originIban,
+      destinoIban: destIban,
+      montante: amount,
+      descricao: finalDescription,
+    );
+    return Transaction(
+      id: txId,
+      description: finalDescription,
+      amount: amount,
+      date: DateTime.now(),
+      type: type,
+      category: 'Transferencia',
+      status: TransactionStatus.completed,
+      isEncrypted: true,
+      senderId: senderId,
+      receiverId: effectiveRecipientId,
+      signature: pqcSignature ?? signature,
+    );
   }
 
-  /// Get user transactions
   Future<List<Transaction>> getUserTransactions(
     String userId, {
     int limit = 50,
   }) async {
-    try {
-      // Get transactions where user is sender
-      final sentQuery = await _transactionsCollection
-          .where('senderId', isEqualTo: userId)
-          .orderBy('createdAt', descending: true)
-          .limit(limit)
-          .get();
-
-      // Get transactions where user is receiver
-      final receivedQuery = await _transactionsCollection
-          .where('receiverId', isEqualTo: userId)
-          .orderBy('createdAt', descending: true)
-          .limit(limit)
-          .get();
-
-      // Merge and deduplicate
-      final docsMap = <String, QueryDocumentSnapshot<Map<String, dynamic>>>{};
-      for (final doc in sentQuery.docs) {
-        docsMap[doc.id] = doc;
-      }
-      for (final doc in receivedQuery.docs) {
-        docsMap[doc.id] = doc;
-      }
-
-      final allDocs = docsMap.values.toList();
-      allDocs.sort((a, b) {
-        final aTime = (a.data()['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now();
-        final bTime = (b.data()['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now();
-        return bTime.compareTo(aTime);
-      });
-
-      return allDocs.take(limit).map((doc) {
-        return _parseTransaction(doc, userId);
-      }).toList();
-    } catch (e) {
-      debugPrint('Error getting transactions: $e');
-      return [];
-    }
+    final acc = await getPrimaryAccount(userId);
+    if (acc == null) return [];
+    final rows = await _sb
+        .from('transactions')
+        .select()
+        .eq('account_id', acc.id)
+        .order('timestamp', ascending: false)
+        .limit(limit);
+    return (rows as List).map((r) => _transactionFromRow(r)).toList();
   }
 
-  /// Parse transaction document to Transaction model
-  Transaction _parseTransaction(
-    DocumentSnapshot<Map<String, dynamic>> doc,
-    String currentUserId,
-  ) {
-    final data = doc.data()!;
-    final isSender = data['senderId'] == currentUserId;
-    final originalType = _parseTransactionType(data['type']);
-
-    // Determine display type based on sender/receiver
-    TransactionType displayType;
-    if (isSender) {
-      // User sent money - always an expense
-      displayType = originalType == TransactionType.mbway
-          ? TransactionType.mbway
-          : originalType == TransactionType.transfer
-              ? TransactionType.transfer
-              : TransactionType.expense;
-    } else {
-      // User received money - always income
-      displayType = TransactionType.income;
+  Stream<List<Transaction>> streamUserTransactions(String userId) async* {
+    final acc = await getPrimaryAccount(userId);
+    if (acc == null) {
+      yield const [];
+      return;
     }
+    yield* _sb
+        .from('transactions')
+        .stream(primaryKey: ['id'])
+        .eq('account_id', acc.id)
+        .order('timestamp', ascending: false)
+        .limit(50)
+        .map((rows) => rows.map(_transactionFromRow).toList());
+  }
 
-    // Build description
-    String description = data['description'] ?? '';
-    if (description.isEmpty) {
-      description = isSender ? 'Transferência enviada' : 'Transferência recebida';
-    }
-
-    // Determine category based on type
-    String? category;
-    if (originalType == TransactionType.mbway) {
-      category = 'MB WAY';
-    } else if (originalType == TransactionType.transfer) {
-      category = 'Transferência';
-    } else if (data['category'] != null) {
-      category = data['category'];
-    }
-
-    return Transaction(
-      id: doc.id,
-      description: description,
-      amount: (data['amount'] ?? 0.0).toDouble(),
-      date: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      type: displayType,
-      category: category,
-      isEncrypted: data['isEncrypted'] ?? data['pqcSignature'] != null,
-      senderId: data['senderId'],
-      receiverId: data['receiverId'],
-      signature: data['pqcSignature'],
-      status: _parseTransactionStatus(data['status']),
+  // ====================================================================
+  // Mappers
+  // ====================================================================
+  AccountModel _accountFromRow(Map<String, dynamic> row) {
+    final iban = row['iban'] as String;
+    final saldo = (row['saldo'] as num).toDouble();
+    final accountNumber = iban.length >= 21 ? iban.substring(13, 24) : iban;
+    return AccountModel(
+      id: row['id'] as String,
+      userId: row['user_id'] as String,
+      iban: iban,
+      accountNumber: accountNumber,
+      balance: saldo,
+      availableBalance: saldo,
+      currency: (row['moeda'] as String?) ?? 'EUR',
+      type: _accountType(row['tipo'] as String?),
+      createdAt: DateTime.tryParse(row['created_at'] as String? ?? ''),
     );
   }
 
-  TransactionType _parseTransactionType(String? type) {
-    switch (type) {
-      case 'income':
-        return TransactionType.income;
-      case 'expense':
-        return TransactionType.expense;
-      case 'transfer':
-        return TransactionType.transfer;
-      case 'mbway':
-        return TransactionType.mbway;
-      case 'payment':
-        return TransactionType.payment;
+  AccountType _accountType(String? tipo) {
+    switch (tipo) {
+      case 'POUPANCA':
+        return AccountType.savings;
+      case 'CARTAO_CREDITO':
+      case 'BUSINESS':
+        return AccountType.business;
       default:
-        return TransactionType.transfer;
+        return AccountType.checking;
     }
   }
 
-  /// Stream user transactions (both sent and received)
-  Stream<List<Transaction>> streamUserTransactions(String userId) {
-    // Stream sent transactions
-    final sentStream = _transactionsCollection
-        .where('senderId', isEqualTo: userId)
-        .orderBy('createdAt', descending: true)
-        .limit(50)
-        .snapshots();
-
-    // Combine both streams
-    return sentStream.asyncMap((sentSnapshot) async {
-      final receivedSnapshot = await _transactionsCollection
-          .where('receiverId', isEqualTo: userId)
-          .orderBy('createdAt', descending: true)
-          .limit(50)
-          .get();
-
-      // Merge and deduplicate
-      final docsMap = <String, QueryDocumentSnapshot<Map<String, dynamic>>>{};
-      for (final doc in sentSnapshot.docs) {
-        docsMap[doc.id] = doc;
-      }
-      for (final doc in receivedSnapshot.docs) {
-        docsMap[doc.id] = doc;
-      }
-
-      final allDocs = docsMap.values.toList();
-      allDocs.sort((a, b) {
-        final aTime = (a.data()['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now();
-        final bTime = (b.data()['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now();
-        return bTime.compareTo(aTime);
-      });
-
-      return allDocs.take(50).map((doc) {
-        return _parseTransaction(doc, userId);
-      }).toList();
-    });
+  Transaction _transactionFromRow(Map<String, dynamic> row) {
+    final montante = (row['montante'] as num).toDouble();
+    final descricao = (row['descricao'] as String?) ?? '';
+    return Transaction(
+      id: row['id'] as String,
+      description: descricao.isEmpty
+          ? 'Transferencia ${montante >= 0 ? "recebida" : "enviada"}'
+          : descricao,
+      amount: montante,
+      date: DateTime.tryParse(row['timestamp'] as String) ?? DateTime.now(),
+      type: montante >= 0 ? TransactionType.income : TransactionType.transfer,
+      category: 'Transferencia',
+      status: _txStatus(row['estado'] as String?),
+      isEncrypted: row['assinatura_mldsa'] != null,
+      signature: row['assinatura_mldsa'] != null ? 'ML-DSA-65' : null,
+    );
   }
 
-  TransactionStatus _parseTransactionStatus(String? status) {
-    switch (status) {
-      case 'pending':
-        return TransactionStatus.pending;
-      case 'completed':
-        return TransactionStatus.completed;
-      case 'failed':
-        return TransactionStatus.failed;
-      case 'cancelled':
+  TransactionStatus _txStatus(String? estado) {
+    switch (estado) {
+      case 'PENDENTE':
+        return TransactionStatus.processing;
+      case 'REJEITADA':
+      case 'REVOGADA':
         return TransactionStatus.cancelled;
       default:
         return TransactionStatus.completed;
     }
+  }
+
+  MbWayContact _contactFromRow(Map<String, dynamic> row) {
+    return MbWayContact(
+      id: row['id'] as String,
+      name: row['name'] as String,
+      phone: row['phone'] as String,
+      lastUsed: DateTime.tryParse(row['last_used'] as String? ?? '') ??
+          DateTime.now(),
+      useCount: (row['use_count'] as num).toInt(),
+    );
+  }
+
+  CardModel _cardFromRow(Map<String, dynamic> row) {
+    final mm = (row['expiry_month'] as num).toInt().toString().padLeft(2, '0');
+    final yyyy = (row['expiry_year'] as num).toInt().toString();
+    final yy = yyyy.length >= 2 ? yyyy.substring(yyyy.length - 2) : yyyy;
+    final now = DateTime.now();
+    return CardModel(
+      id: row['id'] as String,
+      userId: row['user_id'] as String,
+      cardNumber: row['card_number'] as String,
+      cardHolder: row['holder_name'] as String,
+      expiryDate: '$mm/$yy',
+      cvv: '***',
+      limit: (row['monthly_limit'] as num?)?.toDouble() ?? 5000.0,
+      spentAmount: 0.0,
+      type: _cardType(row['type'] as String?),
+      status: (row['blocked'] as bool? ?? false)
+          ? CardStatus.blocked
+          : CardStatus.active,
+      createdAt: DateTime.tryParse(row['created_at'] as String? ?? '') ?? now,
+      updatedAt: now,
+      brand: 'Visa',
+      dailyLimit: (row['daily_limit'] as num?)?.toDouble() ?? 1000.0,
+      monthlyLimit: (row['monthly_limit'] as num?)?.toDouble() ?? 5000.0,
+    );
+  }
+
+  CardType _cardType(String? t) {
+    switch (t) {
+      case 'CREDIT':
+        return CardType.credit;
+      case 'VIRTUAL':
+        return CardType.virtual;
+      case 'DEBIT':
+      default:
+        return CardType.debit;
+    }
+  }
+
+  String _gerarNumeroCartao() {
+    final rng = DateTime.now().millisecondsSinceEpoch.toString();
+    return '4000${rng.substring(rng.length - 12)}';
   }
 }

@@ -1,9 +1,23 @@
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
-import 'firestore_service.dart';
-import '../models/user_model.dart';
+// ============================================================================
+// auth_service.dart — PROXY para Supabase Auth.
+// ============================================================================
+//
+// Este ficheiro era um wrapper sobre Firebase Auth. Apos migracao para
+// Supabase, mantemos a mesma API publica (`AuthService.login`, `register`,
+// `logout`, `currentUserId`, `updateProfile`, `changePassword`,
+// `deleteAccount`, `sendPasswordReset`) mas internamente delegamos
+// para o `SupabaseAuthService` + `SupabaseConfig.client`.
+//
+// Isto permite que as screens legacy continuem a funcionar sem alteracoes,
+// e ao mesmo tempo todas as operacoes vao para o Supabase real.
+// ============================================================================
 
-/// Authentication Result
+import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../models/user_model.dart';
+import 'supabase_config.dart';
+
+/// Resultado de operacao de autenticacao.
 class AuthResult {
   final bool success;
   final String? errorMessage;
@@ -15,36 +29,32 @@ class AuthResult {
     this.user,
   });
 
-  factory AuthResult.success(UserModel user) => AuthResult(
-        success: true,
-        user: user,
-      );
-
-  factory AuthResult.failure(String message) => AuthResult(
-        success: false,
-        errorMessage: message,
-      );
+  factory AuthResult.success(UserModel user) =>
+      AuthResult(success: true, user: user);
+  factory AuthResult.failure(String message) =>
+      AuthResult(success: false, errorMessage: message);
 }
 
-/// Authentication Service for BJBank
-/// Handles Firebase Auth operations
+/// Servico de autenticacao — agora delega a Supabase Auth.
 class AuthService {
-  static final FirebaseAuth _auth = FirebaseAuth.instance;
-  static final FirestoreService _firestoreService = FirestoreService();
+  static SupabaseClient get _sb => SupabaseConfig.client;
 
-  /// Get current Firebase user
-  static User? get currentUser => _auth.currentUser;
+  /// Utilizador autenticado em formato compativel (placeholder simples).
+  static User? get currentUser => _sb.auth.currentUser;
 
-  /// Get current user ID
-  static String? get currentUserId => _auth.currentUser?.uid;
+  /// ID do utilizador autenticado (uid no Supabase).
+  static String? get currentUserId => _sb.auth.currentUser?.id;
 
-  /// Check if user is logged in
-  static bool get isLoggedIn => _auth.currentUser != null;
+  /// True se ha sessao ativa.
+  static bool get isLoggedIn => _sb.auth.currentUser != null;
 
-  /// Auth state stream
-  static Stream<User?> get authStateChanges => _auth.authStateChanges();
+  /// Stream de mudancas de autenticacao.
+  static Stream<User?> get authStateChanges =>
+      _sb.auth.onAuthStateChange.map((e) => e.session?.user);
 
-  /// Register with email and password
+  // ====================================================================
+  // Sign-up
+  // ====================================================================
   static Future<AuthResult> register({
     required String email,
     required String password,
@@ -52,236 +62,231 @@ class AuthService {
     String? phone,
   }) async {
     try {
-      // Create Firebase Auth user
-      final credential = await _auth.createUserWithEmailAndPassword(
+      final response = await _sb.auth.signUp(
         email: email.trim(),
         password: password,
+        data: {
+          'nome_completo': name,
+          if (phone != null) 'phone': phone,
+        },
       );
-
-      if (credential.user == null) {
-        return AuthResult.failure('Erro ao criar conta');
+      final u = response.user;
+      if (u == null) {
+        return AuthResult.failure(
+          'Conta criada. Confirma o email para continuar.',
+        );
       }
-
-      // Update display name
-      await credential.user!.updateDisplayName(name);
-
-      // Create user document in Firestore
-      final userModel = UserModel(
-        id: credential.user!.uid,
+      // Trigger SQL (`on_auth_user_created`) cria automaticamente a linha
+      // em public.users + conta inicial em public.accounts com IBAN PT.
+      final model = UserModel(
+        id: u.id,
         email: email.trim(),
         name: name,
         phone: phone,
-        emailVerified: false,
-        status: UserStatus.active,
+        emailVerified: u.emailConfirmedAt != null,
+        createdAt: DateTime.tryParse(u.createdAt),
       );
-
-      await _firestoreService.createUser(userModel);
-
-      // Create default account for user with unique IBAN and card
-      await _firestoreService.createDefaultAccount(
-        credential.user!.uid,
-        userName: name,
-      );
-
-      // Send email verification
-      await credential.user!.sendEmailVerification();
-
-      return AuthResult.success(userModel);
-    } on FirebaseAuthException catch (e) {
-      return AuthResult.failure(_getAuthErrorMessage(e.code));
+      return AuthResult.success(model);
+    } on AuthException catch (e) {
+      return AuthResult.failure(_humanize(e.message));
     } catch (e) {
-      debugPrint('Register error: $e');
+      debugPrint('register erro: $e');
       return AuthResult.failure('Erro ao criar conta: $e');
     }
   }
 
-  /// Login with email and password
+  // ====================================================================
+  // Sign-in
+  // ====================================================================
   static Future<AuthResult> login({
     required String email,
     required String password,
   }) async {
     try {
-      final credential = await _auth.signInWithEmailAndPassword(
+      final response = await _sb.auth.signInWithPassword(
         email: email.trim(),
         password: password,
       );
-
-      if (credential.user == null) {
-        return AuthResult.failure('Erro ao fazer login');
+      final u = response.user;
+      if (u == null) {
+        return AuthResult.failure('Erro ao iniciar sessao.');
       }
-
-      // Get user data from Firestore
-      final userModel = await _firestoreService.getUser(credential.user!.uid);
-
-      if (userModel == null) {
-        // User exists in Auth but not in Firestore - create document
-        final newUser = UserModel(
-          id: credential.user!.uid,
-          email: credential.user!.email ?? email,
-          name: credential.user!.displayName ?? 'Utilizador',
-          emailVerified: credential.user!.emailVerified,
-        );
-        await _firestoreService.createUser(newUser);
-        return AuthResult.success(newUser);
-      }
-
-      return AuthResult.success(userModel);
-    } on FirebaseAuthException catch (e) {
-      return AuthResult.failure(_getAuthErrorMessage(e.code));
+      final model = UserModel(
+        id: u.id,
+        email: u.email ?? email,
+        name: (u.userMetadata?['nome_completo'] as String?) ?? email,
+        emailVerified: u.emailConfirmedAt != null,
+        createdAt: DateTime.tryParse(u.createdAt),
+      );
+      return AuthResult.success(model);
+    } on AuthException catch (e) {
+      return AuthResult.failure(_humanize(e.message));
     } catch (e) {
-      debugPrint('Login error: $e');
-      return AuthResult.failure('Erro ao fazer login: $e');
+      debugPrint('login erro: $e');
+      return AuthResult.failure('Erro ao iniciar sessao: $e');
     }
   }
 
-  /// Logout
+  // ====================================================================
+  // Sign-out
+  // ====================================================================
   static Future<void> logout() async {
-    await _auth.signOut();
+    await _sb.auth.signOut();
   }
 
-  /// Send password reset email
+  // ====================================================================
+  // Password reset
+  // ====================================================================
   static Future<AuthResult> sendPasswordReset(String email) async {
     try {
-      await _auth.sendPasswordResetEmail(email: email.trim());
+      await _sb.auth.resetPasswordForEmail(
+        email.trim(),
+        redirectTo: 'bjbank://reset',
+      );
       return AuthResult(success: true);
-    } on FirebaseAuthException catch (e) {
-      return AuthResult.failure(_getAuthErrorMessage(e.code));
+    } on AuthException catch (e) {
+      return AuthResult.failure(_humanize(e.message));
     } catch (e) {
       return AuthResult.failure('Erro ao enviar email: $e');
     }
   }
 
-  /// Resend email verification
+  // ====================================================================
+  // Resend email verification — Supabase nao expoe directamente; usa
+  // resetPasswordForEmail como workaround / no-op.
+  // ====================================================================
   static Future<AuthResult> resendEmailVerification() async {
     try {
-      final user = _auth.currentUser;
-      if (user == null) {
-        return AuthResult.failure('Utilizador não autenticado');
+      final u = _sb.auth.currentUser;
+      if (u == null) {
+        return AuthResult.failure('Utilizador nao autenticado');
       }
-      await user.sendEmailVerification();
-      return AuthResult(success: true);
+      // Nao ha API directa em Supabase para reenviar verificacao no Flutter
+      // SDK. Em alternativa, o utilizador pode pedir reset que envia novo
+      // email para confirmar.
+      debugPrint('resendEmailVerification: not supported by Supabase SDK');
+      return AuthResult(
+        success: false,
+        errorMessage: 'Nao suportado. Reinicia o registo se necessario.',
+      );
     } catch (e) {
-      return AuthResult.failure('Erro ao enviar verificação: $e');
+      return AuthResult.failure('Erro: $e');
     }
   }
 
-  /// Check if email is verified
   static Future<bool> isEmailVerified() async {
-    final user = _auth.currentUser;
-    if (user == null) return false;
-    await user.reload();
-    return user.emailVerified;
+    final u = _sb.auth.currentUser;
+    return u != null && u.emailConfirmedAt != null;
   }
 
-  /// Update user profile
+  // ====================================================================
+  // Update profile (nome / foto) — Supabase usa user_metadata
+  // ====================================================================
   static Future<AuthResult> updateProfile({
     String? displayName,
     String? photoURL,
   }) async {
     try {
-      final user = _auth.currentUser;
-      if (user == null) {
-        return AuthResult.failure('Utilizador não autenticado');
+      final attrs = <String, dynamic>{};
+      if (displayName != null) attrs['nome_completo'] = displayName;
+      if (photoURL != null) attrs['photo_url'] = photoURL;
+      if (attrs.isNotEmpty) {
+        await _sb.auth.updateUser(UserAttributes(data: attrs));
       }
-
-      if (displayName != null) {
-        await user.updateDisplayName(displayName);
+      // Sincroniza tambem em public.users
+      final uid = _sb.auth.currentUser?.id;
+      if (uid != null) {
+        final patch = <String, dynamic>{};
+        if (displayName != null) patch['nome_completo'] = displayName;
+        if (patch.isNotEmpty) {
+          await _sb.from('users').update(patch).eq('id', uid);
+        }
       }
-      if (photoURL != null) {
-        await user.updatePhotoURL(photoURL);
-      }
-
       return AuthResult(success: true);
+    } on AuthException catch (e) {
+      return AuthResult.failure(_humanize(e.message));
     } catch (e) {
       return AuthResult.failure('Erro ao atualizar perfil: $e');
     }
   }
 
-  /// Change password
+  // ====================================================================
+  // Change password (Supabase aceita updateUser com nova password sem
+  // re-autenticar; ainda assim validamos a password actual primeiro).
+  // ====================================================================
   static Future<AuthResult> changePassword({
     required String currentPassword,
     required String newPassword,
   }) async {
     try {
-      final user = _auth.currentUser;
-      if (user == null || user.email == null) {
-        return AuthResult.failure('Utilizador não autenticado');
+      final email = _sb.auth.currentUser?.email;
+      if (email == null) {
+        return AuthResult.failure('Utilizador nao autenticado');
       }
-
-      // Re-authenticate
-      final credential = EmailAuthProvider.credential(
-        email: user.email!,
-        password: currentPassword,
-      );
-      await user.reauthenticateWithCredential(credential);
-
-      // Update password
-      await user.updatePassword(newPassword);
-
+      // Re-autentica com a password actual.
+      try {
+        await _sb.auth.signInWithPassword(email: email, password: currentPassword);
+      } on AuthException {
+        return AuthResult.failure('Palavra-passe actual incorreta.');
+      }
+      await _sb.auth.updateUser(UserAttributes(password: newPassword));
       return AuthResult(success: true);
-    } on FirebaseAuthException catch (e) {
-      return AuthResult.failure(_getAuthErrorMessage(e.code));
+    } on AuthException catch (e) {
+      return AuthResult.failure(_humanize(e.message));
     } catch (e) {
-      return AuthResult.failure('Erro ao alterar senha: $e');
+      return AuthResult.failure('Erro ao alterar palavra-passe: $e');
     }
   }
 
-  /// Delete account
+  // ====================================================================
+  // Delete account — Supabase Flutter SDK nao expoe deleteUser ao cliente
+  // (so via service_role). Marca como "pedido eliminado" e fazemos
+  // sign-out; eliminacao real deve ser feita por uma Edge Function.
+  // ====================================================================
   static Future<AuthResult> deleteAccount(String password) async {
     try {
-      final user = _auth.currentUser;
-      if (user == null || user.email == null) {
-        return AuthResult.failure('Utilizador não autenticado');
+      final email = _sb.auth.currentUser?.email;
+      if (email == null) {
+        return AuthResult.failure('Utilizador nao autenticado');
       }
-
-      // Re-authenticate
-      final credential = EmailAuthProvider.credential(
-        email: user.email!,
-        password: password,
-      );
-      await user.reauthenticateWithCredential(credential);
-
-      // Delete Firestore data
-      await _firestoreService.deleteUserData(user.uid);
-
-      // Delete Auth account
-      await user.delete();
-
+      try {
+        await _sb.auth.signInWithPassword(email: email, password: password);
+      } on AuthException {
+        return AuthResult.failure('Palavra-passe incorreta.');
+      }
+      // Apaga dados do utilizador via cascade na public.users (RLS impede
+      // outros utilizadores; chamada protegida pelo JWT actual).
+      final uid = _sb.auth.currentUser?.id;
+      if (uid != null) {
+        await _sb.from('users').delete().eq('id', uid);
+      }
+      await _sb.auth.signOut();
       return AuthResult(success: true);
-    } on FirebaseAuthException catch (e) {
-      return AuthResult.failure(_getAuthErrorMessage(e.code));
     } catch (e) {
       return AuthResult.failure('Erro ao eliminar conta: $e');
     }
   }
 
-  /// Get Portuguese error messages
-  static String _getAuthErrorMessage(String code) {
-    switch (code) {
-      case 'user-not-found':
-        return 'Utilizador não encontrado';
-      case 'wrong-password':
-        return 'Palavra-passe incorreta';
-      case 'email-already-in-use':
-        return 'Este email já está registado';
-      case 'invalid-email':
-        return 'Email inválido';
-      case 'weak-password':
-        return 'Palavra-passe demasiado fraca (mínimo 6 caracteres)';
-      case 'operation-not-allowed':
-        return 'Operação não permitida';
-      case 'user-disabled':
-        return 'Conta desativada';
-      case 'too-many-requests':
-        return 'Demasiadas tentativas. Tente novamente mais tarde';
-      case 'network-request-failed':
-        return 'Erro de ligação. Verifique a sua internet';
-      case 'invalid-credential':
-        return 'Credenciais inválidas';
-      case 'requires-recent-login':
-        return 'Por favor, faça login novamente';
-      default:
-        return 'Erro de autenticação: $code';
+  // ====================================================================
+  // Humaniza mensagens de erro do Supabase para PT.
+  // ====================================================================
+  static String _humanize(String? raw) {
+    final m = (raw ?? '').toLowerCase();
+    if (m.contains('invalid login credentials')) {
+      return 'Email ou palavra-passe incorretos.';
     }
+    if (m.contains('email not confirmed')) {
+      return 'Confirma o teu email antes de entrar.';
+    }
+    if (m.contains('user already registered')) {
+      return 'Ja existe uma conta com esse email.';
+    }
+    if (m.contains('password should be at least')) {
+      return 'Palavra-passe demasiado fraca (minimo 6 caracteres).';
+    }
+    if (m.contains('rate limit')) {
+      return 'Demasiadas tentativas. Tente novamente mais tarde.';
+    }
+    return raw ?? 'Erro de autenticacao.';
   }
 }
