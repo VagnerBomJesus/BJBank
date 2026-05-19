@@ -1,4 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Permissoes BJBank -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+
     <application
         android:label="BJ Bank"
         android:name="${applicationName}"
@@ -24,12 +30,27 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
-            <!-- Deep link for Nordigen/Open Banking callback -->
+            <!-- Deep link Open Banking callback (legacy) -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="bjbank" android:host="callback" />
+            </intent-filter>
+            <!-- Deep link Supabase Auth - recovery de password.
+                 Configurar em Supabase Dashboard > Auth > URL Configuration:
+                   Redirect URLs: bjbank://reset, bjbank://login -->
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="bjbank" android:host="reset" />
+            </intent-filter>
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="bjbank" android:host="login" />
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
