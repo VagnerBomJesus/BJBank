@@ -1,6 +1,6 @@
 # Arquitectura — BJBank
 
-Documento técnico que descreve a arquitectura actual da aplicação BJBank após a migração de Firebase para Supabase e a adopção do pipeline PQC end-to-end.
+Documento técnico que descreve a arquitectura actual da aplicação BJBank com pipeline PQC end-to-end sobre Supabase.
 
 ## Visão de camadas
 
@@ -24,7 +24,7 @@ Documento técnico que descreve a arquitectura actual da aplicação BJBank apó
 │  SupabaseTransferService              → pipeline PQC E2E (ML-DSA+GCM)  │
 │  SupabasePqcHandshakeService          → handshake + HKDF               │
 │  TrustedServerKeyService              → TOFU pinning (SharedPrefs)     │
-│  FirestoreService (proxy legacy)      → API compatível Firestore       │
+│  FirestoreService (proxy)             → API legacy → Supabase          │
 │  PqcBenchmarkService (local)          → benchmark PoC                  │
 │  ServerPqcBenchmarkService            → invoca bench_server_pqc        │
 └───────────────────────────────┬────────────────────────────────────────┘
@@ -86,7 +86,7 @@ Resultado: `SessionKeys { sessionId, chaveCifragem, nonceBase }`. Cacheada em me
 Orquestra o pipeline:
 1. `obterOuEstabelecer()` para ter sessionKeys
 2. Gera `txId` (UUID v4) + `nonce` 16 B + timestamp
-3. Constrói payload canónico em bytes — função `_construirPayload` produz bytes idênticos ao cliente Kotlin
+3. Constrói payload canónico em bytes — função `_construirPayload` produz bytes determinísticos compatíveis com o transcript canónico do servidor
 4. Invoca `flutter_sign_transfer` com `payloadBase64` → recebe `{signatureBase64, clientDsaPublicBase64}`
 5. Constrói envelope: `[4B|payload_len][payload][4B|sig_len][signature]`
 6. Cifra com `pc.GCMBlockCipher(pc.AESEngine())`: `key = session.chaveCifragem`, `iv = session.nonceBase ⊕ txId`, `aad = utf8(sessionId)`, tag 128 bits

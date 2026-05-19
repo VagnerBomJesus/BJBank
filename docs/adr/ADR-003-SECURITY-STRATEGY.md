@@ -1,510 +1,184 @@
-# ADR-003: Security Strategy
+# ADR-003: Estratégia de Segurança
 
-**Date**: 18/04/2026
-**Status**: APPROVED & IMPLEMENTED
-**Author**: Vagner Bom Jesus
-
----
-
-## 1. Context
-
-The BJBank application handles sensitive financial data and user information that requires comprehensive security protection. The application must:
-- Protect user credentials and authentication tokens
-- Secure financial transactions in transit and at rest
-- Ensure data integrity and authenticity
-- Comply with financial security standards
-- Prevent unauthorized access and data breaches
-
-**Challenge**: Implement multi-layered security architecture that:
-- Addresses threats at every level (transport, application, data)
-- Maintains performance on mobile devices
-- Complies with regulatory requirements (GDPR, PSD2)
-- Provides quantum-safe cryptography
+**Data**: Maio de 2026
+**Estado**: Aceite e implementado
+**Autor**: Vagner Bom Jesus
 
 ---
 
-## 2. Decision
+## 1. Contexto
 
-Implement **Layered Security Architecture** with:
-1. **Transport Security**: HTTPS/TLS 1.3 with certificate pinning
-2. **Authentication**: Firebase Auth + PIN-based biometric
-3. **Encryption**: PQC hybrid (Kyber + ECDH) for key exchange
-4. **Storage**: Encrypted local storage with secure_storage plugin
-5. **Data Integrity**: HMAC-SHA256 for message authentication
-6. **Access Control**: Role-based Firebase Firestore rules
+A aplicação BJBank executa operações bancárias sensíveis. Define-se uma estratégia de segurança em camadas (*defense in depth*) que protege:
+
+- Autenticação de utilizadores
+- Confidencialidade e integridade das transferências
+- Resistência ao cenário *Harvest Now, Decrypt Later* (HNDL)
+- Privacidade de dados sob RGPD
 
 ---
 
-## 3. Security Layers
+## 2. Decisão
 
-### 3.1 Transport Layer (In Transit)
+Arquitectura de segurança em **cinco camadas** complementares:
 
-**Implementation**:
+| Camada | Mecanismo | Componente |
+|---|---|---|
+| 1. Transporte | TLS 1.3 sobre ECDHE-X25519 | Supabase (gerido) |
+| 2. Autenticação | JWT emitido por Supabase Auth | `SupabaseAuthService` |
+| 3. Autorização | Row Level Security em PostgreSQL | Políticas RLS |
+| 4. Integridade da transacção | ML-DSA-65 (FIPS 204) | `flutter_sign_transfer` Edge Function |
+| 5. Confidencialidade da payload | AES-256-GCM com HKDF-SHA-256 | `SupabaseTransferService` |
+
+---
+
+## 3. Modelo de ameaça
+
+### 3.1. Ameaças identificadas
+
+| ID | Ameaça | Severidade |
+|---|---|---|
+| T1 | HNDL — captura de dados cifrados hoje, decifragem futura com computador quântico | CRÍTICA |
+| T2 | MITM no handshake (atacante intercepta e substitui chave do servidor) | ALTA |
+| T3 | Replay de transferência (atacante reenvia mensagem assinada válida) | ALTA |
+| T4 | Substituição de chave pública do cliente | MÉDIA |
+| T5 | Race condition em transferências concorrentes | MÉDIA |
+| T6 | Bypass de RLS para aceder a contas de outros utilizadores | ALTA |
+| T7 | Acesso não autorizado à BD via service_role | CRÍTICA |
+| T8 | Side-channel attacks (timing, cache) sobre primitivas PQC | BAIXA |
+
+### 3.2. Mitigações aplicadas
+
+| Ameaça | Mitigação |
+|---|---|
+| T1 | AES-256-GCM dentro de envelope assinado com ML-DSA-65 (FIPS 204) |
+| T2 | TOFU pinning da chave pública ML-DSA do servidor (`TrustedServerKeyService`) + verificação `verify_dsa` da assinatura do transcript |
+| T3 | `txId` UUID v4 (≈122 bits entropia) + UNIQUE PK em `transactions` + sessões com `expires_at` 1h |
+| T4 | Pin de `pqc_public_key_base64` em `public.users` no primeiro signing; rejeição de chaves diferentes em assinaturas subsequentes |
+| T5 | `SELECT FOR UPDATE` em `accounts` + transacção SQL atómica na RPC `executar_transferencia_atomica` |
+| T6 | Políticas RLS declarativas em todas as tabelas; service_role só nas Edge Functions |
+| T7 | service_role key apenas no servidor Supabase (nunca exposta no cliente); RPCs `SECURITY DEFINER` para lookup público controlado |
+| T8 | Limitação aceite; aprofundamento previsto em trabalho futuro |
+
+---
+
+## 4. Pipeline criptográfico
+
+### 4.1. Handshake (estabelecimento de chave de sessão)
+
+```
+Cliente                          Edge Function
+   |  POST pqc_handshake_flutter      |
+   |  { clientNonceBase64 }            |
+   |---------------------------------->|
+   |                                   | gera sharedSecret (32B)
+   |                                   | assina transcript com ML-DSA-65
+   |                                   | persiste em public.sessions
+   |  { sessionId, sharedSecret,      |
+   |    serverDsaPub, signature }     |
+   |<----------------------------------|
+   |
+   | POST verify_dsa
+   |---------------------------------->|
+   | { valid: true }
+   |<----------------------------------|
+   |
+   | TOFU pin da serverDsaPub
+   | HKDF(sharedSecret, sid, info, 44)
+   | -> aesKey (32B) + nonceBase (12B)
+```
+
+### 4.2. Transferência assinada
+
+```
+1. Construir payload canónico (bytes determinísticos)
+2. Assinar payload com ML-DSA-65 (Edge Function)
+3. Envelope = [4B|payload_len][payload][4B|sig_len][signature]
+4. iv = nonceBase XOR txId[0..12]
+5. aad = sessionId UTF-8
+6. Cifrar envelope com AES-256-GCM
+7. POST executar_transferencia
+8. Servidor: decifra, verifica ML-DSA, reconstrói transcript, RPC atómica
+```
+
+---
+
+## 5. Pinning TOFU
+
+Implementação em `TrustedServerKeyService`:
+
 ```dart
-// HTTPS/TLS 1.3 enforced by default
-// Certificate pinning via Android Network Security Configuration
-// iOS ATS (App Transport Security) enabled
+class TrustedServerKeyService {
+  static const _key = 'trusted_server_dsa_public';
 
-// All Firebase communications use HTTPS
-FirebaseFirestore.instance.settings = FirestoreSettings(
-  persistenceEnabled: true,
-  cacheSizeBytes: FirestoreSettings.cacheSizeUnlimited,
-);
-```
-
-**Security Properties**:
-- [IMPLEMENTED] End-to-end encryption (Firebase → Backend)
-- [IMPLEMENTED] Certificate pinning prevents MITM attacks
-- [IMPLEMENTED] Perfect forward secrecy with TLS 1.3
-- [IMPLEMENTED] Authenticated encryption (AES-256-GCM)
-
-### 3.2 Authentication Layer
-
-**Multi-Factor Authentication**:
-```
-User Login Flow:
-  1. Email/Password (Firebase Auth)
-     └─ Returns idToken, refreshToken
-  2. PIN Entry
-     └─ Stored in secure storage (encrypted)
-  3. Biometric (Fingerprint/Face)
-     └─ Validates against stored PIN hash
-  4. Session Management
-     └─ Token refresh every 60 minutes
-```
-
-**Implementation**:
-- Firebase Authentication handles OAuth flows
-- PIN stored as PBKDF2 hash (100,000 iterations)
-- Biometric validation via local_auth plugin
-- Session tokens rotated automatically
-
-**Features**:
-- [IMPLEMENTED] Multi-factor authentication (email + PIN + biometric)
-- [IMPLEMENTED] Secure credential storage
-- [IMPLEMENTED] Automatic session timeout (15 minutes idle)
-- [IMPLEMENTED] Device trust management
-
-### 3.3 Application Layer
-
-**Data Protection in Code**:
-```dart
-// PQC Cryptographic Operations
-class PqcService {
-  // Key derivation using HKDF-SHA256
-  Uint8List deriveKey(Uint8List masterSecret, String context) {
-    // HKDF expansion with context
-    return _hkdfExpand(masterSecret, context, 32);
+  Future<void> setTrustedKey(Uint8List bytes) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_key, base64Encode(bytes));
   }
 
-  // Message authentication
-  Uint8List computeHmac(Uint8List message, Uint8List key) {
-    return Hmac(sha256, key).convert(message).bytes as Uint8List;
-  }
-
-  // Signature verification
-  Future<bool> verifySignature(
-    Uint8List data,
-    Uint8List signature,
-    Uint8List publicKey,
-  ) async {
-    return _verifyPQCSignature(data, signature, publicKey);
-  }
-}
-```
-
-**Input Validation**:
-- [IMPLEMENTED] Type-safe operations (Dart null safety)
-- [IMPLEMENTED] Input sanitization for user data
-- [IMPLEMENTED] SQL injection prevention (Firestore parameterized queries)
-- [IMPLEMENTED] XSS prevention (no HTML in user inputs)
-
-### 3.4 Storage Layer
-
-**Secure Local Storage**:
-```dart
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-
-class SecureStorageService {
-  static const storage = FlutterSecureStorage(
-    aOptions: AndroidOptions(
-      keyCipherAlgorithm: KeyCipherAlgorithm.RSA_ECB_OAEPwithSHA_256andMGF1Padding,
-      storageCipherAlgorithm: StorageCipherAlgorithm.AES_GCM_NoPadding,
-    ),
-    iOptions: IOSOptions(
-      accessibility: KeychainAccessibility.first_this_device_this_app_only,
-    ),
-  );
-
-  Future<void> saveSecureData(String key, String value) async {
-    await storage.write(key: key, value: value);
-  }
-
-  Future<String?> getSecureData(String key) async {
-    return storage.read(key: key);
-  }
-
-  Future<void> deleteSecureData(String key) async {
-    await storage.delete(key: key);
-  }
-}
-```
-
-**What's Stored Securely**:
-- [STORED] Authentication tokens (idToken, refreshToken)
-- [STORED] PIN hash (not plaintext)
-- [STORED] User encryption keys
-- [STORED] Session secrets
-
-**What's NOT Stored**:
-- [NOT STORED] Passwords (Firebase Auth handles)
-- [NOT STORED] PII except necessary IDs
-- [NOT STORED] Sensitive financial data (fetched from Firebase)
-
-### 3.5 Database Layer
-
-**Firestore Security Rules**:
-```
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    // Default: deny all
-    match /{document=**} {
-      allow read, write: if false;
+  Future<bool> verificar(Uint8List serverKey) async {
+    final stored = await getTrustedKey();
+    if (stored == null) {
+      await setTrustedKey(serverKey);
+      return true;
     }
-
-    // Users collection: only own data
-    match /users/{userId} {
-      allow read, write: if request.auth.uid == userId;
-
-      // Subcollections
-      match /accounts/{accountId} {
-        allow read, write: if request.auth.uid == userId;
-      }
-
-      match /transactions/{transactionId} {
-        allow read: if request.auth.uid == userId;
-        allow create: if request.auth.uid == userId &&
-                         validateTransaction(request.resource.data);
-      }
-    }
-
-    // Public data (exchange rates, bank info)
-    match /public/{document=**} {
-      allow read: if true;
-      allow write: if false;
-    }
+    return _bytesEqual(stored, serverKey);
   }
 }
 ```
 
-**Security Properties**:
-- [IMPLEMENTED] User isolation (each user only sees own data)
-- [IMPLEMENTED] Data validation (custom validator functions)
-- [IMPLEMENTED] Audit logging enabled
-- [IMPLEMENTED] Read/write timestamps enforced
-
-### 3.6 API Communication
-
-**Request Signing**:
-```dart
-class ApiSecurityService {
-  Future<Map<String, String>> signRequest(
-    String method,
-    String path,
-    Uint8List? body,
-  ) async {
-    // 1. Create canonical request
-    String canonical = '$method\n$path\n${DateTime.now().toIso8601String()}';
-
-    // 2. Add body hash if present
-    if (body != null) {
-      Uint8List bodyHash = sha256.convert(body).bytes as Uint8List;
-      canonical += '\n${base64Encode(bodyHash)}';
-    }
-
-    // 3. Sign with HMAC-SHA256
-    Uint8List signature = Hmac(sha256, _apiSecret)
-        .convert(utf8.encode(canonical))
-        .bytes as Uint8List;
-
-    // 4. Return headers
-    return {
-      'X-API-Signature': base64Encode(signature),
-      'X-API-Timestamp': DateTime.now().toIso8601String(),
-      'X-API-Version': '1.0',
-    };
-  }
-}
-```
-
-**Headers**:
-- [IMPLEMENTED] CORS headers validated
-- [IMPLEMENTED] Content-Security-Policy enforced
-- [IMPLEMENTED] HSTS (HTTP Strict-Transport-Security) enabled
-- [IMPLEMENTED] Custom authentication headers
+- **First Use**: a chave é guardada no primeiro contacto
+- **Subsequente**: comparação byte-a-byte; rejeição em caso de mismatch
 
 ---
 
-## 4. Threat Model
+## 6. Row Level Security
 
-### 4.1 Identified Threats
+Todas as 15 tabelas têm RLS activo. Exemplo das políticas em `accounts`:
 
-| Threat | Severity | Mitigation |
-|--------|----------|-----------|
-| **Man-in-the-Middle (MITM)** | 🔴 Critical | TLS 1.3 + Certificate Pinning |
-| **Brute Force Password Attack** | 🔴 Critical | Firebase Auth rate limiting |
-| **Session Hijacking** | 🟡 High | Token rotation, short TTL |
-| **Local Data Theft** | 🟡 High | Secure Storage encryption |
-| **Quantum Threats** | 🟡 High | PQC Hybrid Cryptography |
-| **SQL Injection** | 🟢 Low | Firestore (no SQL), parameterized queries |
-| **XSS Attacks** | 🟢 Low | No HTML content, input sanitization |
-| **CSRF** | 🟢 Low | Firebase CSRF tokens |
-| **Unauthorized Access** | 🟡 High | Firestore Security Rules + Auth |
-| **Data Leakage** | 🟡 High | Encryption at rest + in transit |
+```sql
+CREATE POLICY accounts_select_own ON public.accounts
+  FOR SELECT USING (auth.uid() = user_id);
 
-### 4.2 Attack Surface
-
+CREATE POLICY accounts_write_service ON public.accounts
+  FOR ALL USING (auth.role() = 'service_role');
 ```
-┌─────────────────────────────────────────────────────┐
-│             User Device (Android/iOS)              │
-├─────────────────────────────────────────────────────┤
-│  • Biometric data (local, never transmitted)       │
-│  • PIN storage (encrypted, local only)             │
-│  • Session tokens (secure storage)                 │
-│  • App state (memory, cleared on logout)           │
-└──────────────┬──────────────────────────────────────┘
-               │ HTTPS/TLS 1.3 + Certificate Pinning
-               ▼
-┌─────────────────────────────────────────────────────┐
-│        Firebase Backend (Google Cloud)             │
-├─────────────────────────────────────────────────────┤
-│  • Firestore Security Rules (field-level access)   │
-│  • Cloud Functions (serverless, auto-scaling)      │
-│  • Cloud Storage (encrypted, access controlled)    │
-│  • Authentication (OAuth 2.0, JWT tokens)          │
-└─────────────────────────────────────────────────────┘
+
+Lookup público de IBAN (sem expor saldo) via RPC `SECURITY DEFINER`:
+
+```sql
+CREATE FUNCTION public.lookup_account_by_iban(p_iban text)
+RETURNS TABLE (account_id uuid, user_id uuid, iban text, owner_name text)
+LANGUAGE sql SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+  SELECT a.id, a.user_id, a.iban, u.nome_completo
+  FROM public.accounts a JOIN public.users u ON u.id = a.user_id
+  WHERE a.iban = upper(regexp_replace(p_iban, '\s', '', 'g'))
+  LIMIT 1;
+$$;
 ```
 
 ---
 
-## 5. Compliance
+## 7. Limitações reconhecidas
 
-### 5.1 GDPR (General Data Protection Regulation)
-
-**Implementation**:
-- [COMPLIANT] Data minimization (collect only necessary data)
-- [COMPLIANT] Purpose limitation (use data only for stated purposes)
-- [COMPLIANT] Storage limitation (delete data when no longer needed)
-- [COMPLIANT] User rights (export, delete, rectify data)
-- [COMPLIANT] Privacy by design (encryption by default)
-- [COMPLIANT] Data processing agreements (Firebase Data Processing Amendment)
-
-**Features**:
-```dart
-// User can request data export
-Future<void> exportUserData(String userId) async {
-  // Collect all user data from Firestore
-  // Package as JSON/CSV
-  // Send to user email
-}
-
-// User can request deletion
-Future<void> deleteUserData(String userId) async {
-  // Delete from Authentication
-  // Delete from Firestore (with cascade)
-  // Delete from Cloud Storage
-  // Log deletion for compliance
-}
-```
-
-### 5.2 PSD2 (Payment Services Directive 2)
-
-**Strong Customer Authentication (SCA)**:
-- [COMPLIANT] Multi-factor authentication (email + PIN + biometric)
-- [COMPLIANT] Transaction authentication
-- [COMPLIANT] Exemptions: low-value transactions (<€30)
-
-**Data Protection**:
-- [COMPLIANT] PCI DSS compliance (no card storage, tokenization)
-- [COMPLIANT] Encryption of sensitive data
-- [COMPLIANT] Access logging and monitoring
-
-### 5.3 RGPD (Regulamento Geral sobre Proteção de Dados - Portuguese/European)
-
-**Implementation**:
-- [COMPLIANT] Data subject rights (access, deletion, portability)
-- [COMPLIANT] Consent management
-- [COMPLIANT] Data processing transparency
-- [COMPLIANT] Data protection officer notification system
-- [COMPLIANT] Legal basis for data processing
-- [COMPLIANT] Data Protection Impact Assessments (DPIA)
+1. **Chave privada ML-DSA do cliente armazenada no servidor** (`flutter_client_keys.secret_key_base64`) por ausência de bibliotecas Dart fiáveis para ML-DSA. Mitigação em produção: HSM/KMS.
+2. **Sem rotação automática de chaves do servidor** — exige intervenção manual via SQL Editor (`DELETE FROM public_config WHERE key='server_ml_dsa'`).
+3. **Sem proteção explícita contra replay além do UUID** — recomendado adicionar `WHERE NOT EXISTS` na RPC atómica.
+4. **Side-channels não analisados** — análise prevista em trabalho futuro.
 
 ---
 
-## 6. Security Best Practices
+## 8. Métricas de validação
 
-### 6.1 Development Security
-
-```dart
-// VERIFIED: Never hardcode secrets
-const apiKey = String.fromEnvironment('API_KEY');
-
-// VERIFIED: Use const for security-critical values
-const secureAlgorithm = 'AES-256-GCM';
-
-// VERIFIED: Type-safe operations
-Future<void> secureOperation(Uint8List data) async {
-  // Types enforce correct usage
-}
-
-// VERIFIED: Dispose resources properly
-@override
-void dispose() {
-  // Clear sensitive data
-  _encryptionKey?.fillRange(0, _encryptionKey!.length, 0);
-  super.dispose();
-}
-```
-
-### 6.2 Deployment Security
-
-```bash
-# Use environment variables for secrets
-export FIREBASE_API_KEY=$(aws secretsmanager get-secret-value ...)
-export JWT_SIGNING_KEY=$(aws secretsmanager get-secret-value ...)
-
-# Enable release mode for production
-flutter build apk --release
-
-# Verify APK signature
-jarsigner -verify -verbose build/app/outputs/apk/release/app-release.apk
-
-# Check for hardcoded secrets
-grep -r "password\|secret\|key" lib/ --include="*.dart"
-```
-
-### 6.3 Operation Security
-
-- [ESTABLISHED] Regular security audits (quarterly)
-- [ESTABLISHED] Dependency vulnerability scanning
-- [ESTABLISHED] Penetration testing (annual)
-- [ESTABLISHED] Security incident response plan
-- [ESTABLISHED] Data backup and recovery plan
-- [ESTABLISHED] Security awareness training
+- Cobertura de RLS: 100% das tabelas
+- Sessões com `expires_at` ≤ 1h: 100% (enforced por código)
+- Verificação ML-DSA antes de qualquer operação destrutiva: 100%
+- IVs únicos garantidos pelo UUID v4 (entropia ≈ 122 bits): probabilidade de colisão negligenciável
 
 ---
 
-## 7. Security Testing
+## Decisões relacionadas
 
-### Unit Tests
-
-```dart
-test('PIN verification rejects wrong PIN', () async {
-  final service = SecurityService();
-  final pinHash = service.hashPin('1234');
-
-  expect(service.verifyPin('5678', pinHash), isFalse);
-  expect(service.verifyPin('1234', pinHash), isTrue);
-});
-
-test('HMAC verification detects tampering', () async {
-  final key = Uint8List(32);
-  Random().nextBytes(key);
-
-  final message = utf8.encode('original message');
-  final hmac = computeHmac(message, key);
-
-  // Tamper with message
-  message[0] = ~message[0];
-
-  expect(verifyHmac(message, hmac, key), isFalse);
-});
-```
-
-### Integration Tests
-
-```dart
-testWidgets('Login with invalid credentials fails', (tester) async {
-  await tester.pumpWidget(const BJBankApp());
-
-  await tester.enterText(find.byType(EmailField), 'test@example.com');
-  await tester.enterText(find.byType(PasswordField), 'wrongpassword');
-  await tester.tap(find.byType(LoginButton));
-  await tester.pumpAndSettle();
-
-  expect(find.byType(ErrorSnackBar), findsOneWidget);
-});
-```
-
----
-
-## 8. Security Metrics
-
-### Monitored Metrics
-
-```
-├─ Failed login attempts
-├─ Failed biometric attempts
-├─ Session duration
-├─ API error rates
-├─ Data access patterns
-├─ Firestore rule violations
-├─ Certificate validation failures
-└─ Encryption operation failures
-```
-
-### Alerting Thresholds
-
-- 5+ failed logins in 15 minutes → Account lockout
-- 10+ failed biometrics → Force re-authentication
-- Unusual location access → Security alert
-- Firestore rule violation → Log and block
-- Certificate pinning failure → Connection refused
-
----
-
-## 9. Future Improvements
-
-### Phase 2: Enhanced Security
-
-1. **Hardware Security Module (HSM)**
-   - Secure key storage for signing operations
-   - TPM (Trusted Platform Module) integration
-
-2. **Zero Trust Architecture**
-   - Every request authenticated and authorized
-   - Continuous verification of device posture
-
-3. **Behavioral Analytics**
-   - Anomaly detection for fraudulent transactions
-   - Risk scoring for each operation
-
-4. **Post-Quantum Signature**
-   - Replace HMAC with Falcon digital signatures
-   - Full quantum-safe message authentication
-
----
-
-## 10. References
-
-1. [OWASP Top 10 Mobile](https://owasp.org/www-project-mobile-top-10/)
-2. [NIST Cybersecurity Framework](https://www.nist.gov/cyberframework)
-3. [Firebase Security Best Practices](https://firebase.google.com/docs/security)
-4. [GDPR Technical Guidance](https://ec.europa.eu/info/law/law-topic/data-protection_en)
-5. [RGPD (Regulamento Geral sobre Proteção de Dados)](https://eur-lex.europa.eu/legal-content/PT/TXT/?uri=celex%3A32016R0679)
-6. [PSD2 Strong Customer Authentication](https://www.eba.europa.eu/regulation-and-policy/payment-services-directive-psd-2)
-
----
-
-## 11. Approval
-
-| Role | Name | Date | Status |
-|------|------|------|--------|
-| **Author** | Vagner Bom Jesus | 18/04/2026 | APPROVED |
-
----
-
-**Status**: IMPLEMENTED & TESTED
-**Completion Date**: 18/04/2026
-**Security Level**: Maximum (Multi-layer Defense-in-Depth)
+- **ADR-001 PQC Implementation** — estratégia de implementação dos algoritmos
+- **ADR-002 State Management** — gestão de estado
