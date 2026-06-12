@@ -200,92 +200,47 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: BJBankSpacing.lg,
-                      vertical: BJBankSpacing.lg,
+                      vertical: BJBankSpacing.md,
                     ),
-                    child: Row(
+                    child: Column(
                       children: [
-                        // Back Button
-                        AnimatedOpacity(
-                          opacity: _currentPage > 0 ? 1.0 : 0.0,
-                          duration: BJBankDurations.fast,
-                          child: AnimatedScale(
-                            scale: _currentPage > 0 ? 1.0 : 0.8,
+                        // Full-width Next / Get Started pill (mockup style)
+                        FilledButton(
+                          onPressed: _nextPage,
+                          style: FilledButton.styleFrom(
+                            minimumSize: const Size.fromHeight(58),
+                            backgroundColor: BJBankColors.primary,
+                            foregroundColor: BJBankColors.onPrimary,
+                            shape: const StadiumBorder(),
+                            elevation: 0,
+                          ),
+                          child: AnimatedSwitcher(
                             duration: BJBankDurations.fast,
-                            child: IconButton(
-                              onPressed: _currentPage > 0 ? _previousPage : null,
-                              icon: const Icon(Icons.arrow_back_rounded),
-                              style: IconButton.styleFrom(
-                                backgroundColor: BJBankColors.surfaceVariant,
-                                foregroundColor: BJBankColors.onSurfaceVariant,
-                                minimumSize: const Size(48, 48),
+                            child: Text(
+                              _isLastPage
+                                  ? AppStrings.onboardingStart
+                                  : AppStrings.onboardingNext,
+                              key: ValueKey(_isLastPage),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 16,
                               ),
                             ),
                           ),
                         ),
-
-                        const Spacer(),
-
-                        // Next / Get Started Button - always primary color
-                        FilledButton(
-                          onPressed: _nextPage,
-                          style: FilledButton.styleFrom(
-                            minimumSize: const Size(160, 52),
-                            backgroundColor: BJBankColors.primary,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(26),
+                        // Subtle back link (only after first page)
+                        AnimatedOpacity(
+                          opacity: _currentPage > 0 ? 1.0 : 0.0,
+                          duration: BJBankDurations.fast,
+                          child: TextButton(
+                            onPressed: _currentPage > 0 ? _previousPage : null,
+                            child: Text(
+                              'Voltar',
+                              style: TextStyle(
+                                color: BJBankColors.onSurfaceVariant,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
-                            elevation: 0,
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              AnimatedSwitcher(
-                                duration: BJBankDurations.fast,
-                                transitionBuilder: (child, animation) {
-                                  return FadeTransition(
-                                    opacity: animation,
-                                    child: SlideTransition(
-                                      position: Tween<Offset>(
-                                        begin: const Offset(0, 0.3),
-                                        end: Offset.zero,
-                                      ).animate(animation),
-                                      child: child,
-                                    ),
-                                  );
-                                },
-                                child: Text(
-                                  _isLastPage
-                                      ? AppStrings.onboardingStart
-                                      : AppStrings.onboardingNext,
-                                  key: ValueKey(_isLastPage),
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 16,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: BJBankSpacing.sm),
-                              AnimatedSwitcher(
-                                duration: BJBankDurations.fast,
-                                transitionBuilder: (child, animation) {
-                                  return RotationTransition(
-                                    turns: Tween<double>(begin: 0.5, end: 1.0)
-                                        .animate(animation),
-                                    child: FadeTransition(
-                                      opacity: animation,
-                                      child: child,
-                                    ),
-                                  );
-                                },
-                                child: Icon(
-                                  _isLastPage
-                                      ? Icons.check_rounded
-                                      : Icons.arrow_forward_rounded,
-                                  key: ValueKey('icon_$_isLastPage'),
-                                  size: 20,
-                                ),
-                              ),
-                            ],
                           ),
                         ),
                       ],

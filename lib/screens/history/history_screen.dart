@@ -101,12 +101,14 @@ class _HistoryScreenState extends State<HistoryScreen>
     final groupedTransactions = _groupByDate(filteredTransactions);
     final isLoading = accountProvider.isLoadingTransactions;
 
-    return FadeTransition(
-      opacity: _fadeAnimation,
-      child: Column(
-        children: [
-          // Header
-          _buildHeader(context),
+    return Scaffold(
+      backgroundColor: BJBankColors.surface,
+      body: FadeTransition(
+        opacity: _fadeAnimation,
+        child: Column(
+          children: [
+            // Header
+            _buildHeader(context),
 
           // Search bar (expandable)
           _buildSearchBar(context),
@@ -121,14 +123,15 @@ class _HistoryScreenState extends State<HistoryScreen>
             _buildSummaryCard(context, filteredTransactions),
 
           // Transaction list
-          Expanded(
-            child: isLoading && allTransactions.isEmpty
-                ? _buildLoadingState()
-                : filteredTransactions.isEmpty
-                    ? _buildEmptyState()
-                    : _buildTransactionList(groupedTransactions),
-          ),
-        ],
+            Expanded(
+              child: isLoading && allTransactions.isEmpty
+                  ? _buildLoadingState()
+                  : filteredTransactions.isEmpty
+                      ? _buildEmptyState()
+                      : _buildTransactionList(groupedTransactions),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -165,22 +168,35 @@ class _HistoryScreenState extends State<HistoryScreen>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          Row(
             children: [
-              Text(
-                'Histórico',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: BJBankColors.onSurface,
-                    ),
+              // Back button
+              _buildCircularIconButton(
+                icon: Icons.arrow_back_ios_new_rounded,
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  Navigator.maybePop(context);
+                },
               ),
-              const SizedBox(height: 2),
-              Text(
-                'Todas as tuas transações',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: BJBankColors.onSurfaceVariant,
-                    ),
+              const SizedBox(width: BJBankSpacing.sm),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Transações',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: BJBankColors.onSurface,
+                        ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Todas as tuas transações',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: BJBankColors.onSurfaceVariant,
+                        ),
+                  ),
+                ],
               ),
             ],
           ),

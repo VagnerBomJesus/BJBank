@@ -1,8 +1,10 @@
 import 'dart:convert';
+import 'dart:math';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:pointycastle/export.dart' as pc;
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'device_pqc_service.dart';
 import 'supabase_config.dart';
 import 'trusted_server_key_service.dart';
 
@@ -44,11 +46,29 @@ class SupabasePqcHandshakeService {
   SupabaseClient get _sb => SupabaseConfig.client;
 
   SessionKeys? _cached;
+  DateTime? _cachedAt;
+
+  /// TTL local da sessão. Server-side expira em 1h (sessions.expires_at).
+  /// Aqui usamos 50 min para garantir margem — se cliente usar sessão de
+  /// 59 min e servidor já a tiver invalidado, transferência falha com 410.
+  /// Ver docs/PQC_ON_DEVICE_MIGRATION.md melhoria de sessão.
+  static const Duration _maxAge = Duration(minutes: 50);
 
   /// Estabelece (ou reutiliza) uma sessao segura. Thread-safe pela natureza
   /// single-thread do Dart event loop.
   Future<SessionKeys> obterOuEstabelecer() async {
-    if (_cached != null) return _cached!;
+    if (_cached != null && _cachedAt != null) {
+      final age = DateTime.now().difference(_cachedAt!);
+      if (age < _maxAge) {
+        return _cached!;
+      }
+      // Sessão expirou localmente — descartar e refazer handshake.
+      // Listeners (SupabaseTransferService) podem limpar estado dependente
+      // (e.g. serial monotónico por sessão) ao detectar sessionId novo.
+      debugPrint('Sessao expirou localmente (idade=${age.inMinutes}min), refazendo handshake');
+      _cached = null;
+      _cachedAt = null;
+    }
 
     // 1. Bootstrap se for a primeira vez.
     if (!await _trusted.temChavePublica()) {
@@ -68,11 +88,13 @@ class SupabasePqcHandshakeService {
     );
 
     _cached = session;
+    _cachedAt = DateTime.now();
     return session;
   }
 
   Future<void> invalidar() async {
     _cached = null;
+    _cachedAt = null;
   }
 
   // ====================================================================
@@ -90,34 +112,92 @@ class SupabasePqcHandshakeService {
   }
 
   // ====================================================================
-  // Passo 2: Handshake — cliente envia nonce, servidor devolve segredo
+  // Passo 2: Handshake — dois modos consoante a plataforma.
+  //
+  // MODO KEM (Android com PqcPlugin disponível) — PFS pós-quântico real:
+  //   1. Cliente declara clientKemCapability=true.
+  //   2. Servidor gera par ML-KEM-768 efémero, persiste a privada em
+  //      pending_kem_sessions (TTL 5min), devolve serverKemPub +
+  //      assinatura ML-DSA sobre transcript v2.
+  //   3. Cliente verifica assinatura LOCAL e faz kemEncapsulate(serverKemPub)
+  //      no plugin nativo → (ciphertext, sharedSecret).
+  //   4. Cliente envia ciphertext a pqc_handshake_kem_complete.
+  //   5. Servidor decapsula, persiste sessão final, APAGA pending.
+  //   6. sharedSecret nunca atravessou a rede em claro — HNDL falha.
+  //
+  // MODO LEGACY (iOS sem plugin) — comportamento original:
+  //   Servidor devolve sharedSecret no JSON via TLS. HNDL aplicável.
   // ====================================================================
   Future<_HandshakeResposta> _executarHandshake() async {
-    // Para reutilizar a Edge Function pqc_handshake do Kotlin (que espera
-    // clientKemPublicBase64), enviamos 32 bytes aleatorios. O servidor faz
-    // ml_kem768.encapsulate sobre eles. O ciphertext devolvido nao tem
-    // valor para o Flutter (nao temos decap), mas o shared_secret e
-    // implicitamente partilhado via a chave de sessao derivada do mesmo
-    // material no servidor — para isto precisamos da versao Flutter da
-    // edge function. Alternativa simples: usar pqc_handshake e deixar o
-    // servidor incluir o sharedSecret cifrado AES sob a public key do
-    // proprio cliente. Mas para Flutter MVP, o servidor devolve o
-    // sharedSecret no JSON (canal TLS Supabase) ao lado de sessionId e
-    // signature. Implementacao em pqc_handshake_flutter.
     final nonce = _bytesAleatorios(32);
+    final device = DevicePqcService();
+    final pfsCapaz = await device.isAvailable();
+
     final response = await _sb.functions.invoke(
       'pqc_handshake_flutter',
       body: {
         'clientNonceBase64': base64Encode(nonce),
+        'clientKemCapability': pfsCapaz,
       },
     );
     final data = response.data as Map<String, dynamic>;
+    final mode = data['mode'] as String? ?? 'legacy';
+
+    if (mode == 'kem') {
+      return _processarRespostaKem(data, nonce, device);
+    }
     return _HandshakeResposta(
+      modo: 'legacy',
       sessionId: data['sessionId'] as String,
       sharedSecret: base64Decode(data['sharedSecretBase64'] as String),
       serverDsaPublic: base64Decode(data['serverDsaPublicBase64'] as String),
       signature: base64Decode(data['signatureBase64'] as String),
       clientNonce: nonce,
+      serverKemPublic: null,
+    );
+  }
+
+  /// Modo PFS: decapsula localmente e finaliza sessão com Edge Function
+  /// `pqc_handshake_kem_complete`. O sharedSecret é calculado no dispositivo
+  /// — nunca viaja em claro.
+  Future<_HandshakeResposta> _processarRespostaKem(
+    Map<String, dynamic> data,
+    Uint8List nonce,
+    DevicePqcService device,
+  ) async {
+    final sessionId = data['sessionId'] as String;
+    final serverKemPub = base64Decode(data['serverKemPublicBase64'] as String);
+    final serverDsaPub = base64Decode(data['serverDsaPublicBase64'] as String);
+    final signature = base64Decode(data['signatureBase64'] as String);
+
+    // Encapsular localmente: shared_secret só existe no dispositivo
+    // e (após a próxima chamada) no servidor.
+    final encap = await device.kemEncapsulate(serverKemPub);
+
+    // Finalizar handshake: envia ciphertext ao servidor para ele decapsular.
+    final completeResp = await _sb.functions.invoke(
+      'pqc_handshake_kem_complete',
+      body: {
+        'sessionId': sessionId,
+        'ciphertextBase64': base64Encode(encap.ciphertext),
+      },
+    );
+    final completeData = completeResp.data as Map<String, dynamic>;
+    if (completeData['ok'] != true) {
+      throw HandshakeException(
+        'pqc_handshake_kem_complete falhou: ${completeData['error'] ?? "sem detalhe"}',
+      );
+    }
+
+    debugPrint('PqcHandshake: modo KEM (PFS pos-quantico) concluido');
+    return _HandshakeResposta(
+      modo: 'kem',
+      sessionId: sessionId,
+      sharedSecret: encap.sharedSecret,
+      serverDsaPublic: serverDsaPub,
+      signature: signature,
+      clientNonce: nonce,
+      serverKemPublic: serverKemPub,
     );
   }
 
@@ -128,15 +208,46 @@ class SupabasePqcHandshakeService {
     // Pinning: confirma que serverDsaPublic bate com o pinned.
     await _trusted.verificar(r.serverDsaPublic);
 
-    // Constroi transcript canonico (igual ao servidor)
-    final transcript = _construirTranscript(
-      clientNonce: r.clientNonce,
-      sharedSecret: r.sharedSecret,
-      serverDsaPublic: r.serverDsaPublic,
-      sessionId: r.sessionId,
-    );
+    // Transcript depende do modo:
+    //   KEM:    clientNonce || serverKemPub || serverDsaPublic || sessionId
+    //   LEGACY: clientNonce || sharedSecret || serverDsaPublic || sessionId
+    final Uint8List transcript;
+    if (r.modo == 'kem' && r.serverKemPublic != null) {
+      transcript = _construirTranscript(
+        clientNonce: r.clientNonce,
+        material: r.serverKemPublic!,
+        serverDsaPublic: r.serverDsaPublic,
+        sessionId: r.sessionId,
+      );
+    } else {
+      transcript = _construirTranscript(
+        clientNonce: r.clientNonce,
+        material: r.sharedSecret,
+        serverDsaPublic: r.serverDsaPublic,
+        sessionId: r.sessionId,
+      );
+    }
 
-    // Delega verificacao ML-DSA-65 ao servidor via Edge Function dedicada.
+    // Preferência: verificação LOCAL via PqcPlugin nativo.
+    // Resolve Problema 3 (verify_dsa circular) de
+    // docs/PQC_REMAINING_CRITICAL_ISSUES.md.
+    final device = DevicePqcService();
+    if (await device.isAvailable()) {
+      final ok = await device.verifyDsa(
+        publicKey: r.serverDsaPublic,
+        message: transcript,
+        signature: r.signature,
+      );
+      if (!ok) {
+        throw HandshakeException(
+          'Assinatura ML-DSA do servidor invalida (verificacao local)',
+        );
+      }
+      return;
+    }
+
+    // Fallback (iOS sem plugin Swift ou erro nativo): delega ao servidor.
+    debugPrint('verify_dsa em fallback server-side (trust circular)');
     final result = await _sb.functions.invoke(
       'verify_dsa',
       body: {
@@ -156,23 +267,25 @@ class SupabasePqcHandshakeService {
   // ====================================================================
   // Transcript canonico — bytes identicos aos produzidos pelo servidor.
   // ====================================================================
+  /// [material] = sharedSecret no modo legacy ou serverKemPub no modo KEM.
+  /// Em ambos os modos o servidor assina sobre este transcript canónico.
   Uint8List _construirTranscript({
     required Uint8List clientNonce,
-    required Uint8List sharedSecret,
+    required Uint8List material,
     required Uint8List serverDsaPublic,
     required String sessionId,
   }) {
     final sid = utf8.encode(sessionId);
     final total = 4 * 4 +
         clientNonce.length +
-        sharedSecret.length +
+        material.length +
         serverDsaPublic.length +
         sid.length;
     final buf = Uint8List(total);
     final view = ByteData.view(buf.buffer);
     var off = 0;
     off = _writeChunk(buf, view, off, clientNonce);
-    off = _writeChunk(buf, view, off, sharedSecret);
+    off = _writeChunk(buf, view, off, material);
     off = _writeChunk(buf, view, off, serverDsaPublic);
     off = _writeChunk(buf, view, off, sid);
     return buf.sublist(0, off);
@@ -205,19 +318,16 @@ class SupabasePqcHandshakeService {
     );
   }
 
+  /// CSPRNG do SO (Random.secure). Substitui Fortuna mal semeado
+  /// que misturava `microsecondsSinceEpoch | identityHashCode(this)`.
+  /// Ver docs/PQC_ON_DEVICE_MIGRATION.md Fase 0.1.
   Uint8List _bytesAleatorios(int n) {
-    final secure = pc.SecureRandom('Fortuna')
-      ..seed(pc.KeyParameter(_seed()));
-    return secure.nextBytes(n);
-  }
-
-  Uint8List _seed() {
-    // Mistura DateTime + hash para seed Fortuna.
-    final raw = utf8.encode(
-      '${DateTime.now().microsecondsSinceEpoch}|${identityHashCode(this)}',
-    );
-    final d = pc.SHA256Digest();
-    return Uint8List.fromList(d.process(Uint8List.fromList(raw)));
+    final rng = Random.secure();
+    final out = Uint8List(n);
+    for (var i = 0; i < n; i++) {
+      out[i] = rng.nextInt(256);
+    }
+    return out;
   }
 }
 
@@ -234,18 +344,27 @@ class SessionKeys {
 }
 
 class _HandshakeResposta {
+  /// 'kem' (PFS pós-quântico via ML-KEM on-device) ou 'legacy' (TLS-only).
+  final String modo;
   final String sessionId;
   final Uint8List sharedSecret;
   final Uint8List serverDsaPublic;
   final Uint8List signature;
   final Uint8List clientNonce;
 
+  /// Em modo KEM, pubkey ML-KEM-768 efémera do servidor sobre a qual o
+  /// cliente fez encapsulate. É o que o servidor assinou (em vez do
+  /// sharedSecret, que nunca atravessa a rede em claro).
+  final Uint8List? serverKemPublic;
+
   _HandshakeResposta({
+    required this.modo,
     required this.sessionId,
     required this.sharedSecret,
     required this.serverDsaPublic,
     required this.signature,
     required this.clientNonce,
+    required this.serverKemPublic,
   });
 }
 

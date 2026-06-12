@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 12+ (API 31): regras de extracao para backups.
+  Bloqueamos backup das EncryptedSharedPreferences que contem a chave
+  privada ML-DSA-65 do utilizador (NUNCA deve sair do dispositivo).
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="bjbank_pqc_keys_v1.xml" />
+        <exclude domain="sharedpref" path="FlutterSecureStorage" />
+        <exclude domain="file" path="." />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="bjbank_pqc_keys_v1.xml" />
+        <exclude domain="sharedpref" path="FlutterSecureStorage" />
+        <exclude domain="file" path="." />
+    </device-transfer>
+</data-extraction-rules>

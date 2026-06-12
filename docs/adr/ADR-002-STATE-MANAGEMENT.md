@@ -50,6 +50,48 @@ Componentes-chave:
 
 ## 4. Arquitectura aplicada
 
+### 4.0. Diagrama de classes — Providers
+
+```mermaid
+classDiagram
+    class ChangeNotifier {
+        <<Flutter abstract>>
+        +notifyListeners()
+        +addListener(VoidCallback)
+    }
+    class AuthProvider {
+        +login(email, password) Future~bool~
+        +register(...) Future~bool~
+        +logout() Future~void~
+        -_onboardPqc() Future~void~
+    }
+    class AccountProvider {
+        +loadAccount(userId) Future~void~
+        +refreshTransactions(userId) Future~void~
+    }
+    class TransferProvider {
+        +executar(...) Future~String~
+    }
+    class MbwayProvider {
+        +activar(phone) Future~void~
+    }
+    class SettingsProvider {
+        +bool ocultarSaldo
+        +ThemeMode tema
+    }
+    ChangeNotifier <|-- AuthProvider
+    ChangeNotifier <|-- AccountProvider
+    ChangeNotifier <|-- TransferProvider
+    ChangeNotifier <|-- MbwayProvider
+    ChangeNotifier <|-- SettingsProvider
+    AccountProvider ..> AuthProvider : ProxyProvider injecta userId
+    TransferProvider ..> AccountProvider : refresh após sucesso
+    MbwayProvider ..> AccountProvider : refresh após sucesso
+```
+
+Diagrama completo (com atributos e dependências de Services) em
+[`docs/UML_DIAGRAMS.md`](../UML_DIAGRAMS.md) secção 9.
+
 ### 4.1. MultiProvider em `app.dart`
 
 ```dart

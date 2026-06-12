@@ -7,6 +7,7 @@ import '../../models/card_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/account_provider.dart';
 import '../../services/firestore_service.dart';
+import 'add_new_card_screen.dart';
 
 /// Cards Screen
 /// Display and manage user's bank cards
@@ -23,6 +24,8 @@ class _CardsScreenState extends State<CardsScreen> {
   bool _isLoading = true;
   bool _showCardNumber = false;
   final FirestoreService _firestoreService = FirestoreService();
+  final PageController _cardPageController =
+      PageController(viewportFraction: 0.88);
 
   @override
   void initState() {
@@ -32,6 +35,7 @@ class _CardsScreenState extends State<CardsScreen> {
 
   @override
   void dispose() {
+    _cardPageController.dispose();
     super.dispose();
   }
 
@@ -74,7 +78,7 @@ class _CardsScreenState extends State<CardsScreen> {
   Color _getCardColor(CardModel card) {
     switch (card.type) {
       case CardType.debit:
-        return BJBankColors.primary;
+        return BJBankColors.cardNavyLight;
       case CardType.credit:
         return BJBankColors.quantum;
       case CardType.prepaid:
@@ -82,14 +86,14 @@ class _CardsScreenState extends State<CardsScreen> {
       case CardType.virtual:
         return BJBankColors.secondary;
       case CardType.physical:
-        return BJBankColors.primary;
+        return BJBankColors.cardNavyLight;
     }
   }
 
   Color _getCardSecondaryColor(CardModel card) {
     switch (card.type) {
       case CardType.debit:
-        return BJBankColors.primaryDark;
+        return BJBankColors.cardNavyDeep;
       case CardType.credit:
         return const Color(0xFF008B8B);
       case CardType.prepaid:
@@ -97,7 +101,7 @@ class _CardsScreenState extends State<CardsScreen> {
       case CardType.virtual:
         return BJBankColors.secondaryDark;
       case CardType.physical:
-        return BJBankColors.primaryDark;
+        return BJBankColors.cardNavyDeep;
     }
   }
 
@@ -106,7 +110,7 @@ class _CardsScreenState extends State<CardsScreen> {
     final topPadding = MediaQuery.of(context).padding.top;
 
     return Scaffold(
-      backgroundColor: BJBankColors.surface,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -128,7 +132,7 @@ class _CardsScreenState extends State<CardsScreen> {
                           Text(
                             'A carregar cartões...',
                             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: BJBankColors.onSurfaceVariant,
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                                 ),
                           ),
                         ],
@@ -151,20 +155,44 @@ class _CardsScreenState extends State<CardsScreen> {
       padding: EdgeInsets.only(bottom: bottomPadding + BJBankSpacing.lg),
       child: Column(
         children: [
-          // Cards carousel
+          // Horizontal cards carousel (UI-kit style)
           _buildCardsCarousel(),
 
           // Page indicator
-          if (_cards.length > 1) _buildPageIndicator(),
+          if (_cards.length > 1) ...[
+            const SizedBox(height: BJBankSpacing.sm),
+            _buildPageIndicator(),
+          ],
 
           const SizedBox(height: BJBankSpacing.md),
 
-          // Quick actions
+          // Add card button (full-width pill)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: BJBankSpacing.lg),
+            child: OutlinedButton.icon(
+              onPressed: () => _showRequestCardSheet(),
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('Adicionar Cartão'),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(52),
+                foregroundColor: BJBankColors.primary,
+                side: BorderSide(
+                  color: BJBankColors.primary.withValues(alpha: 0.4),
+                ),
+                shape: const StadiumBorder(),
+                textStyle: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: BJBankSpacing.md),
+
+          // Selected card management
           _buildQuickActions(),
-
           const SizedBox(height: BJBankSpacing.md),
-
-          // Card details section
           _buildCardDetails(),
         ],
       ),
@@ -189,7 +217,7 @@ class _CardsScreenState extends State<CardsScreen> {
                 'Cartões',
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.bold,
-                      color: BJBankColors.onSurface,
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
               ),
               const SizedBox(height: 2),
@@ -198,7 +226,7 @@ class _CardsScreenState extends State<CardsScreen> {
                     ? 'Nenhum cartão'
                     : '${_cards.length} ${_cards.length == 1 ? 'cartão' : 'cartões'}',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: BJBankColors.onSurfaceVariant,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
               ),
             ],
@@ -223,16 +251,16 @@ class _CardsScreenState extends State<CardsScreen> {
         onTap();
       },
       child: Container(
-        width: 48,
-        height: 48,
+        width: BJBankSpacing.minTouchTarget,
+        height: BJBankSpacing.minTouchTarget,
         decoration: BoxDecoration(
-          color: BJBankColors.primary.withValues(alpha:0.1),
+          color: Theme.of(context).colorScheme.primary.withValues(alpha:0.1),
           shape: BoxShape.circle,
         ),
         child: Icon(
           icon,
-          color: BJBankColors.primary,
-          size: 24,
+          color: Theme.of(context).colorScheme.primary,
+          size: BJBankSpacing.iconMd,
         ),
       ),
     );
@@ -249,13 +277,13 @@ class _CardsScreenState extends State<CardsScreen> {
               width: 120,
               height: 120,
               decoration: BoxDecoration(
-                color: BJBankColors.primary.withValues(alpha:0.1),
+                color: Theme.of(context).colorScheme.primary.withValues(alpha:0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 Icons.credit_card_off_outlined,
                 size: 56,
-                color: BJBankColors.primary.withValues(alpha:0.6),
+                color: Theme.of(context).colorScheme.primary.withValues(alpha:0.6),
               ),
             ),
             const SizedBox(height: BJBankSpacing.xl),
@@ -270,7 +298,7 @@ class _CardsScreenState extends State<CardsScreen> {
               'Ainda não tens nenhum cartão.\nPede o teu primeiro cartão agora!',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: BJBankColors.onSurfaceVariant,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
             ),
             const SizedBox(height: BJBankSpacing.xl),
@@ -295,29 +323,32 @@ class _CardsScreenState extends State<CardsScreen> {
   }
 
   Widget _buildCardsCarousel() {
-    return SizedBox(
-      height: 220,
-      child: PageView.builder(
-        itemCount: _cards.length,
-        controller: PageController(viewportFraction: 0.9),
-        onPageChanged: (index) {
-          HapticFeedback.selectionClick();
-          setState(() {
-            _currentCardIndex = index;
-            _showCardNumber = false;
-          });
-        },
-        itemBuilder: (context, index) {
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: BJBankSpacing.xs),
-            child: _buildCardWidget(_cards[index]),
-          );
-        },
+    return Padding(
+      padding: const EdgeInsets.only(top: BJBankSpacing.xs),
+      child: SizedBox(
+        height: 220,
+        child: PageView.builder(
+          itemCount: _cards.length,
+          controller: _cardPageController,
+          onPageChanged: (index) {
+            HapticFeedback.selectionClick();
+            setState(() {
+              _currentCardIndex = index;
+              _showCardNumber = false;
+            });
+          },
+          itemBuilder: (context, index) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: BJBankSpacing.xs),
+              child: _buildCardWidget(_cards[index], index: index),
+            );
+          },
+        ),
       ),
     );
   }
 
-  Widget _buildCardWidget(CardModel card) {
+  Widget _buildCardWidget(CardModel card, {int? index}) {
     final cardColor = _getCardColor(card);
     final secondaryColor = _getCardSecondaryColor(card);
     final isLocked = card.status == CardStatus.blocked;
@@ -325,7 +356,10 @@ class _CardsScreenState extends State<CardsScreen> {
     return GestureDetector(
       onTap: () {
         HapticFeedback.lightImpact();
-        setState(() => _showCardNumber = !_showCardNumber);
+        setState(() {
+          if (index != null) _currentCardIndex = index;
+          _showCardNumber = !_showCardNumber;
+        });
       },
       child: Container(
         decoration: BoxDecoration(
@@ -345,16 +379,22 @@ class _CardsScreenState extends State<CardsScreen> {
         ),
         child: Stack(
           children: [
-            // Background pattern
+            // Background pattern — blue glow (UI-kit signature)
             Positioned(
-              right: -40,
+              right: -50,
               top: -40,
               child: Container(
-                width: 180,
-                height: 180,
+                width: 200,
+                height: 200,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Colors.white.withValues(alpha:0.1),
+                  gradient: RadialGradient(
+                    colors: [
+                      BJBankColors.accentBlue.withValues(alpha: 0.40),
+                      BJBankColors.accentBlue.withValues(alpha: 0.0),
+                    ],
+                    stops: const [0.2, 1.0],
+                  ),
                 ),
               ),
             ),
@@ -454,15 +494,23 @@ class _CardsScreenState extends State<CardsScreen> {
 
                   const SizedBox(height: BJBankSpacing.md),
 
-                  // Card number
-                  Text(
-                    _showCardNumber ? card.formattedNumber : card.maskedNumber,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: 3,
-                      fontFamily: 'monospace',
+                  // Card number (FittedBox keeps the full number on one line)
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      _showCardNumber
+                          ? card.fullFormattedNumber
+                          : card.maskedNumber,
+                      maxLines: 1,
+                      softWrap: false,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: _showCardNumber ? 18 : 20,
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: _showCardNumber ? 1.5 : 3,
+                        fontFamily: 'monospace',
+                      ),
                     ),
                   ),
 
@@ -695,13 +743,13 @@ class _CardsScreenState extends State<CardsScreen> {
         children: List.generate(_cards.length, (index) {
           return AnimatedContainer(
             duration: const Duration(milliseconds: 200),
-            margin: const EdgeInsets.symmetric(horizontal: 4),
+            margin: const EdgeInsets.symmetric(horizontal: BJBankSpacing.xxs),
             width: _currentCardIndex == index ? 28 : 8,
             height: 8,
             decoration: BoxDecoration(
               color: _currentCardIndex == index
                   ? _getCardColor(_cards[index])
-                  : BJBankColors.outline.withValues(alpha:0.3),
+                  : Theme.of(context).colorScheme.outline.withValues(alpha:0.3),
               borderRadius: BorderRadius.circular(4),
             ),
           );
@@ -742,7 +790,7 @@ class _CardsScreenState extends State<CardsScreen> {
             child: _buildQuickActionButton(
               icon: Icons.tune_rounded,
               label: 'Definições',
-              color: BJBankColors.primary,
+              color: Theme.of(context).colorScheme.primary,
               onTap: () => _showCardSettings(currentCard),
             ),
           ),
@@ -779,18 +827,71 @@ class _CardsScreenState extends State<CardsScreen> {
         ),
         child: Column(
           children: [
-            Icon(icon, color: color, size: 24),
+            Icon(icon, color: color, size: BJBankSpacing.iconMd),
             const SizedBox(height: BJBankSpacing.xs),
             Text(
               label,
-              style: TextStyle(
-                fontSize: 11,
-                color: color,
-                fontWeight: FontWeight.w600,
-              ),
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.w600,
+                  ),
               textAlign: TextAlign.center,
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  String _last4(String number) {
+    final digits = number.replaceAll(RegExp(r'\D'), '');
+    return digits.length >= 4 ? digits.substring(digits.length - 4) : digits;
+  }
+
+  /// Small coloured brand logo for light surfaces (details header).
+  Widget _buildBrandLogoSmall(CardBrand brand) {
+    if (brand == CardBrand.mastercard) {
+      return SizedBox(
+        width: 36,
+        height: 24,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Positioned(
+              left: 2,
+              child: Container(
+                width: 22,
+                height: 22,
+                decoration: const BoxDecoration(
+                    shape: BoxShape.circle, color: Color(0xFFEB001B)),
+              ),
+            ),
+            Positioned(
+              right: 2,
+              child: Container(
+                width: 22,
+                height: 22,
+                decoration: const BoxDecoration(
+                    shape: BoxShape.circle, color: Color(0xFFF79E1B)),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    // Visa (default)
+    return const SizedBox(
+      width: 36,
+      height: 24,
+      child: Center(
+        child: Text(
+          'VISA',
+          style: TextStyle(
+            color: Color(0xFF1A1F71),
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            fontStyle: FontStyle.italic,
+          ),
         ),
       ),
     );
@@ -806,11 +907,11 @@ class _CardsScreenState extends State<CardsScreen> {
       margin: const EdgeInsets.only(top: BJBankSpacing.sm),
       padding: const EdgeInsets.all(BJBankSpacing.lg),
       decoration: BoxDecoration(
-        color: BJBankColors.surface,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
         boxShadow: [
           BoxShadow(
-            color: BJBankColors.onSurface.withValues(alpha:0.05),
+            color: Theme.of(context).colorScheme.shadow.withValues(alpha:0.05),
             blurRadius: 10,
             offset: const Offset(0, -4),
           ),
@@ -826,17 +927,59 @@ class _CardsScreenState extends State<CardsScreen> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: BJBankColors.outline.withValues(alpha:0.3),
+                color: Theme.of(context).colorScheme.outline.withValues(alpha:0.3),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
           ),
           const SizedBox(height: BJBankSpacing.md),
-          Text(
-            'Detalhes do Cartão',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
+          // Selected card identity
+          Row(
+            children: [
+              _buildBrandLogoSmall(_parseBrand(currentCard.brand)),
+              const SizedBox(width: BJBankSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Cartão •••• ${_last4(currentCard.cardNumber)}',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                    Text(
+                      '${currentCard.brandDisplayName} · ${currentCard.holderName}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                    ),
+                  ],
                 ),
+              ),
+              if (_cards.length > 1)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: BJBankSpacing.sm, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .primary
+                        .withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    '${_currentCardIndex + 1}/${_cards.length}',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: Theme.of(context).colorScheme.primary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: BJBankSpacing.lg),
           _buildDetailRow(
@@ -885,7 +1028,7 @@ class _CardsScreenState extends State<CardsScreen> {
             'Funcionalidades',
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w600,
-                  color: BJBankColors.onSurfaceVariant,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
           ),
           const SizedBox(height: BJBankSpacing.md),
@@ -951,7 +1094,7 @@ class _CardsScreenState extends State<CardsScreen> {
                       Text(
                         'Criptografia Pós-Quântica',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: BJBankColors.onSurfaceVariant,
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
                             ),
                       ),
                     ],
@@ -980,17 +1123,21 @@ class _CardsScreenState extends State<CardsScreen> {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: BJBankColors.surfaceVariant.withValues(alpha:0.5),
+              color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha:0.5),
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: BJBankColors.onSurfaceVariant, size: 20),
+            child: Icon(
+              icon,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              size: BJBankSpacing.iconSm,
+            ),
           ),
           const SizedBox(width: BJBankSpacing.md),
           Expanded(
             child: Text(
               label,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: BJBankColors.onSurfaceVariant,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
             ),
           ),
@@ -998,7 +1145,7 @@ class _CardsScreenState extends State<CardsScreen> {
             value,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   fontWeight: FontWeight.w600,
-                  color: valueColor ?? BJBankColors.onSurface,
+                  color: valueColor ?? Theme.of(context).colorScheme.onSurface,
                 ),
           ),
         ],
@@ -1016,18 +1163,20 @@ class _CardsScreenState extends State<CardsScreen> {
       child: Row(
         children: [
           Container(
-            width: 32,
-            height: 32,
+            width: BJBankSpacing.iconLg,
+            height: BJBankSpacing.iconLg,
             decoration: BoxDecoration(
               color: enabled
                   ? BJBankColors.success.withValues(alpha:0.15)
-                  : BJBankColors.outline.withValues(alpha:0.1),
+                  : Theme.of(context).colorScheme.outline.withValues(alpha:0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
               icon,
-              color: enabled ? BJBankColors.success : BJBankColors.outline,
-              size: 16,
+              color: enabled
+                  ? BJBankColors.success
+                  : Theme.of(context).colorScheme.outline,
+              size: BJBankSpacing.iconXs,
             ),
           ),
           const SizedBox(width: BJBankSpacing.sm),
@@ -1040,16 +1189,17 @@ class _CardsScreenState extends State<CardsScreen> {
             decoration: BoxDecoration(
               color: enabled
                   ? BJBankColors.success.withValues(alpha:0.1)
-                  : BJBankColors.outline.withValues(alpha:0.1),
+                  : Theme.of(context).colorScheme.outline.withValues(alpha:0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
               enabled ? 'Ativo' : 'Inativo',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: enabled ? BJBankColors.success : BJBankColors.outline,
-              ),
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: enabled
+                        ? BJBankColors.success
+                        : Theme.of(context).colorScheme.outline,
+                  ),
             ),
           ),
         ],
@@ -1109,7 +1259,7 @@ class _CardsScreenState extends State<CardsScreen> {
             maxHeight: MediaQuery.of(ctx).size.height * 0.85,
           ),
           decoration: BoxDecoration(
-            color: BJBankColors.surface,
+            color: Theme.of(ctx).colorScheme.surface,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           ),
           child: Padding(
@@ -1124,7 +1274,7 @@ class _CardsScreenState extends State<CardsScreen> {
                     width: 40,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: BJBankColors.outline.withValues(alpha:0.3),
+                      color: Theme.of(ctx).colorScheme.outline.withValues(alpha:0.3),
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -1147,14 +1297,14 @@ class _CardsScreenState extends State<CardsScreen> {
                         Text(
                           'Mantenha estes dados em segurança',
                           style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
-                                color: BJBankColors.onSurfaceVariant,
+                                color: Theme.of(ctx).colorScheme.onSurfaceVariant,
                               ),
                         ),
                         const SizedBox(height: BJBankSpacing.lg),
 
                         _buildCopyableDataItem(
                           label: 'Número do Cartão',
-                          value: card.formattedNumber,
+                          value: card.fullFormattedNumber,
                           icon: Icons.credit_card,
                         ),
                         _buildCopyableDataItem(
@@ -1183,15 +1333,15 @@ class _CardsScreenState extends State<CardsScreen> {
                           child: Row(
                             children: [
                               Icon(Icons.warning_amber_rounded,
-                                  color: BJBankColors.warning, size: 20),
+                                  color: BJBankColors.warning,
+                                  size: BJBankSpacing.iconSm),
                               const SizedBox(width: BJBankSpacing.sm),
                               Expanded(
                                 child: Text(
                                   'Nunca partilhe estes dados com terceiros',
-                                  style: TextStyle(
-                                    color: BJBankColors.warningDark,
-                                    fontSize: 13,
-                                  ),
+                                  style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                                        color: BJBankColors.warningDark,
+                                      ),
                                 ),
                               ),
                             ],
@@ -1219,7 +1369,7 @@ class _CardsScreenState extends State<CardsScreen> {
       margin: const EdgeInsets.only(bottom: BJBankSpacing.md),
       padding: const EdgeInsets.all(BJBankSpacing.md),
       decoration: BoxDecoration(
-        color: BJBankColors.surfaceVariant.withValues(alpha:0.3),
+        color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha:0.3),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -1228,10 +1378,14 @@ class _CardsScreenState extends State<CardsScreen> {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: BJBankColors.primary.withValues(alpha:0.1),
+              color: Theme.of(context).colorScheme.primary.withValues(alpha:0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: BJBankColors.primary, size: 22),
+            child: Icon(
+              icon,
+              color: Theme.of(context).colorScheme.primary,
+              size: 22,
+            ),
           ),
           const SizedBox(width: BJBankSpacing.md),
           Expanded(
@@ -1240,18 +1394,16 @@ class _CardsScreenState extends State<CardsScreen> {
               children: [
                 Text(
                   label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: BJBankColors.onSurfaceVariant,
-                  ),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                 ),
                 Text(
                   value,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.5,
-                  ),
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.5,
+                      ),
                 ),
               ],
             ),
@@ -1318,18 +1470,17 @@ class _CardsScreenState extends State<CardsScreen> {
             const SizedBox(height: BJBankSpacing.sm),
             Text(
               '•••• ${card.lastFourDigits}',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: BJBankColors.onSurfaceVariant,
-              ),
+              style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                  ),
             ),
             const SizedBox(height: BJBankSpacing.sm),
             Text(
               'Esta ação não pode ser revertida.',
-              style: TextStyle(
-                color: BJBankColors.error,
-                fontSize: 13,
-              ),
+              style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                    color: BJBankColors.error,
+                  ),
             ),
           ],
         ),
@@ -1380,13 +1531,13 @@ class _CardsScreenState extends State<CardsScreen> {
   }
 
   void _showRequestCardSheet() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (ctx) => _RequestCardSheet(
-        firestoreService: _firestoreService,
-        onCardCreated: _loadCards,
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AddNewCardScreen(
+          firestoreService: _firestoreService,
+          onCardCreated: _loadCards,
+        ),
       ),
     );
   }
@@ -1431,7 +1582,7 @@ class _CardSettingsSheetState extends State<_CardSettingsSheet> {
         maxHeight: MediaQuery.of(context).size.height * 0.85,
       ),
       decoration: BoxDecoration(
-        color: BJBankColors.surface,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Padding(
@@ -1446,7 +1597,7 @@ class _CardSettingsSheetState extends State<_CardSettingsSheet> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: BJBankColors.outline.withValues(alpha:0.3),
+                  color: Theme.of(context).colorScheme.outline.withValues(alpha:0.3),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -1526,26 +1677,30 @@ class _CardSettingsSheetState extends State<_CardSettingsSheet> {
       child: Row(
         children: [
           Container(
-            width: 48,
-            height: 48,
+            width: BJBankSpacing.minTouchTarget,
+            height: BJBankSpacing.minTouchTarget,
             decoration: BoxDecoration(
-              color: BJBankColors.primary.withValues(alpha:0.1),
+              color: Theme.of(context).colorScheme.primary.withValues(alpha:0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: BJBankColors.primary),
+            child: Icon(icon, color: Theme.of(context).colorScheme.primary),
           ),
           const SizedBox(width: BJBankSpacing.md),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
+                Text(
+                  label,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w500,
+                      ),
+                ),
                 Text(
                   subtitle,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: BJBankColors.onSurfaceVariant,
-                  ),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                 ),
               ],
             ),
@@ -1553,7 +1708,7 @@ class _CardSettingsSheetState extends State<_CardSettingsSheet> {
           Switch(
             value: value,
             onChanged: onChanged,
-            activeThumbColor: BJBankColors.primary,
+            activeThumbColor: Theme.of(context).colorScheme.primary,
           ),
         ],
       ),
@@ -1621,7 +1776,7 @@ class _RequestCardSheetState extends State<_RequestCardSheet> {
         maxHeight: MediaQuery.of(context).size.height * 0.85,
       ),
       decoration: BoxDecoration(
-        color: BJBankColors.surface,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Padding(
@@ -1636,7 +1791,7 @@ class _RequestCardSheetState extends State<_RequestCardSheet> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: BJBankColors.outline.withValues(alpha:0.3),
+                  color: Theme.of(context).colorScheme.outline.withValues(alpha:0.3),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -1659,7 +1814,7 @@ class _RequestCardSheetState extends State<_RequestCardSheet> {
                     Text(
                       'Escolhe o tipo de cartão que pretendes',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: BJBankColors.onSurfaceVariant,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                     ),
                     const SizedBox(height: BJBankSpacing.lg),
@@ -1694,9 +1849,10 @@ class _RequestCardSheetState extends State<_RequestCardSheet> {
                       spacing: BJBankSpacing.xs,
                       runSpacing: BJBankSpacing.xs,
                       alignment: WrapAlignment.center,
-                      children: CardBrand.values.map((brand) {
-                        return _buildBrandChip(brand);
-                      }).toList(),
+                      // Apenas Visa e Mastercard são suportados
+                      children: const [CardBrand.visa, CardBrand.mastercard]
+                          .map((brand) => _buildBrandChip(brand))
+                          .toList(),
                     ),
 
                     const SizedBox(height: BJBankSpacing.lg),
@@ -1710,15 +1866,16 @@ class _RequestCardSheetState extends State<_RequestCardSheet> {
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.info_outline, color: BJBankColors.info, size: 20),
+                          Icon(Icons.info_outline,
+                              color: BJBankColors.info,
+                              size: BJBankSpacing.iconSm),
                           const SizedBox(width: BJBankSpacing.sm),
                           Expanded(
                             child: Text(
                               'O cartão será criado instantaneamente',
-                              style: TextStyle(
-                                color: BJBankColors.infoDark,
-                                fontSize: 13,
-                              ),
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: BJBankColors.infoDark,
+                                  ),
                             ),
                           ),
                         ],
@@ -1738,12 +1895,12 @@ class _RequestCardSheetState extends State<_RequestCardSheet> {
                           ),
                         ),
                         child: _isLoading
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
+                            ? SizedBox(
+                                width: BJBankSpacing.iconSm,
+                                height: BJBankSpacing.iconSm,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  color: Colors.white,
+                                  color: Theme.of(context).colorScheme.onPrimary,
                                 ),
                               )
                             : const Text('Pedir Cartão'),
@@ -1801,11 +1958,13 @@ class _RequestCardSheetState extends State<_RequestCardSheet> {
         ),
         decoration: BoxDecoration(
           color: isSelected
-              ? BJBankColors.primary.withValues(alpha:0.15)
-              : BJBankColors.surfaceVariant.withValues(alpha:0.3),
+              ? Theme.of(context).colorScheme.primary.withValues(alpha:0.15)
+              : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha:0.3),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? BJBankColors.primary : Colors.transparent,
+            color: isSelected
+                ? Theme.of(context).colorScheme.primary
+                : Colors.transparent,
             width: 2,
           ),
         ),
@@ -1814,20 +1973,20 @@ class _RequestCardSheetState extends State<_RequestCardSheet> {
           children: [
             Icon(
               icon,
-              size: 20,
+              size: BJBankSpacing.iconSm,
               color: isSelected
-                  ? BJBankColors.primary
-                  : BJBankColors.onSurfaceVariant,
+                  ? Theme.of(context).colorScheme.primary
+                  : Theme.of(context).colorScheme.onSurfaceVariant,
             ),
             const SizedBox(width: BJBankSpacing.xs),
             Text(
               label,
-              style: TextStyle(
-                color: isSelected
-                    ? BJBankColors.primary
-                    : BJBankColors.onSurfaceVariant,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-              ),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: isSelected
+                        ? Theme.of(context).colorScheme.primary
+                        : Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                  ),
             ),
           ],
         ),
@@ -1852,11 +2011,13 @@ class _RequestCardSheetState extends State<_RequestCardSheet> {
         ),
         decoration: BoxDecoration(
           color: isSelected
-              ? BJBankColors.primary.withValues(alpha:0.15)
-              : BJBankColors.surfaceVariant.withValues(alpha:0.3),
+              ? Theme.of(context).colorScheme.primary.withValues(alpha:0.15)
+              : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha:0.3),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? BJBankColors.primary : Colors.transparent,
+            color: isSelected
+                ? Theme.of(context).colorScheme.primary
+                : Colors.transparent,
             width: 2,
           ),
         ),
@@ -1866,12 +2027,12 @@ class _RequestCardSheetState extends State<_RequestCardSheet> {
               : brand == CardBrand.mastercard
                   ? 'Mastercard'
                   : 'Maestro',
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            color: isSelected
-                ? BJBankColors.primary
-                : BJBankColors.onSurfaceVariant,
-          ),
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: isSelected
+                    ? Theme.of(context).colorScheme.primary
+                    : Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
         ),
       ),
     );

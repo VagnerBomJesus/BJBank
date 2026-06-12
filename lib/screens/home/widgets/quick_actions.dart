@@ -30,7 +30,7 @@ class QuickActions extends StatelessWidget {
           Text(
             AppStrings.homeQuickActions,
             style: BJBankTypography.titleMedium.copyWith(
-              color: BJBankColors.onSurface,
+              color: Theme.of(context).colorScheme.onSurface,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -89,36 +89,33 @@ class _QuickActionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: const EdgeInsets.symmetric(
-            vertical: BJBankSpacing.md,
-          ),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: color.withValues(alpha: 0.15),
-              width: 1,
-            ),
-          ),
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: BJBankSpacing.xs),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // Minimalist soft circle (UI-kit style)
               Container(
-                width: 44,
-                height: 44,
+                width: 56,
+                height: 56,
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
+                  color: colorScheme.surfaceContainerHighest
+                      .withValues(alpha: 0.45),
                   shape: BoxShape.circle,
+                  border: Border.all(
+                    color: colorScheme.outlineVariant.withValues(alpha: 0.4),
+                    width: 1,
+                  ),
                 ),
                 child: imageAsset != null
                     ? Padding(
-                        padding: const EdgeInsets.all(8),
+                        padding: const EdgeInsets.all(BJBankSpacing.sm),
                         child: Image.asset(
                           imageAsset!,
                           fit: BoxFit.contain,
@@ -126,15 +123,15 @@ class _QuickActionCard extends StatelessWidget {
                       )
                     : Icon(
                         icon,
-                        size: 22,
+                        size: 24,
                         color: color,
                       ),
               ),
-              const SizedBox(height: BJBankSpacing.sm),
+              const SizedBox(height: BJBankSpacing.xs),
               Text(
                 label,
-                style: BJBankTypography.labelSmall.copyWith(
-                  color: BJBankColors.onSurface,
+                style: BJBankTypography.labelMedium.copyWith(
+                  color: colorScheme.onSurfaceVariant,
                   fontWeight: FontWeight.w500,
                 ),
                 textAlign: TextAlign.center,

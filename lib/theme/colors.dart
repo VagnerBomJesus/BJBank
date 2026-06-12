@@ -129,4 +129,21 @@ class BJBankColors {
     colors: [splashStart, splashMid, splashEnd, splashDeep],
     stops: [0.0, 0.3, 0.7, 1.0],
   );
+
+  // ─── Navy Card (UI-kit inspired) ───
+  /// Deep navy used on the primary debit/credit card surface.
+  static const Color cardNavy = Color(0xFF141A33);
+  static const Color cardNavyLight = Color(0xFF202A47);
+  static const Color cardNavyDeep = Color(0xFF0B1022);
+
+  /// Accent blue glow used on the navy card and "ver tudo" links.
+  static const Color accentBlue = Color(0xFF3D63FF);
+
+  /// Primary card gradient — dark navy with a subtle diagonal sheen.
+  static const LinearGradient cardNavyGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [cardNavyLight, cardNavy, cardNavyDeep],
+    stops: [0.0, 0.55, 1.0],
+  );
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../theme/colors.dart';
 import '../../theme/spacing.dart';
+import '../../theme/border_radius.dart';
 import '../../services/firestore_service.dart';
 import '../../services/pqc_service.dart';
 import 'package:provider/provider.dart';
@@ -185,8 +186,11 @@ class _TransferScreenState extends State<TransferScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
     return Scaffold(
-      backgroundColor: BJBankColors.background,
+      backgroundColor: colorScheme.surface,
       appBar: AppBar(
         title: const Text('Transferir'),
         backgroundColor: Colors.transparent,
@@ -204,17 +208,19 @@ class _TransferScreenState extends State<TransferScreen> {
                 Container(
                   padding: const EdgeInsets.all(BJBankSpacing.md),
                   decoration: BoxDecoration(
-                    color: BJBankColors.error.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
+                    color: colorScheme.error.withValues(alpha: 0.1),
+                    borderRadius: BJBankBorderRadius.mdRadius,
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.error_outline, color: BJBankColors.error),
+                      Icon(Icons.error_outline, color: colorScheme.error),
                       const SizedBox(width: BJBankSpacing.sm),
                       Expanded(
                         child: Text(
                           _errorMessage!,
-                          style: TextStyle(color: BJBankColors.error),
+                          style: textTheme.bodyMedium?.copyWith(
+                            color: colorScheme.error,
+                          ),
                         ),
                       ),
                     ],
@@ -239,21 +245,24 @@ class _TransferScreenState extends State<TransferScreen> {
                   prefixIcon: const Icon(Icons.account_balance_outlined),
                   suffixIcon: _isSearchingRecipient
                       ? const Padding(
-                          padding: EdgeInsets.all(12),
+                          padding: EdgeInsets.all(BJBankSpacing.sm),
                           child: SizedBox(
-                            width: 20,
-                            height: 20,
+                            width: BJBankSpacing.iconSm,
+                            height: BJBankSpacing.iconSm,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           ),
                         )
                       : _recipientName != null
-                          ? const Icon(Icons.check_circle, color: Colors.green)
+                          ? const Icon(
+                              Icons.check_circle,
+                              color: BJBankColors.success,
+                            )
                           : null,
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BJBankBorderRadius.mdRadius,
                   ),
                   helperText: _recipientName,
-                  helperStyle: TextStyle(
+                  helperStyle: textTheme.bodySmall?.copyWith(
                     color: BJBankColors.success,
                     fontWeight: FontWeight.w500,
                   ),
@@ -286,7 +295,7 @@ class _TransferScreenState extends State<TransferScreen> {
                   prefixIcon: const Icon(Icons.euro),
                   prefixText: '€ ',
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BJBankBorderRadius.mdRadius,
                   ),
                 ),
                 validator: (value) {
@@ -318,7 +327,7 @@ class _TransferScreenState extends State<TransferScreen> {
                   hintText: 'Ex: Almoço, Renda, etc.',
                   prefixIcon: const Icon(Icons.description_outlined),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BJBankBorderRadius.mdRadius,
                   ),
                 ),
               ),
@@ -329,17 +338,17 @@ class _TransferScreenState extends State<TransferScreen> {
               Container(
                 padding: const EdgeInsets.all(BJBankSpacing.md),
                 decoration: BoxDecoration(
-                  color: BJBankColors.tertiary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
+                  color: colorScheme.tertiary.withValues(alpha: 0.1),
+                  borderRadius: BJBankBorderRadius.mdRadius,
                   border: Border.all(
-                    color: BJBankColors.tertiary.withValues(alpha: 0.3),
+                    color: colorScheme.tertiary.withValues(alpha: 0.3),
                   ),
                 ),
                 child: Row(
                   children: [
                     Icon(
                       Icons.security,
-                      color: BJBankColors.tertiary,
+                      color: colorScheme.tertiary,
                     ),
                     const SizedBox(width: BJBankSpacing.md),
                     Expanded(
@@ -348,17 +357,16 @@ class _TransferScreenState extends State<TransferScreen> {
                         children: [
                           Text(
                             'Transferência Segura',
-                            style: TextStyle(
+                            style: textTheme.titleSmall?.copyWith(
                               fontWeight: FontWeight.w600,
-                              color: BJBankColors.tertiary,
+                              color: colorScheme.tertiary,
                             ),
                           ),
                           const SizedBox(height: 2),
                           Text(
                             'Protegida com assinatura CRYSTALS-Dilithium',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: BJBankColors.onSurfaceVariant,
+                            style: textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
                             ),
                           ),
                         ],
@@ -374,25 +382,25 @@ class _TransferScreenState extends State<TransferScreen> {
               FilledButton(
                 onPressed: _isLoading ? null : _handleTransfer,
                 style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(56),
+                  minimumSize: const Size.fromHeight(BJBankSpacing.inputHeight),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BJBankBorderRadius.mdRadius,
                   ),
                 ),
                 child: _isLoading
-                    ? const SizedBox(
-                        height: 24,
-                        width: 24,
+                    ? SizedBox(
+                        height: BJBankSpacing.iconMd,
+                        width: BJBankSpacing.iconMd,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: Colors.white,
+                          color: colorScheme.onPrimary,
                         ),
                       )
-                    : const Text(
+                    : Text(
                         'Transferir',
-                        style: TextStyle(
-                          fontSize: 16,
+                        style: textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w600,
+                          color: colorScheme.onPrimary,
                         ),
                       ),
               ),

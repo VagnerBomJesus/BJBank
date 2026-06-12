@@ -114,8 +114,9 @@ class _OnboardingPageState extends State<OnboardingPage>
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Image or Placeholder
+          // Highlighted illustration
           AnimatedBuilder(
             animation: _controller,
             builder: (context, child) {
@@ -130,9 +131,9 @@ class _OnboardingPageState extends State<OnboardingPage>
             child: _buildImageOrPlaceholder(),
           ),
 
-          const SizedBox(height: BJBankSpacing.xxl),
+          const SizedBox(height: BJBankSpacing.xl),
 
-          // Title with slide animation
+          // Title with slide animation (left-aligned, bold — mockup style)
           SlideTransition(
             position: _titleSlide,
             child: FadeTransition(
@@ -141,9 +142,10 @@ class _OnboardingPageState extends State<OnboardingPage>
                 widget.page.title,
                 style: BJBankTypography.headlineMedium.copyWith(
                   color: BJBankColors.onSurface,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w800,
+                  height: 1.15,
                 ),
-                textAlign: TextAlign.center,
+                textAlign: TextAlign.left,
               ),
             ),
           ),
@@ -161,7 +163,7 @@ class _OnboardingPageState extends State<OnboardingPage>
                   color: BJBankColors.onSurfaceVariant,
                   height: 1.5,
                 ),
-                textAlign: TextAlign.center,
+                textAlign: TextAlign.left,
               ),
             ),
           ),
@@ -178,26 +180,41 @@ class _OnboardingPageState extends State<OnboardingPage>
         final imageExists = snapshot.data ?? false;
 
         if (imageExists) {
-          return Container(
-            width: 280,
-            height: 280,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(40),
-              boxShadow: [
-                BoxShadow(
-                  color: BJBankColors.primary.withValues(alpha: 0.2),
-                  blurRadius: 40,
-                  offset: const Offset(0, 20),
+          // Highlighted illustration: large, over a soft radial halo
+          // (transparent PNG, `contain`, no card / clipping) — UI-kit style.
+          return SizedBox(
+            width: double.infinity,
+            height: 320,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                // Soft circular tint behind the illustration
+                Container(
+                  width: 300,
+                  height: 300,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        BJBankColors.primary.withValues(alpha: 0.14),
+                        BJBankColors.primary.withValues(alpha: 0.0),
+                      ],
+                      stops: const [0.55, 1.0],
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: BJBankSpacing.md,
+                  ),
+                  child: Image.asset(
+                    widget.page.imagePath,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) =>
+                        _buildPlaceholder(),
+                  ),
                 ),
               ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(40),
-              child: Image.asset(
-                widget.page.imagePath,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
-              ),
             ),
           );
         }

@@ -410,7 +410,7 @@ class FirestoreService {
     final row = await _sb.from('cards').insert({
       'user_id': userId,
       'account_id': accountId,
-      'card_number': _gerarNumeroCartao(),
+      'card_number': _gerarNumeroCartao(brand),
       'holder_name': holderName,
       'expiry_month': DateTime.now().month,
       'expiry_year': DateTime.now().year + 5,
@@ -680,7 +680,7 @@ class FirestoreService {
       cardNumber: row['card_number'] as String,
       cardHolder: row['holder_name'] as String,
       expiryDate: '$mm/$yy',
-      cvv: '***',
+      cvv: _cvvFromNumber(row['card_number'] as String),
       limit: (row['monthly_limit'] as num?)?.toDouble() ?? 5000.0,
       spentAmount: 0.0,
       type: _cardType(row['type'] as String?),
@@ -689,7 +689,10 @@ class FirestoreService {
           : CardStatus.active,
       createdAt: DateTime.tryParse(row['created_at'] as String? ?? '') ?? now,
       updatedAt: now,
-      brand: 'Visa',
+      // Brand derived from the BIN: '5' => Mastercard, otherwise Visa.
+      brand: (row['card_number'] as String).startsWith('5')
+          ? 'Mastercard'
+          : 'Visa',
       dailyLimit: (row['daily_limit'] as num?)?.toDouble() ?? 1000.0,
       monthlyLimit: (row['monthly_limit'] as num?)?.toDouble() ?? 5000.0,
     );
@@ -707,8 +710,20 @@ class FirestoreService {
     }
   }
 
-  String _gerarNumeroCartao() {
+  /// Deterministic 3-digit CVV derived from the card number.
+  /// The real CVV is stored only as a hash (cvv_hash), so for display we
+  /// derive a stable code from the PAN.
+  String _cvvFromNumber(String cardNumber) {
+    final digits = cardNumber.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.isEmpty) return '000';
+    final code = (digits.hashCode.abs() % 900) + 100; // 100-999
+    return code.toString();
+  }
+
+  String _gerarNumeroCartao([CardBrand brand = CardBrand.visa]) {
     final rng = DateTime.now().millisecondsSinceEpoch.toString();
-    return '4000${rng.substring(rng.length - 12)}';
+    // BIN encodes the brand: Visa starts with 4, Mastercard with 5.
+    final prefix = brand == CardBrand.mastercard ? '5100' : '4000';
+    return '$prefix${rng.substring(rng.length - 12)}';
   }
 }

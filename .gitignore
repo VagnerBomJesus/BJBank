@@ -81,3 +81,10 @@ firebase_app_id_file.json
 local.properties
 firebase-adminsdk.json
 key.properties
+
+# FVM (Flutter Version Management) — SDK local do projeto
+
+# FVM Version Cache
+.fvm/
+model/
+

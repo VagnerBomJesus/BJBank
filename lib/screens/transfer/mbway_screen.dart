@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../theme/colors.dart';
 import '../../theme/spacing.dart';
+import '../../theme/border_radius.dart';
+import '../../theme/typography.dart';
 import '../../services/firestore_service.dart';
 import '../../services/pqc_service.dart';
 import '../../models/transaction_model.dart';
@@ -10,6 +12,9 @@ import '../../models/mbway_contact_model.dart';
 import '../../providers/account_provider.dart';
 import '../../providers/auth_provider.dart';
 import 'transfer_confirmation_screen.dart';
+import 'request_money_screen.dart';
+import 'money_requests_screen.dart';
+import 'widgets/contact_picker_screen.dart';
 import 'transfer_receipt_screen.dart';
 
 /// MB WAY Screen for BJBank
@@ -292,25 +297,61 @@ class _MbWayScreenState extends State<MbWayScreen> {
     }
   }
 
+  Future<void> _pickPhoneContact() async {
+    final picked = await Navigator.push<PickedContact>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ContactPickerScreen(frequent: _recentContacts),
+      ),
+    );
+    if (picked == null) return;
+    final digits = picked.phone.replaceAll(RegExp(r'[^0-9]'), '');
+    final local = digits.length > 9 ? digits.substring(digits.length - 9) : digits;
+    setState(() {
+      _phoneController.text = _formatPhone(local);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
     return Scaffold(
-      backgroundColor: BJBankColors.background,
+      backgroundColor: colorScheme.surface,
       appBar: AppBar(
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Image.asset(
               'assets/mbway.png',
-              height: 24,
+              height: BJBankSpacing.iconMd,
               fit: BoxFit.contain,
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: BJBankSpacing.xs),
             const Text('MB WAY'),
           ],
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
+        actions: [
+          IconButton(
+            tooltip: 'Pedir dinheiro',
+            icon: const Icon(Icons.call_received_rounded),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const RequestMoneyScreen()),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Pedidos',
+            icon: const Icon(Icons.inbox_rounded),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const MoneyRequestsScreen()),
+            ),
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(BJBankSpacing.lg),
@@ -336,7 +377,7 @@ class _MbWayScreenState extends State<MbWayScreen> {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BJBankBorderRadius.mdRadius,
                   border: Border.all(
                     color: BJBankColors.mbwayRed.withValues(alpha: 0.3),
                   ),
@@ -347,12 +388,12 @@ class _MbWayScreenState extends State<MbWayScreen> {
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
                         color: BJBankColors.mbwayRed,
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BJBankBorderRadius.smRadius,
                       ),
                       child: const Icon(
                         Icons.phone_android_rounded,
-                        color: Colors.white,
-                        size: 24,
+                        color: BJBankColors.onPrimary,
+                        size: BJBankSpacing.iconMd,
                       ),
                     ),
                     const SizedBox(width: BJBankSpacing.md),
@@ -360,19 +401,17 @@ class _MbWayScreenState extends State<MbWayScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
+                          Text(
                             'Transferência instantânea',
-                            style: TextStyle(
+                            style: textTheme.titleSmall?.copyWith(
                               fontWeight: FontWeight.w600,
-                              fontSize: 14,
                             ),
                           ),
                           const SizedBox(height: 2),
                           Text(
                             'Envie dinheiro usando apenas o número de telemóvel',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: BJBankColors.onSurfaceVariant,
+                            style: textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
                             ),
                           ),
                         ],
@@ -383,6 +422,21 @@ class _MbWayScreenState extends State<MbWayScreen> {
               ),
 
               const SizedBox(height: BJBankSpacing.lg),
+
+              // Pick from phone / frequent contacts
+              OutlinedButton.icon(
+                onPressed: _pickPhoneContact,
+                icon: const Icon(Icons.contacts_rounded),
+                label: const Text('Escolher dos contactos'),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(48),
+                  foregroundColor: BJBankColors.primary,
+                  side: BorderSide(
+                      color: BJBankColors.primary.withValues(alpha: 0.4)),
+                  shape: const StadiumBorder(),
+                ),
+              ),
+              const SizedBox(height: BJBankSpacing.md),
 
               // Recent contacts section
               if (_recentContacts.isNotEmpty) ...[
@@ -396,16 +450,18 @@ class _MbWayScreenState extends State<MbWayScreen> {
                   padding: const EdgeInsets.all(BJBankSpacing.md),
                   decoration: BoxDecoration(
                     color: BJBankColors.warning.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BJBankBorderRadius.mdRadius,
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.timer, color: BJBankColors.warning),
+                      const Icon(Icons.timer, color: BJBankColors.warning),
                       const SizedBox(width: BJBankSpacing.sm),
                       Expanded(
                         child: Text(
                           'Limite de pesquisas atingido. Aguarde 1 hora.',
-                          style: TextStyle(color: BJBankColors.warning),
+                          style: textTheme.bodyMedium?.copyWith(
+                            color: BJBankColors.warning,
+                          ),
                         ),
                       ),
                     ],
@@ -419,17 +475,19 @@ class _MbWayScreenState extends State<MbWayScreen> {
                 Container(
                   padding: const EdgeInsets.all(BJBankSpacing.md),
                   decoration: BoxDecoration(
-                    color: BJBankColors.error.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
+                    color: colorScheme.error.withValues(alpha: 0.1),
+                    borderRadius: BJBankBorderRadius.mdRadius,
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.error_outline, color: BJBankColors.error),
+                      Icon(Icons.error_outline, color: colorScheme.error),
                       const SizedBox(width: BJBankSpacing.sm),
                       Expanded(
                         child: Text(
                           _errorMessage!,
-                          style: TextStyle(color: BJBankColors.error),
+                          style: textTheme.bodyMedium?.copyWith(
+                            color: colorScheme.error,
+                          ),
                         ),
                       ),
                     ],
@@ -455,21 +513,24 @@ class _MbWayScreenState extends State<MbWayScreen> {
                   prefixText: '+351 ',
                   suffixIcon: _isSearchingRecipient
                       ? const Padding(
-                          padding: EdgeInsets.all(12),
+                          padding: EdgeInsets.all(BJBankSpacing.sm),
                           child: SizedBox(
-                            width: 20,
-                            height: 20,
+                            width: BJBankSpacing.iconSm,
+                            height: BJBankSpacing.iconSm,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           ),
                         )
                       : _recipientName != null
-                          ? const Icon(Icons.check_circle, color: Colors.green)
+                          ? const Icon(
+                              Icons.check_circle,
+                              color: BJBankColors.success,
+                            )
                           : null,
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BJBankBorderRadius.mdRadius,
                   ),
                   helperText: _recipientName,
-                  helperStyle: TextStyle(
+                  helperStyle: textTheme.bodySmall?.copyWith(
                     color: BJBankColors.success,
                     fontWeight: FontWeight.w500,
                   ),
@@ -502,7 +563,7 @@ class _MbWayScreenState extends State<MbWayScreen> {
                   prefixIcon: const Icon(Icons.euro),
                   prefixText: '€ ',
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BJBankBorderRadius.mdRadius,
                   ),
                   helperText: 'Limite: € 500,00 por transação',
                 ),
@@ -538,7 +599,7 @@ class _MbWayScreenState extends State<MbWayScreen> {
                   hintText: 'Ex: Almoço, Táxi, etc.',
                   prefixIcon: const Icon(Icons.description_outlined),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BJBankBorderRadius.mdRadius,
                   ),
                 ),
               ),
@@ -548,9 +609,9 @@ class _MbWayScreenState extends State<MbWayScreen> {
               // Quick amount buttons
               Text(
                 'Montantes rápidos',
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: BJBankColors.onSurfaceVariant,
-                    ),
+                style: textTheme.titleSmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
               ),
               const SizedBox(height: BJBankSpacing.sm),
               Wrap(
@@ -572,17 +633,17 @@ class _MbWayScreenState extends State<MbWayScreen> {
               Container(
                 padding: const EdgeInsets.all(BJBankSpacing.md),
                 decoration: BoxDecoration(
-                  color: BJBankColors.tertiary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
+                  color: colorScheme.tertiary.withValues(alpha: 0.1),
+                  borderRadius: BJBankBorderRadius.mdRadius,
                   border: Border.all(
-                    color: BJBankColors.tertiary.withValues(alpha: 0.3),
+                    color: colorScheme.tertiary.withValues(alpha: 0.3),
                   ),
                 ),
                 child: Row(
                   children: [
                     Icon(
                       Icons.security,
-                      color: BJBankColors.tertiary,
+                      color: colorScheme.tertiary,
                     ),
                     const SizedBox(width: BJBankSpacing.md),
                     Expanded(
@@ -591,17 +652,16 @@ class _MbWayScreenState extends State<MbWayScreen> {
                         children: [
                           Text(
                             'MB WAY Seguro',
-                            style: TextStyle(
+                            style: textTheme.titleSmall?.copyWith(
                               fontWeight: FontWeight.w600,
-                              color: BJBankColors.tertiary,
+                              color: colorScheme.tertiary,
                             ),
                           ),
                           const SizedBox(height: 2),
                           Text(
                             'Protegido com assinatura CRYSTALS-Dilithium',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: BJBankColors.onSurfaceVariant,
+                            style: textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
                             ),
                           ),
                         ],
@@ -617,31 +677,32 @@ class _MbWayScreenState extends State<MbWayScreen> {
               FilledButton(
                 onPressed: _isLoading ? null : _handleMbWayTransfer,
                 style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(56),
+                  minimumSize: const Size.fromHeight(BJBankSpacing.inputHeight),
                   backgroundColor: BJBankColors.mbwayRed, // MB WAY red
+                  foregroundColor: BJBankColors.onPrimary,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BJBankBorderRadius.mdRadius,
                   ),
                 ),
                 child: _isLoading
                     ? const SizedBox(
-                        height: 24,
-                        width: 24,
+                        height: BJBankSpacing.iconMd,
+                        width: BJBankSpacing.iconMd,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: Colors.white,
+                          color: BJBankColors.onPrimary,
                         ),
                       )
-                    : const Row(
+                    : Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.send_rounded),
-                          SizedBox(width: BJBankSpacing.sm),
+                          const Icon(Icons.send_rounded),
+                          const SizedBox(width: BJBankSpacing.sm),
                           Text(
                             'Enviar MB WAY',
-                            style: TextStyle(
-                              fontSize: 16,
+                            style: textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.w600,
+                              color: BJBankColors.onPrimary,
                             ),
                           ),
                         ],
@@ -659,12 +720,14 @@ class _MbWayScreenState extends State<MbWayScreen> {
     final dailyUsed = (_usageInfo['dailyUsed'] ?? 0.0) as double;
     final remaining = (_usageInfo['remaining'] ?? dailyLimit) as double;
     final usagePercent = dailyLimit > 0 ? (dailyUsed / dailyLimit) : 0.0;
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     return Container(
       padding: const EdgeInsets.all(BJBankSpacing.md),
       decoration: BoxDecoration(
-        color: BJBankColors.surfaceVariant.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(12),
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BJBankBorderRadius.mdRadius,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -674,28 +737,28 @@ class _MbWayScreenState extends State<MbWayScreen> {
             children: [
               Text(
                 'Limite disponivel',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: BJBankColors.onSurfaceVariant,
+                style: textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
                 ),
               ),
               Text(
                 'EUR ${remaining.toStringAsFixed(0)} / EUR ${dailyLimit.toStringAsFixed(0)}',
-                style: const TextStyle(
+                style: BJBankTypography.valueSmall.copyWith(
                   fontWeight: FontWeight.w600,
+                  color: colorScheme.onSurface,
                 ),
               ),
             ],
           ),
           const SizedBox(height: BJBankSpacing.sm),
           ClipRRect(
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BJBankBorderRadius.xsRadius,
             child: LinearProgressIndicator(
               value: usagePercent.clamp(0.0, 1.0),
-              backgroundColor: BJBankColors.surfaceVariant,
+              backgroundColor: colorScheme.surfaceContainerHighest,
               valueColor: AlwaysStoppedAnimation<Color>(
                 usagePercent > 0.9
-                    ? BJBankColors.error
+                    ? colorScheme.error
                     : usagePercent > 0.7
                         ? BJBankColors.warning
                         : BJBankColors.mbwayRed,
@@ -715,7 +778,7 @@ class _MbWayScreenState extends State<MbWayScreen> {
         Text(
           'Contactos Recentes',
           style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                color: BJBankColors.onSurfaceVariant,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
         ),
         const SizedBox(height: BJBankSpacing.sm),
@@ -736,16 +799,19 @@ class _MbWayScreenState extends State<MbWayScreen> {
   }
 
   Widget _buildContactChip(MbWayContact contact) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
     return GestureDetector(
       onTap: () => _selectRecentContact(contact),
       child: Container(
         width: 72,
         padding: const EdgeInsets.all(BJBankSpacing.sm),
         decoration: BoxDecoration(
-          color: BJBankColors.surfaceVariant.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(12),
+          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+          borderRadius: BJBankBorderRadius.mdRadius,
           border: Border.all(
-            color: BJBankColors.outline.withValues(alpha: 0.2),
+            color: colorScheme.outline.withValues(alpha: 0.2),
           ),
         ),
         child: Column(
@@ -753,20 +819,19 @@ class _MbWayScreenState extends State<MbWayScreen> {
           children: [
             CircleAvatar(
               radius: 18,
-              backgroundColor: BJBankColors.primaryContainer,
+              backgroundColor: colorScheme.primaryContainer,
               child: Text(
                 contact.initials,
-                style: TextStyle(
-                  fontSize: 12,
+                style: textTheme.labelMedium?.copyWith(
                   fontWeight: FontWeight.bold,
-                  color: BJBankColors.onPrimaryContainer,
+                  color: colorScheme.onPrimaryContainer,
                 ),
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: BJBankSpacing.xxs),
             Text(
               contact.firstName,
-              style: const TextStyle(fontSize: 11),
+              style: textTheme.labelSmall,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../services/qr_code_service.dart';
+import '../../theme/colors.dart';
 import '../../theme/spacing.dart';
+import '../../theme/border_radius.dart';
 
 /// QR Code Generator Screen
 ///
@@ -120,13 +122,16 @@ class _QrCodeGeneratorScreenState extends State<QrCodeGeneratorScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: Colors.red,
+        backgroundColor: Theme.of(context).colorScheme.error,
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Gerar Código QR'),
@@ -139,20 +144,22 @@ class _QrCodeGeneratorScreenState extends State<QrCodeGeneratorScreen> {
           children: [
             // Info card
             Card(
-              color: Colors.blue.withValues(alpha: 0.1),
+              color: colorScheme.primary.withValues(alpha: 0.1),
               child: Padding(
                 padding: const EdgeInsets.all(BJBankSpacing.md),
                 child: Row(
                   children: [
                     Icon(
                       Icons.info_outline,
-                      color: Colors.blue[700],
+                      color: colorScheme.primary,
                     ),
-                    SizedBox(width: BJBankSpacing.sm),
+                    const SizedBox(width: BJBankSpacing.sm),
                     Expanded(
                       child: Text(
                         'Partilhe o código QR para receber pagamentos diretos',
-                        style: TextStyle(color: Colors.blue[700]),
+                        style: textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.primary,
+                        ),
                       ),
                     ),
                   ],
@@ -203,7 +210,7 @@ class _QrCodeGeneratorScreenState extends State<QrCodeGeneratorScreen> {
                 labelText: 'Montante Fixo (€)',
                 hintText: 'Deixe em branco para montante livre',
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BJBankBorderRadius.smRadius,
                 ),
                 prefixText: '€ ',
               ),
@@ -218,7 +225,7 @@ class _QrCodeGeneratorScreenState extends State<QrCodeGeneratorScreen> {
                 labelText: 'Descrição',
                 hintText: 'Ex: Aluguel, Fatura #123',
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BJBankBorderRadius.smRadius,
                 ),
               ),
               onChanged: (_) => _generateQrCode(),
@@ -232,8 +239,8 @@ class _QrCodeGeneratorScreenState extends State<QrCodeGeneratorScreen> {
                 width: double.infinity,
                 height: 300,
                 decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey[300]!),
-                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: colorScheme.outlineVariant),
+                  borderRadius: BJBankBorderRadius.mdRadius,
                 ),
                 child: const Center(child: CircularProgressIndicator()),
               )
@@ -242,9 +249,11 @@ class _QrCodeGeneratorScreenState extends State<QrCodeGeneratorScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(BJBankSpacing.md),
                 decoration: BoxDecoration(
+                  // White kept intentionally: QR codes need a white
+                  // background to remain scannable in both themes.
                   color: Colors.white,
-                  border: Border.all(color: Colors.grey[300]!),
-                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: colorScheme.outlineVariant),
+                  borderRadius: BJBankBorderRadius.mdRadius,
                 ),
                 child: Column(
                   children: [
@@ -253,38 +262,43 @@ class _QrCodeGeneratorScreenState extends State<QrCodeGeneratorScreen> {
                       width: 250,
                       height: 250,
                       decoration: BoxDecoration(
-                        color: Colors.grey[200],
-                        borderRadius: BorderRadius.circular(8),
+                        // Fixed light neutrals: placeholder sits on the
+                        // always-white QR backdrop in both themes.
+                        color: BJBankColors.surfaceVariant,
+                        borderRadius: BJBankBorderRadius.smRadius,
                         border: Border.all(
-                          color: Colors.grey[400]!,
+                          color: BJBankColors.outlineVariant,
                         ),
                       ),
                       child: Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(
+                            const Icon(
                               Icons.qr_code_2,
                               size: 100,
-                              color: Colors.grey[400],
+                              color: BJBankColors.outlineVariant,
                             ),
-                            SizedBox(height: BJBankSpacing.sm),
+                            const SizedBox(height: BJBankSpacing.sm),
                             Text(
                               'QR Code\n(qr_flutter aqui)',
                               textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: Colors.grey[500],
-                                fontSize: 12,
+                              style: textTheme.bodySmall?.copyWith(
+                                color: BJBankColors.outline,
                               ),
                             ),
                           ],
                         ),
                       ),
                     ),
-                    SizedBox(height: BJBankSpacing.md),
+                    const SizedBox(height: BJBankSpacing.md),
                     Text(
                       'Montante: ${_transferData?.amount != null ? '€${_transferData!.amount!.toStringAsFixed(2)}' : 'Livre'}',
-                      style: Theme.of(context).textTheme.bodySmall,
+                      // Fixed dark neutral: this label sits on the
+                      // always-white QR backdrop in both themes.
+                      style: textTheme.bodySmall?.copyWith(
+                        color: BJBankColors.onSurface,
+                      ),
                     ),
                   ],
                 ),
@@ -301,7 +315,8 @@ class _QrCodeGeneratorScreenState extends State<QrCodeGeneratorScreen> {
                   icon: const Icon(Icons.share),
                   label: const Text('Partilhar Código QR'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
+                    backgroundColor: colorScheme.primary,
+                    foregroundColor: colorScheme.onPrimary,
                     padding: const EdgeInsets.symmetric(
                       vertical: BJBankSpacing.md,
                     ),
@@ -316,7 +331,8 @@ class _QrCodeGeneratorScreenState extends State<QrCodeGeneratorScreen> {
                   icon: const Icon(Icons.download),
                   label: const Text('Descarregar Código QR'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.grey[600],
+                    backgroundColor: colorScheme.secondary,
+                    foregroundColor: colorScheme.onSecondary,
                     padding: const EdgeInsets.symmetric(
                       vertical: BJBankSpacing.md,
                     ),

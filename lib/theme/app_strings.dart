@@ -54,25 +54,25 @@ class AppStrings {
   static const String onboardingStart = 'Começar';
 
   // Onboarding Page 1 - Welcome
-  static const String onboarding1Image = 'assets/onboarding/welcome.png';
+  static const String onboarding1Image = 'assets/Onboarding1.png';
   static const String onboarding1Title = 'Bem-vindo ao BJ Bank';
   static const String onboarding1Description =
       'O seu parceiro bancário seguro com tecnologia de ponta em criptografia quântica.';
 
   // Onboarding Page 2 - Quantum Security
-  static const String onboarding2Image = 'assets/onboarding/security.png';
+  static const String onboarding2Image = 'assets/Onboarding2.png';
   static const String onboarding2Title = 'Segurança Quântica';
   static const String onboarding2Description =
       'Protegido por algoritmos de Criptografia Pós-Quântica: CRYSTALS-Kyber e Dilithium.';
 
   // Onboarding Page 3 - Transactions
-  static const String onboarding3Image = 'assets/onboarding/transactions.png';
+  static const String onboarding3Image = 'assets/Onboarding1.png';
   static const String onboarding3Title = 'Transações Simples';
   static const String onboarding3Description =
       'MB WAY, transferências e pagamentos com criptografia de ponta a ponta.';
 
   // Onboarding Page 4 - Get Started
-  static const String onboarding4Image = 'assets/onboarding/start.png';
+  static const String onboarding4Image = 'assets/Onboarding3.png';
   static const String onboarding4Title = 'Comece Agora';
   static const String onboarding4Description =
       'Experimente o futuro da segurança bancária hoje mesmo.';

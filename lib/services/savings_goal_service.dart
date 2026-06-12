@@ -1,2 +1,2 @@
-// DEPRECATED — poupancas/objetivos nao implementados em Supabase.
-// Sem consumidores. Pode ser apagado manualmente.
+// DEPRECATED em v1.3.1 — código legado removido. Apagar fisicamente quando
+// o utilizador tiver permissões. Tracking: CHANGELOG v1.3.1.

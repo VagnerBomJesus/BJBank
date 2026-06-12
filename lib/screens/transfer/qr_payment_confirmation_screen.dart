@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../services/qr_code_service.dart';
+import '../../theme/colors.dart';
 import '../../theme/spacing.dart';
+import '../../theme/border_radius.dart';
+import '../../theme/typography.dart';
 
 /// QR Payment Confirmation Screen
 ///
@@ -50,9 +53,9 @@ class _QrPaymentConfirmationScreenState
     if (widget.transferData.amount == null &&
         _amountController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Por favor insira o montante'),
-          backgroundColor: Colors.red,
+        SnackBar(
+          content: const Text('Por favor insira o montante'),
+          backgroundColor: Theme.of(context).colorScheme.error,
         ),
       );
       return;
@@ -82,7 +85,7 @@ class _QrPaymentConfirmationScreenState
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Pagamento enviado com sucesso!'),
-            backgroundColor: Colors.green,
+            backgroundColor: BJBankColors.success,
           ),
         );
         Navigator.of(context).pop(true);
@@ -92,7 +95,7 @@ class _QrPaymentConfirmationScreenState
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Erro: ${e.toString()}'),
-            backgroundColor: Colors.red,
+            backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
       }
@@ -105,7 +108,8 @@ class _QrPaymentConfirmationScreenState
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
       appBar: AppBar(
@@ -141,10 +145,7 @@ class _QrPaymentConfirmationScreenState
                     SizedBox(height: BJBankSpacing.xs),
                     Text(
                       _maskIban(widget.transferData.recipientIban),
-                      style: const TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 12,
-                      ),
+                      style: BJBankTypography.valueSmall,
                     ),
                   ],
                 ),
@@ -163,7 +164,7 @@ class _QrPaymentConfirmationScreenState
                   labelText: 'Montante (€)',
                   hintText: '0.00',
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BJBankBorderRadius.smRadius,
                   ),
                   prefixText: '€ ',
                 ),
@@ -182,10 +183,8 @@ class _QrPaymentConfirmationScreenState
                       SizedBox(height: BJBankSpacing.sm),
                       Text(
                         '€${widget.transferData.amount!.toStringAsFixed(2)}',
-                        style: Theme.of(context)
-                            .textTheme
-                            .headlineSmall
-                            ?.copyWith(color: Colors.green),
+                        style: textTheme.headlineSmall
+                            ?.copyWith(color: BJBankColors.success),
                       ),
                     ],
                   ),
@@ -211,7 +210,7 @@ class _QrPaymentConfirmationScreenState
             if (widget.transferData.description != null) ...[
               SizedBox(height: BJBankSpacing.md),
               Card(
-                color: Colors.blue.withValues(alpha: 0.1),
+                color: colorScheme.primaryContainer,
                 child: Padding(
                   padding: const EdgeInsets.all(BJBankSpacing.sm),
                   child: Column(
@@ -219,12 +218,16 @@ class _QrPaymentConfirmationScreenState
                     children: [
                       Text(
                         'Descrição QR',
-                        style: Theme.of(context).textTheme.labelSmall,
+                        style: textTheme.labelSmall?.copyWith(
+                          color: colorScheme.onPrimaryContainer,
+                        ),
                       ),
-                      SizedBox(height: BJBankSpacing.xs),
+                      const SizedBox(height: BJBankSpacing.xs),
                       Text(
                         widget.transferData.description!,
-                        style: Theme.of(context).textTheme.bodySmall,
+                        style: textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onPrimaryContainer,
+                        ),
                       ),
                     ],
                   ),
@@ -238,10 +241,10 @@ class _QrPaymentConfirmationScreenState
             Container(
               padding: const EdgeInsets.all(BJBankSpacing.md),
               decoration: BoxDecoration(
-                color: isDark ? Colors.grey[900] : Colors.grey[100],
-                borderRadius: BorderRadius.circular(12),
+                color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                borderRadius: BJBankBorderRadius.mdRadius,
                 border: Border.all(
-                  color: Colors.grey[300]!,
+                  color: colorScheme.outlineVariant,
                 ),
               ),
               child: Column(
@@ -286,23 +289,21 @@ class _QrPaymentConfirmationScreenState
                   child: ElevatedButton(
                     onPressed: _isProcessing ? null : _confirmPayment,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
+                      backgroundColor: BJBankColors.success,
+                      foregroundColor: BJBankColors.onPrimary,
                     ),
                     child: _isProcessing
                         ? const SizedBox(
-                            height: 20,
-                            width: 20,
+                            height: BJBankSpacing.iconSm,
+                            width: BJBankSpacing.iconSm,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
                               valueColor: AlwaysStoppedAnimation<Color>(
-                                Colors.white,
+                                BJBankColors.onPrimary,
                               ),
                             ),
                           )
-                        : const Text(
-                            'Confirmar',
-                            style: TextStyle(color: Colors.white),
-                          ),
+                        : const Text('Confirmar'),
                   ),
                 ),
               ],
@@ -342,10 +343,12 @@ class _SummaryRow extends StatelessWidget {
         ),
         Text(
           value,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                fontWeight: isAmount ? FontWeight.w600 : FontWeight.normal,
-                color: isAmount ? Colors.green : null,
-              ),
+          style: isAmount
+              ? BJBankTypography.valueSmall.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: BJBankColors.success,
+                )
+              : Theme.of(context).textTheme.bodyMedium,
         ),
       ],
     );

@@ -6,6 +6,7 @@ import '../../services/pqc_benchmark_service.dart';
 import '../../services/server_pqc_benchmark_service.dart';
 import '../../theme/colors.dart';
 import '../../theme/spacing.dart';
+import 'device_benchmark_screen.dart';
 
 /// PQC Benchmark Screen
 ///
@@ -172,6 +173,19 @@ class _PqcBenchmarkScreenState extends State<PqcBenchmarkScreen> {
       appBar: AppBar(
         title: const Text('Benchmark PQC'),
         elevation: 0,
+        actions: [
+          IconButton(
+            tooltip: 'Benchmark On-Device (BC 1.80 + Clássico)',
+            icon: const Icon(Icons.smartphone),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const DeviceBenchmarkScreen(),
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(BJBankSpacing.md),

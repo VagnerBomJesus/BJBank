@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../app_version.dart';
 import '../../theme/colors.dart';
 import '../../theme/spacing.dart';
 import '../../routes/app_routes.dart';
@@ -97,7 +98,7 @@ class AboutScreen extends StatelessWidget {
           ),
           const SizedBox(height: BJBankSpacing.xxs),
           Text(
-            'Versão 1.1.0 — Maio 2026',
+            'Versão ${AppVersion.displayString} — ${AppVersion.releaseDate}',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: BJBankColors.onSurfaceVariant,
                 ),
@@ -254,8 +255,9 @@ class AboutScreen extends StatelessWidget {
               color: BJBankColors.quantum,
               title: 'Cripto',
               detail:
-                  'BouncyCastle 1.82 (Kotlin) · @noble/post-quantum 0.4 (Deno) · '
-                  'PointyCastle 3.9 (HKDF, AES-GCM no Flutter)',
+                  'BouncyCastle ${AppVersion.bouncyCastleVersion} (Kotlin) · '
+                  '@noble/post-quantum ${AppVersion.nobleVersion} (Deno) · '
+                  'PointyCastle ${AppVersion.pointyCastleVersion} (HKDF, AES-GCM)',
             ),
             const Divider(height: BJBankSpacing.lg),
             _buildStackItem(

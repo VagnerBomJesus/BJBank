@@ -180,10 +180,26 @@ use_count       INT
 
 ### `flutter_client_keys`
 ```sql
-user_id            UUID PK FK → auth.users
-public_key_base64  TEXT
-secret_key_base64  TEXT  ← chave privada server-managed
-criada_em          TIMESTAMPTZ
+user_id            UUID FK → auth.users
+public_key_base64  TEXT NOT NULL
+secret_key_base64  TEXT NULL              ← só preenchido se managed_by='server' (legado)
+managed_by         TEXT NOT NULL          ← 'server' (legado) | 'device' (on-device Android)
+revoked_at         TIMESTAMPTZ NULL       ← chave substituída por outra
+migrated_at        TIMESTAMPTZ NULL       ← quando migrou de server para device
+criada_em          TIMESTAMPTZ NOT NULL
+```
+
+Índice parcial: `flutter_client_keys_active_per_user` — uma única chave activa
+(`revoked_at IS NULL`) por utilizador. Permite múltiplas chaves históricas por user.
+
+### `sessions` (com anti-replay v2)
+```sql
+id                    TEXT PK (UUID)
+user_id               UUID
+shared_secret_base64  TEXT
+expires_at            BIGINT (epoch millis)
+last_serial           INTEGER NOT NULL DEFAULT 0  ← serial monotónico v2
+created_at            TIMESTAMPTZ
 ```
 
 ### `public_config`
@@ -216,16 +232,22 @@ created_at         TIMESTAMPTZ
 | `lookup_account_by_iban(p_iban)` | `{ account_id, user_id, iban, owner_name }` |
 | `lookup_account_by_phone(p_phone)` | `{ account_id, user_id, iban, owner_name, phone }` |
 | `lookup_user_public(p_user_id)` | `{ id, nome_completo, photo_url }` |
-| `executar_transferencia_atomica(...)` | `void` (debit+credit numa transacção) |
-| `bjbank_gerar_iban_pt()` | `text` (IBAN PT50 válido) |
+| `executar_transferencia_atomica(...)` | `void` (debit+credit numa transacção; rejeita se \|now - p_timestamp\| > 30s) |
+| `bjbank_gerar_iban_pt()` | `text` (IBAN PT válido com check NIB **calculado** — começa sempre por PT50) |
+| `bjbank_calcular_check_nib(p_19_digits)` | `text` (2 dígitos check NIB, algoritmo Banco de Portugal) |
+| `bjbank_calcular_iban_check(bban)` | `text` (2 dígitos check IBAN, MOD-97-10 ISO 7064) |
+| `register_client_pubkey(p_public_key_base64)` | `uuid` (revoga chave anterior e regista nova device-managed) |
+| `pubkey_for_user(p_user_id)` | `{ public_key_base64, managed_by, registered_at }` (fonte da verdade para Edge Functions) |
 
 ## Cripto — primitivas e parâmetros
 
-- **ML-KEM-768** (FIPS 203, nível NIST 3) — usado conceptualmente no handshake; no Flutter o `shared_secret` vem do servidor via TLS, simplificando a parte cliente
-- **ML-DSA-65** (FIPS 204, nível NIST 3) — assinatura de payload de transferências e de transcript de handshake
-- **AES-256-GCM** — cifragem do envelope `[payload | signature]`, tag 128 bits, IV 12 B, AAD = sessionId UTF-8
-- **HKDF-SHA-256** — derivação de chave de sessão a partir de shared_secret
-- **SHA-256** — hash interno do HKDF
+- **ML-KEM-768** (FIPS 203, nível NIST 3) — server-side via `@noble/post-quantum`. Encapsulação on-device em Android disponível via `PqcPlugin.kemEncapsulate()` (BouncyCastle 1.80 `MLKEMGenerator`), pronta para uso quando o handshake passar a entregar a `serverKemPublicKey` em vez do `sharedSecret`.
+- **ML-DSA-65** (FIPS 204, nível NIST 3) — assinatura de payload de transferências e de transcript de handshake.
+  - **Android**: keygen + sign + verify locais no plugin nativo Kotlin (`PqcPlugin.kt`, BouncyCastle 1.80 `MLDSAKeyPairGenerator/Signer`). Chave privada vive em `EncryptedSharedPreferences` (Keystore-backed, StrongBox/TEE). Pública 1952 B exportada para servidor via `register_client_pubkey`.
+  - **iOS**: ainda server-managed (`flutter_client_keys.secret_key_base64` + `flutter_sign_transfer`). Migração pendente para Swift CryptoKit/libsodium.
+- **AES-256-GCM** — cifragem do envelope `[payload | signature]`, tag 128 bits, IV **12 B random por mensagem** (`Random.secure()`, CSPRNG do SO), AAD = sessionId UTF-8.
+- **HKDF-SHA-256** — derivação de chave de sessão a partir de shared_secret.
+- **SHA-256** — hash interno do HKDF.
 
 Tamanhos oficiais:
 
@@ -234,22 +256,57 @@ Tamanhos oficiais:
 | ML-KEM-768 | 1184 B | 2400 B | 1088 B |
 | ML-DSA-65 | 1952 B | 4032 B | 3309 B |
 
+## Protocolo wire v2 (transferência)
+
+```
+Cliente (Android):                          Servidor:
+1. Sessão PQC (TTL local 50 min, server 1h) -------------- sessions
+2. serial = _proximoSerial(sessionId)
+3. payload_v2 = canonical(txId || origem || destino ||
+                          montante || descricao ||
+                          timestamp || nonce || serial)
+4. signature = DevicePqcService.signDsa(payload_v2)
+   └─ assinatura LOCAL com privada no Keystore
+5. envelope = [len|payload_v2|len|signature]
+6. iv = Random.secure(12 B)
+7. ciphertext = AES-256-GCM(envelope, key=sessionKey,
+                            iv=iv, aad=sessionId)
+8. POST /executar_transferencia {                ─────────►
+     sessionId, ivBase64, envelopeBase64,
+     clientDsaPublicBase64, protocolVersion: 2, serial
+   }
+                                                  Edge Function valida:
+                                                  · JWT
+                                                  · sessão activa + serial > last_serial
+                                                  · decifra envelope com sessionKey
+                                                  · verifica ML-DSA local (vs pubkey registada)
+                                                  · payload canónico v2 byte-a-byte
+                                                  · timestamp ±30s
+                                                  · UNIQUE(transactions.id)
+                                                  · RPC executar_transferencia_atomica
+                                                  · UPDATE sessions.last_serial
+```
+
 ## Modelo de ameaça resumido
 
 Ver `docs/adr/ADR-003-SECURITY-STRATEGY.md` para detalhe completo. Resumo:
 
-| Ameaça | Mitigação |
-|---|---|
-| HNDL (Harvest Now, Decrypt Later) | Cifragem AES-GCM dentro de envelope + assinatura ML-DSA pós-quântica |
-| Replay de transferência | `txId` UUID único + `sessions.expires_at` 1h + transcript canónico comparado byte-a-byte |
-| MITM no handshake | TOFU pinning da chave ML-DSA do servidor; assinatura sobre transcript |
-| Substituição de chave de cliente | Coluna `users.pqc_public_key_base64` pin no primeiro signing — rejeita mudanças |
-| RLS bypass | `service_role` só nas Edge Functions; cliente usa JWT do utilizador |
-| Saldo negativo / race condition | `SELECT FOR UPDATE` + saldo check + tudo numa transacção SQL |
+| Ameaça | Mitigação | Estado |
+|---|---|---|
+| HNDL (Harvest Now, Decrypt Later) | KEM pós-quântico on-device — `kemEncapsulate` local; `sharedSecret` nunca atravessa rede em claro | ✅ Android (v1.3.0) · ❌ iOS (modo legacy) |
+| Não-repúdio | ML-DSA-65 com chave privada controlada pelo utilizador | ✅ Android (Keystore) · ❌ iOS (fallback servidor) |
+| Replay de transferência | `txId` UUID único + janela timestamp ±30s + serial monotónico v2 | ✅ |
+| Reuso de IV em GCM | IV 12 B random por mensagem (`Random.secure()`) | ✅ |
+| MITM no handshake | TOFU pinning + verificação ML-DSA **local** | ✅ Android · ❌ iOS (verify_dsa server) |
+| First-use pubkey injection | Edge Function exige pubkey já registada (recusa 412) | ✅ |
+| RLS bypass | `service_role` só nas Edge Functions; cliente usa JWT | ✅ |
+| Saldo negativo / race condition | `SELECT FOR UPDATE` + saldo check transacional | ✅ |
 
 ## Limitações documentadas
 
-1. **Chave privada Flutter no servidor** — `flutter_client_keys.secret_key_base64` é mantida em texto na BD (acessível apenas via service_role). Decisão pragmática pela falta de libs Dart fiáveis para ML-DSA. Solução real: HSM ou KMS.
-2. **Rotação de chaves** — Não automatizada. Para rodar o par ML-DSA do servidor: `DELETE FROM public_config WHERE key='server_ml_dsa'` (próximo handshake gera nova).
-3. **Sem replay protection explícito de nonce** — Confiamos no UUID v4 e no UNIQUE PK da `transactions.id`. Recomendado adicionar `WHERE NOT EXISTS` na RPC.
+Ver `docs/PQC_REMAINING_CRITICAL_ISSUES.md` para detalhe técnico dos 3 problemas críticos remanescentes:
+
+1. ~~**PFS no handshake**~~ → ✅ **Resolvido em v1.3.0** para Android. `pqc_handshake_flutter` v2 + `pqc_handshake_kem_complete` + tabela efémera `pending_kem_sessions` (TTL 5min). Cliente Android faz `kemEncapsulate` localmente — `sharedSecret` nunca atravessa a rede em claro. iOS continua em modo `legacy` enquanto não houver `PqcPlugin.swift`.
+2. **iOS sem plugin nativo** — utilizadores iOS continuam com chave server-managed (`flutter_client_keys.secret_key_base64`). Falta `PqcPlugin.swift` com Swift CryptoKit ou libsodium.
+3. **Rotação de chaves** — Sem rotação automática do par ML-DSA do servidor. Manual via `DELETE FROM public_config WHERE key='server_ml_dsa'`.
 4. **SMS provider não configurado** — Verificação MBWay actual usa só validação de formato local. Activação SMS via Supabase requer configurar Twilio/MessageBird no Dashboard.

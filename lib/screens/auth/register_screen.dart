@@ -519,13 +519,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           FilledButton(
                             onPressed: _isLoading ? null : _handleRegister,
                             style: FilledButton.styleFrom(
-                              minimumSize: const Size.fromHeight(56),
+                              minimumSize: const Size.fromHeight(58),
                               backgroundColor: BJBankColors.primary,
                               disabledBackgroundColor:
                                   BJBankColors.primary.withValues(alpha: 0.6),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
+                              shape: const StadiumBorder(),
                               elevation: 0,
                             ),
                             child: AnimatedSwitcher(
@@ -630,39 +628,29 @@ class _RegisterScreenState extends State<RegisterScreen> {
         prefixIcon: Icon(
           icon,
           color: BJBankColors.onSurfaceVariant,
+          size: 20,
         ),
         prefixText: prefixText,
         suffixIcon: suffixIcon,
-        filled: true,
-        fillColor: BJBankColors.surfaceVariant.withValues(alpha: 0.5),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide.none,
+        filled: false,
+        // Clean underline style (matches Login / UI-kit)
+        border: const UnderlineInputBorder(
+          borderSide: BorderSide(color: BJBankColors.outlineVariant),
         ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide.none,
+        enabledBorder: const UnderlineInputBorder(
+          borderSide: BorderSide(color: BJBankColors.outlineVariant),
         ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(
-            color: BJBankColors.primary,
-            width: 2,
-          ),
+        focusedBorder: const UnderlineInputBorder(
+          borderSide: BorderSide(color: BJBankColors.primary, width: 2),
         ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(
-            color: BJBankColors.error,
-            width: 1,
-          ),
+        errorBorder: const UnderlineInputBorder(
+          borderSide: BorderSide(color: BJBankColors.error, width: 1),
         ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(
-            color: BJBankColors.error,
-            width: 2,
-          ),
+        focusedErrorBorder: const UnderlineInputBorder(
+          borderSide: BorderSide(color: BJBankColors.error, width: 2),
+        ),
+        floatingLabelStyle: BJBankTypography.labelLarge.copyWith(
+          color: BJBankColors.primary,
         ),
         labelStyle: BJBankTypography.bodyMedium.copyWith(
           color: BJBankColors.onSurfaceVariant,

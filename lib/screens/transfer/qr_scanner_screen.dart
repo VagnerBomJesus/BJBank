@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../services/qr_code_service.dart';
 import '../../theme/spacing.dart';
+import '../../theme/border_radius.dart';
 
 /// QR Code Scanner Screen
 ///
@@ -52,7 +53,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: Colors.red,
+        backgroundColor: Theme.of(context).colorScheme.error,
         duration: const Duration(seconds: 3),
       ),
     );
@@ -65,6 +66,9 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Escanear Código QR'),
@@ -73,6 +77,8 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       body: Stack(
         children: [
           // Camera preview placeholder
+          // Black backdrop and white overlays kept intentionally:
+          // this mimics a camera viewport in both themes.
           Container(
             color: Colors.black,
             child: Center(
@@ -84,20 +90,18 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                     size: 100,
                     color: Colors.white.withValues(alpha: 0.3),
                   ),
-                  SizedBox(height: BJBankSpacing.md),
+                  const SizedBox(height: BJBankSpacing.md),
                   Text(
                     'Aponte a câmara para um código QR',
-                    style: TextStyle(
+                    style: textTheme.bodyLarge?.copyWith(
                       color: Colors.white.withValues(alpha: 0.7),
-                      fontSize: 16,
                     ),
                   ),
-                  SizedBox(height: BJBankSpacing.md),
+                  const SizedBox(height: BJBankSpacing.md),
                   Text(
                     'Integração com mobile_scanner em desenvolvimento',
-                    style: TextStyle(
+                    style: textTheme.bodySmall?.copyWith(
                       color: Colors.white.withValues(alpha: 0.5),
-                      fontSize: 12,
                     ),
                   ),
                 ],
@@ -132,10 +136,10 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
             child: Container(
               padding: const EdgeInsets.all(BJBankSpacing.md),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: colorScheme.surface,
                 borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(16),
-                  topRight: Radius.circular(16),
+                  topLeft: Radius.circular(BJBankBorderRadius.lg),
+                  topRight: Radius.circular(BJBankBorderRadius.lg),
                 ),
                 boxShadow: [
                   BoxShadow(
@@ -156,8 +160,8 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                       icon: const Icon(Icons.image),
                       label: const Text('Selecionar da Galeria'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.grey[200],
-                        foregroundColor: Colors.black87,
+                        backgroundColor: colorScheme.surfaceContainerHighest,
+                        foregroundColor: colorScheme.onSurface,
                         padding: const EdgeInsets.symmetric(
                           vertical: BJBankSpacing.md,
                         ),
@@ -165,37 +169,36 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                     ),
                   ),
 
-                  SizedBox(height: BJBankSpacing.sm),
+                  const SizedBox(height: BJBankSpacing.sm),
 
                   // Scanner tips
                   Container(
                     padding: const EdgeInsets.all(BJBankSpacing.sm),
                     decoration: BoxDecoration(
-                      color: Colors.blue.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
+                      color: colorScheme.primary.withValues(alpha: 0.1),
+                      borderRadius: BJBankBorderRadius.smRadius,
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
+                      children: [
                         Text(
                           '💡 Dicas de escanagem:',
-                          style: TextStyle(
+                          style: textTheme.labelMedium?.copyWith(
                             fontWeight: FontWeight.w600,
-                            fontSize: 12,
                           ),
                         ),
-                        SizedBox(height: 4),
+                        const SizedBox(height: BJBankSpacing.xxs),
                         Text(
                           '• Certifique-se que o QR está bem iluminado',
-                          style: TextStyle(fontSize: 11),
+                          style: textTheme.labelSmall,
                         ),
                         Text(
                           '• Mantenha a câmara estável a ~15cm do código',
-                          style: TextStyle(fontSize: 11),
+                          style: textTheme.labelSmall,
                         ),
                         Text(
                           '• O código inteiro deve ser visível no visor',
-                          style: TextStyle(fontSize: 11),
+                          style: textTheme.labelSmall,
                         ),
                       ],
                     ),

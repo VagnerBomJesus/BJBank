@@ -14,8 +14,8 @@ class BJBankBorderRadius {
   static const double full = 9999.0;
 
   // Component-specific
-  static const double button = 20.0;
-  static const double card = 12.0;
+  static const double button = 100.0; // pill — fully rounded at any height
+  static const double card = 16.0;
   static const double chip = 8.0;
   static const double dialog = 28.0;
   static const double input = 4.0;

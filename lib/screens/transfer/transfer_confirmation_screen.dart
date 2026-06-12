@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../theme/colors.dart';
 import '../../theme/spacing.dart';
+import '../../theme/border_radius.dart';
+import '../../theme/typography.dart';
 
 /// Transfer Confirmation Screen
 /// Review transfer details before executing
@@ -32,9 +34,11 @@ class TransferConfirmationScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isMbWay = transferType == 'mbway';
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      backgroundColor: BJBankColors.background,
+      backgroundColor: colorScheme.surface,
       appBar: AppBar(
         title: const Text('Confirmar'),
         backgroundColor: Colors.transparent,
@@ -46,13 +50,12 @@ class TransferConfirmationScreen extends StatelessWidget {
           children: [
             const Spacer(flex: 1),
 
-            // Amount display
+            // Amount display (mono style for currency values)
             Text(
               '€ ${_formatEuro(amount)}',
-              style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: BJBankColors.primary,
-                  ),
+              style: BJBankTypography.balanceLarge.copyWith(
+                color: colorScheme.primary,
+              ),
             ),
 
             const SizedBox(height: BJBankSpacing.xl),
@@ -93,19 +96,22 @@ class TransferConfirmationScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(BJBankSpacing.sm),
               decoration: BoxDecoration(
-                color: BJBankColors.tertiary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
+                color: colorScheme.tertiary.withValues(alpha: 0.1),
+                borderRadius: BJBankBorderRadius.smRadius,
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.security, size: 16, color: BJBankColors.tertiary),
+                  Icon(
+                    Icons.security,
+                    size: BJBankSpacing.iconXs,
+                    color: colorScheme.tertiary,
+                  ),
                   const SizedBox(width: BJBankSpacing.xs),
                   Text(
                     'Assinatura PQC CRYSTALS-Dilithium',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: BJBankColors.tertiary,
+                    style: textTheme.bodySmall?.copyWith(
+                      color: colorScheme.tertiary,
                     ),
                   ),
                 ],
@@ -118,19 +124,24 @@ class TransferConfirmationScreen extends StatelessWidget {
             FilledButton(
               onPressed: () => Navigator.pop(context, true),
               style: FilledButton.styleFrom(
-                minimumSize: const Size.fromHeight(56),
+                minimumSize: const Size.fromHeight(BJBankSpacing.inputHeight),
                 backgroundColor: isMbWay
                     ? BJBankColors.mbwayRed
-                    : BJBankColors.primary,
+                    : colorScheme.primary,
+                foregroundColor: isMbWay
+                    ? BJBankColors.onPrimary
+                    : colorScheme.onPrimary,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BJBankBorderRadius.mdRadius,
                 ),
               ),
               child: Text(
                 isMbWay ? 'Confirmar MB WAY' : 'Confirmar Transferência',
-                style: const TextStyle(
-                  fontSize: 16,
+                style: textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w600,
+                  color: isMbWay
+                      ? BJBankColors.onPrimary
+                      : colorScheme.onPrimary,
                 ),
               ),
             ),
@@ -141,9 +152,9 @@ class TransferConfirmationScreen extends StatelessWidget {
             OutlinedButton(
               onPressed: () => Navigator.pop(context, false),
               style: OutlinedButton.styleFrom(
-                minimumSize: const Size.fromHeight(48),
+                minimumSize: const Size.fromHeight(BJBankSpacing.minTouchTarget),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BJBankBorderRadius.mdRadius,
                 ),
               ),
               child: const Text('Cancelar'),
@@ -164,7 +175,7 @@ class TransferConfirmationScreen extends StatelessWidget {
         Text(
           label,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: BJBankColors.onSurfaceVariant,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
         ),
         const SizedBox(width: BJBankSpacing.md),

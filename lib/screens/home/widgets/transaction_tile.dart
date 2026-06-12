@@ -19,6 +19,7 @@ class TransactionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -56,7 +57,7 @@ class TransactionTile extends StatelessWidget {
                     Text(
                       transaction.description,
                       style: BJBankTypography.bodyMedium.copyWith(
-                        color: BJBankColors.onSurface,
+                        color: colorScheme.onSurface,
                         fontWeight: FontWeight.w500,
                       ),
                       maxLines: 1,
@@ -68,7 +69,7 @@ class TransactionTile extends StatelessWidget {
                         Text(
                           transaction.formattedDate,
                           style: BJBankTypography.bodySmall.copyWith(
-                            color: BJBankColors.onSurfaceVariant,
+                            color: colorScheme.onSurfaceVariant,
                           ),
                         ),
                         if (transaction.isEncrypted) ...[
@@ -88,7 +89,7 @@ class TransactionTile extends StatelessWidget {
               // Amount
               Text(
                 transaction.formattedAmount,
-                style: BJBankTypography.titleSmall.copyWith(
+                style: BJBankTypography.valueSmall.copyWith(
                   color: transaction.amountColor,
                   fontWeight: FontWeight.w600,
                 ),
@@ -119,6 +120,7 @@ class TransactionList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     final displayTransactions = limit != null
         ? transactions.take(limit!).toList()
         : transactions;
@@ -135,7 +137,7 @@ class TransactionList extends StatelessWidget {
               Text(
                 AppStrings.homeRecentTransactions,
                 style: BJBankTypography.titleMedium.copyWith(
-                  color: BJBankColors.onSurface,
+                  color: colorScheme.onSurface,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -143,7 +145,7 @@ class TransactionList extends StatelessWidget {
                 TextButton(
                   onPressed: onViewAllTap,
                   style: TextButton.styleFrom(
-                    foregroundColor: BJBankColors.primary,
+                    foregroundColor: colorScheme.primary,
                     padding: EdgeInsets.zero,
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -151,7 +153,7 @@ class TransactionList extends StatelessWidget {
                   child: Text(
                     AppStrings.homeViewAll,
                     style: BJBankTypography.labelMedium.copyWith(
-                      color: BJBankColors.primary,
+                      color: colorScheme.primary,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -164,11 +166,11 @@ class TransactionList extends StatelessWidget {
           // Transaction Items in a card
           Container(
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: colorScheme.surface,
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: BJBankColors.onSurface.withValues(alpha: 0.04),
+                  color: colorScheme.shadow.withValues(alpha: 0.04),
                   blurRadius: 10,
                   offset: const Offset(0, 2),
                 ),
@@ -184,21 +186,21 @@ class TransactionList extends StatelessWidget {
                             width: 64,
                             height: 64,
                             decoration: BoxDecoration(
-                              color: BJBankColors.surfaceVariant
+                              color: colorScheme.surfaceContainerHighest
                                   .withValues(alpha: 0.5),
                               shape: BoxShape.circle,
                             ),
                             child: Icon(
                               Icons.receipt_long_outlined,
                               size: 28,
-                              color: BJBankColors.outline,
+                              color: colorScheme.outline,
                             ),
                           ),
                           const SizedBox(height: BJBankSpacing.md),
                           Text(
                             AppStrings.homeNoTransactions,
                             style: BJBankTypography.bodyMedium.copyWith(
-                              color: BJBankColors.onSurfaceVariant,
+                              color: colorScheme.onSurfaceVariant,
                             ),
                           ),
                         ],
@@ -220,7 +222,7 @@ class TransactionList extends StatelessWidget {
                               height: 1,
                               indent: BJBankSpacing.md + 48 + BJBankSpacing.md,
                               endIndent: BJBankSpacing.md,
-                              color: BJBankColors.outlineVariant
+                              color: colorScheme.outlineVariant
                                   .withValues(alpha: 0.5),
                             ),
                         ],

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../theme/colors.dart';
 import '../../theme/spacing.dart';
+import '../../theme/border_radius.dart';
 import '../../routes/app_routes.dart';
 
 /// Transfer Receipt Screen
@@ -39,10 +40,13 @@ class TransferReceiptScreen extends StatelessWidget {
     final dateStr =
         '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
 
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
     return PopScope(
       canPop: false,
       child: Scaffold(
-        backgroundColor: BJBankColors.background,
+        backgroundColor: colorScheme.surface,
         appBar: AppBar(
           title: const Text('Comprovante'),
           automaticallyImplyLeading: false,
@@ -121,12 +125,9 @@ class TransferReceiptScreen extends StatelessWidget {
                         children: [
                           Text(
                             'Segurança',
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyMedium
-                                ?.copyWith(
-                                  color: BJBankColors.onSurfaceVariant,
-                                ),
+                            style: textTheme.bodyMedium?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
                           ),
                           Container(
                             padding: const EdgeInsets.symmetric(
@@ -135,21 +136,20 @@ class TransferReceiptScreen extends StatelessWidget {
                             ),
                             decoration: BoxDecoration(
                               color: BJBankColors.quantum.withValues(alpha:0.1),
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BJBankBorderRadius.mdRadius,
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(
+                                const Icon(
                                   Icons.security,
                                   size: 14,
                                   color: BJBankColors.quantum,
                                 ),
-                                const SizedBox(width: 4),
+                                const SizedBox(width: BJBankSpacing.xxs),
                                 Text(
                                   'PQC Dilithium',
-                                  style: TextStyle(
-                                    fontSize: 12,
+                                  style: textTheme.bodySmall?.copyWith(
                                     color: BJBankColors.quantum,
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -175,16 +175,16 @@ class TransferReceiptScreen extends StatelessWidget {
                   );
                 },
                 style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(56),
+                  minimumSize: const Size.fromHeight(BJBankSpacing.inputHeight),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BJBankBorderRadius.mdRadius,
                   ),
                 ),
-                child: const Text(
+                child: Text(
                   'Concluir',
-                  style: TextStyle(
-                    fontSize: 16,
+                  style: textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w600,
+                    color: colorScheme.onPrimary,
                   ),
                 ),
               ),
@@ -205,7 +205,7 @@ class TransferReceiptScreen extends StatelessWidget {
         Text(
           label,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: BJBankColors.onSurfaceVariant,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
         ),
         const SizedBox(width: BJBankSpacing.md),

@@ -1,8 +1,11 @@
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../theme/colors.dart';
+import '../../theme/spacing.dart';
+import '../../theme/typography.dart';
 import '../../models/transaction_model.dart' show Transaction;
 import '../../providers/auth_provider.dart';
 import '../../providers/account_provider.dart';
@@ -12,6 +15,8 @@ import '../../routes/app_routes.dart';
 import '../history/history_screen.dart';
 import '../cards/cards_screen.dart';
 import '../settings/settings_screen.dart';
+import '../analysis/analysis_screen.dart';
+import '../search/search_screen.dart';
 
 /// Home Screen - Modern Banking Dashboard
 class HomeScreen extends StatefulWidget {
@@ -30,7 +35,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    _loadAccountData();
+    // Adiar carregamento para depois do primeiro frame: evita
+    // setState()/notifyListeners() durante o build do provider.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _loadAccountData();
+    });
     _fabController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 300),
@@ -71,49 +80,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: Theme.of(context).colorScheme.surface,
       body: IndexedStack(
         index: _currentNavIndex,
         children: [
           _buildHomeContent(),
-          const HistoryScreen(),
           const CardsScreen(),
+          AnalysisScreen(onBack: () => _onNavItemTapped(0)),
           const SettingsScreen(),
         ],
       ),
       bottomNavigationBar: _buildModernBottomNav(),
-      floatingActionButton: _currentNavIndex == 0
-          ? ScaleTransition(
-              scale: _fabAnimation,
-              child: Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFF3B82F6), Color(0xFF1E40AF)],
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF3B82F6).withValues(alpha: 0.4),
-                      blurRadius: 20,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: FloatingActionButton(
-                  onPressed: () {
-                    HapticFeedback.mediumImpact();
-                    _showQuickActionsSheet();
-                  },
-                  backgroundColor: Colors.transparent,
-                  elevation: 0,
-                  child: const Icon(Icons.add_rounded, color: Colors.white, size: 32),
-                ),
-              ),
-            )
-          : null,
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
     );
   }
 
@@ -124,6 +101,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
     final user = authProvider.user;
     final userName = user?.firstName ?? 'Utilizador';
+    final holderName = user?.name ?? userName;
 
     return Column(
       children: [
@@ -134,8 +112,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         Expanded(
           child: RefreshIndicator(
             onRefresh: _refreshData,
-            color: BJBankColors.primary,
-            backgroundColor: Colors.white,
+            color: Theme.of(context).colorScheme.primary,
+            backgroundColor: Theme.of(context).colorScheme.surface,
             child: ListView(
               controller: _scrollController,
               physics: const BouncingScrollPhysics(
@@ -144,7 +122,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               padding: EdgeInsets.zero,
               children: [
                 // Balance Section
-                _buildBalanceSection(accountProvider, settingsProvider),
+                _buildBalanceSection(
+                    accountProvider, settingsProvider, holderName),
 
                 const SizedBox(height: 28),
 
@@ -173,18 +152,20 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildFixedHeader(String userName, String? photoUrl, String? initials) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
     return Container(
       padding: EdgeInsets.only(
-        top: MediaQuery.of(context).padding.top + 12,
+        top: MediaQuery.of(context).padding.top + BJBankSpacing.sm,
         left: 20,
         right: 20,
-        bottom: 16,
+        bottom: BJBankSpacing.md,
       ),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colorScheme.surface,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: colorScheme.shadow.withValues(alpha: 0.04),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -205,18 +186,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Olá,',
-                  style: TextStyle(
-                    color: const Color(0xFF64748B),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
+                  'Bem-vindo de volta,',
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
                   ),
                 ),
                 Text(
                   userName,
-                  style: const TextStyle(
-                    color: Color(0xFF0F172A),
-                    fontSize: 20,
+                  style: textTheme.titleLarge?.copyWith(
+                    color: colorScheme.onSurface,
                     fontWeight: FontWeight.bold,
                     letterSpacing: -0.3,
                   ),
@@ -225,230 +203,351 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             ),
           ),
 
-          // Mail Icon
+          // Search Icon (mockup style)
           _buildHeaderIconButton(
-            Icons.mail_outline_rounded,
-            badge: true,
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Caixa de correio - Em breve'),
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
-            },
+            Icons.search_rounded,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const SearchScreen()),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildBalanceSection(AccountProvider accountProvider, SettingsProvider settingsProvider) {
+  Widget _buildBalanceSection(
+    AccountProvider accountProvider,
+    SettingsProvider settingsProvider,
+    String holderName,
+  ) {
+    final account = accountProvider.primaryAccount;
+    final visible = settingsProvider.isBalanceVisible;
+    final ibanDisplay = visible
+        ? (account?.formattedIban ?? 'PT50 •••• •••• •••• •••• •••• •')
+        : (account?.maskedIban ?? 'PT50 •••• •••• •••• •••• •••• •');
+
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF1E3A8A),
-            Color(0xFF3B82F6),
-          ],
-        ),
+        gradient: BJBankColors.cardNavyGradient,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF1E3A8A).withValues(alpha: 0.3),
-            blurRadius: 24,
-            offset: const Offset(0, 12),
+            color: BJBankColors.cardNavyDeep.withValues(alpha: 0.45),
+            blurRadius: 28,
+            offset: const Offset(0, 14),
+          ),
+          BoxShadow(
+            color: BJBankColors.accentBlue.withValues(alpha: 0.15),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header row with label and visibility toggle
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: Stack(
+          children: [
+            // Blue glow (UI-kit signature)
+            Positioned(
+              right: -70,
+              top: -20,
+              bottom: -50,
+              child: Container(
+                width: 230,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      BJBankColors.accentBlue.withValues(alpha: 0.45),
+                      BJBankColors.accentBlue.withValues(alpha: 0.0),
+                    ],
+                    stops: const [0.2, 1.0],
+                  ),
+                ),
+              ),
+            ),
+            // Faint dotted "world map" texture
+            Positioned.fill(
+              child: CustomPaint(painter: _CardMapDotsPainter()),
+            ),
+
+            Padding(
+              padding: const EdgeInsets.all(BJBankSpacing.lg),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF4ADE80),
-                      shape: BoxShape.circle,
+                  // Top row: chip + contactless + visibility toggle
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(7),
+                        decoration: BoxDecoration(
+                          color: BJBankColors.onPrimary.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          Icons.memory_rounded,
+                          size: 20,
+                          color: BJBankColors.onPrimary,
+                        ),
+                      ),
+                      const Spacer(),
+                      Icon(
+                        Icons.contactless_rounded,
+                        size: 26,
+                        color: BJBankColors.onPrimary.withValues(alpha: 0.7),
+                      ),
+                      const SizedBox(width: BJBankSpacing.xs),
+                      GestureDetector(
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          settingsProvider.toggleBalanceVisibility();
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(7),
+                          decoration: BoxDecoration(
+                            color:
+                                BJBankColors.onPrimary.withValues(alpha: 0.10),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            visible
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
+                            size: 18,
+                            color: BJBankColors.onPrimary.withValues(alpha: 0.8),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Available balance (hero)
+                  Text(
+                    'Saldo disponível',
+                    style: BJBankTypography.labelMedium.copyWith(
+                      color: BJBankColors.onPrimary.withValues(alpha: 0.6),
                     ),
                   ),
-                  const SizedBox(width: 10),
-                  Text(
-                    'O teu dinheiro',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.9),
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                    ),
+                  const SizedBox(height: BJBankSpacing.xxs),
+                  accountProvider.isLoading
+                      ? Container(
+                          height: 40,
+                          width: 170,
+                          decoration: BoxDecoration(
+                            color:
+                                BJBankColors.onPrimary.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        )
+                      : AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 300),
+                          child: Text(
+                            visible
+                                ? account?.formattedBalance ?? '€ 0,00'
+                                : '€ ••••••',
+                            key: ValueKey(visible),
+                            style: BJBankTypography.balanceLarge.copyWith(
+                              color: BJBankColors.onPrimary,
+                              fontSize: 32,
+                            ),
+                          ),
+                        ),
+
+                  const SizedBox(height: 22),
+
+                  // IBAN of the logged-in account
+                  Row(
+                    children: [
+                      Text(
+                        'IBAN',
+                        style: BJBankTypography.labelSmall.copyWith(
+                          color: BJBankColors.onPrimary.withValues(alpha: 0.5),
+                          fontSize: 9,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                      const SizedBox(width: BJBankSpacing.xs),
+                      Expanded(
+                        child: Text(
+                          ibanDisplay,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: BJBankTypography.valueSmall.copyWith(
+                            color:
+                                BJBankColors.onPrimary.withValues(alpha: 0.92),
+                            fontSize: 14,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                      ),
+                      if (visible)
+                        GestureDetector(
+                          onTap: () {
+                            final iban = account?.iban;
+                            if (iban != null && iban.isNotEmpty) {
+                              Clipboard.setData(ClipboardData(text: iban));
+                              HapticFeedback.lightImpact();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('IBAN copiado'),
+                                  behavior: SnackBarBehavior.floating,
+                                  duration: Duration(seconds: 2),
+                                ),
+                              );
+                            }
+                          },
+                          child: Icon(
+                            Icons.copy_rounded,
+                            size: 16,
+                            color:
+                                BJBankColors.onPrimary.withValues(alpha: 0.7),
+                          ),
+                        ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 18),
+
+                  // Bottom: holder + validade + Mastercard mark
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'TITULAR',
+                              style: BJBankTypography.labelSmall.copyWith(
+                                color: BJBankColors.onPrimary
+                                    .withValues(alpha: 0.5),
+                                fontSize: 9,
+                                letterSpacing: 1,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              holderName.toUpperCase(),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: BJBankTypography.titleSmall.copyWith(
+                                color: BJBankColors.onPrimary,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: BJBankSpacing.md),
+                      // Quantum Safe pill (PQC identity)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: BJBankSpacing.sm,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: BJBankColors.onPrimary.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(
+                            color: BJBankColors.quantum.withValues(alpha: 0.35),
+                            width: 0.5,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.shield_outlined,
+                              size: 11,
+                              color:
+                                  BJBankColors.quantum.withValues(alpha: 0.95),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Quantum Safe',
+                              style: BJBankTypography.labelSmall.copyWith(
+                                color: BJBankColors.onPrimary
+                                    .withValues(alpha: 0.95),
+                                fontWeight: FontWeight.w600,
+                                fontSize: 9,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: BJBankSpacing.sm),
+                      // Mastercard-style mark
+                      SizedBox(
+                        width: 40,
+                        height: 26,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            Positioned(
+                              left: 2,
+                              child: Container(
+                                width: 24,
+                                height: 24,
+                                decoration: const BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Color(0xFFEB001B),
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              right: 2,
+                              child: Container(
+                                width: 24,
+                                height: 24,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: const Color(0xFFF79E1B)
+                                      .withValues(alpha: 0.9),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-              GestureDetector(
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  settingsProvider.toggleBalanceVisibility();
-                },
-                child: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    settingsProvider.isBalanceVisible
-                        ? Icons.visibility_rounded
-                        : Icons.visibility_off_rounded,
-                    color: Colors.white,
-                    size: 20,
-                  ),
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 20),
-
-          // Balance amount
-          accountProvider.isLoading
-              ? Container(
-                  height: 48,
-                  width: 180,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                )
-              : AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 300),
-                  child: Text(
-                    settingsProvider.isBalanceVisible
-                        ? accountProvider.primaryAccount?.formattedBalance ?? '€ 0,00'
-                        : '€ ••••••',
-                    key: ValueKey(settingsProvider.isBalanceVisible),
-                    style: const TextStyle(
-                      fontSize: 40,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: -1,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-
-          const SizedBox(height: 20),
-
-          // IBAN row
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
             ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.account_balance_rounded,
-                  size: 18,
-                  color: Colors.white.withValues(alpha: 0.8),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    accountProvider.primaryAccount?.formattedIban ?? 'PT50 •••• •••• •••• •••• ••••',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.9),
-                      fontSize: 13,
-                      fontFamily: 'monospace',
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ),
-                GestureDetector(
-                  onTap: () {
-                    final iban = accountProvider.primaryAccount?.iban;
-                    if (iban != null) {
-                      Clipboard.setData(ClipboardData(text: iban));
-                      HapticFeedback.lightImpact();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('IBAN copiado'),
-                          behavior: SnackBarBehavior.floating,
-                          duration: Duration(seconds: 2),
-                        ),
-                      );
-                    }
-                  },
-                  child: Icon(
-                    Icons.copy_rounded,
-                    size: 18,
-                    color: Colors.white.withValues(alpha: 0.8),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Security badge
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: const Color(0xFF4ADE80).withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.shield_rounded,
-                  size: 14,
-                  color: Color(0xFF4ADE80),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  'Protegido com PQC',
-                  style: TextStyle(
-                    color: const Color(0xFF4ADE80),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildHeaderIconButton(IconData icon, {bool badge = false, VoidCallback? onTap}) {
+    final colorScheme = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: () {
         HapticFeedback.lightImpact();
         onTap?.call();
       },
       child: Container(
-        width: 48,
-        height: 48,
+        width: BJBankSpacing.minTouchTarget,
+        height: BJBankSpacing.minTouchTarget,
         decoration: BoxDecoration(
-          color: const Color(0xFFF1F5F9),
+          color: colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(14),
         ),
         child: Stack(
           children: [
             Center(
-              child: Icon(icon, color: const Color(0xFF475569), size: 24),
+              child: Icon(
+                icon,
+                color: colorScheme.onSurfaceVariant,
+                size: BJBankSpacing.iconMd,
+              ),
             ),
             if (badge)
               Positioned(
@@ -458,9 +557,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   width: 12,
                   height: 12,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFEF4444),
+                    color: colorScheme.error,
                     shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 2),
+                    border: Border.all(color: colorScheme.surface, width: 2),
                   ),
                 ),
               ),
@@ -484,27 +583,23 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       height: 50,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        border: Border.all(color: const Color(0xFFE2E8F0), width: 2),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.outlineVariant,
+          width: 2,
+        ),
         image: imageProvider != null
             ? DecorationImage(image: imageProvider, fit: BoxFit.cover)
             : null,
-        gradient: imageProvider == null
-            ? const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFF3B82F6), Color(0xFF1E40AF)],
-              )
-            : null,
+        gradient: imageProvider == null ? BJBankColors.primaryGradient : null,
       ),
       child: imageProvider == null
           ? Center(
               child: Text(
                 initials ?? '?',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                ),
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: BJBankColors.onPrimary,
+                      fontWeight: FontWeight.bold,
+                    ),
               ),
             )
           : null,
@@ -512,121 +607,40 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildQuickServices() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    // Single row of minimalist circular actions (mockup style)
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceAround,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              'Serviços',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF0F172A),
-              ),
-            ),
-            TextButton(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Ver todos - Em breve'),
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
-              },
-              style: TextButton.styleFrom(
-                foregroundColor: BJBankColors.primary,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              ),
-              child: const Text(
-                'Ver todos',
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-              ),
-            ),
-          ],
+        _buildCircularServiceButton(
+          icon: Icons.north_rounded,
+          label: 'Transferir',
+          color: BJBankColors.primary,
+          onTap: () => Navigator.pushNamed(context, AppRoutes.transfer),
         ),
-        const SizedBox(height: 16),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _buildCircularServiceButton(
-              icon: Icons.swap_horiz_rounded,
-              label: 'Transferir',
-              color: const Color(0xFF3B82F6),
-              onTap: () => Navigator.pushNamed(context, AppRoutes.transfer),
-            ),
-            _buildCircularServiceButton(
-              imageAsset: 'assets/mbway.png',
-              label: 'MB WAY',
-              color: const Color(0xFFE11D48),
-              onTap: () => Navigator.pushNamed(context, AppRoutes.mbway),
-            ),
-            _buildCircularServiceButton(
-              icon: Icons.qr_code_scanner_rounded,
-              label: 'QR Code',
-              color: const Color(0xFF8B5CF6),
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('QR Code - Em breve'),
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
-              },
-            ),
-            _buildCircularServiceButton(
-              icon: Icons.receipt_long_rounded,
-              label: 'Pagar',
-              color: const Color(0xFF10B981),
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Pagamentos - Em breve'),
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
-              },
-            ),
-          ],
+        _buildCircularServiceButton(
+          imageAsset: 'assets/mbway.png',
+          label: 'MB WAY',
+          color: BJBankColors.mbwayRed,
+          onTap: () => Navigator.pushNamed(context, AppRoutes.mbway),
         ),
-        const SizedBox(height: 20),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _buildCircularServiceButton(
-              icon: Icons.account_balance_rounded,
-              label: 'Serviços',
-              color: const Color(0xFF6366F1),
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Serviços - Em breve'),
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
-              },
-            ),
-            _buildCircularServiceButton(
-              icon: Icons.savings_rounded,
-              label: 'Poupar',
-              color: const Color(0xFF14B8A6),
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Poupanças - Em breve'),
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
-              },
-            ),
-            _buildCircularServiceButton(
-              icon: Icons.more_horiz_rounded,
-              label: 'Mais',
-              color: const Color(0xFF64748B),
-              onTap: () => _showQuickActionsSheet(),
-            ),
-          ],
+        _buildCircularServiceButton(
+          icon: Icons.qr_code_scanner_rounded,
+          label: 'QR Code',
+          color: BJBankColors.shield,
+          onTap: () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('QR Code - Em breve'),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          },
+        ),
+        _buildCircularServiceButton(
+          icon: Icons.grid_view_rounded,
+          label: 'Mais',
+          color: BJBankColors.onSurfaceVariant,
+          onTap: () => _showQuickActionsSheet(),
         ),
       ],
     );
@@ -641,6 +655,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }) {
     assert(icon != null || imageAsset != null,
         'icon ou imageAsset obrigatorio');
+    final colorScheme = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: () {
         HapticFeedback.lightImpact();
@@ -655,15 +670,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               height: 60,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: color.withValues(alpha: 0.1),
+                color: colorScheme.surfaceContainerHighest
+                    .withValues(alpha: 0.45),
                 border: Border.all(
-                  color: color.withValues(alpha: 0.2),
-                  width: 1.5,
+                  color: colorScheme.outlineVariant.withValues(alpha: 0.4),
+                  width: 1,
                 ),
               ),
               child: imageAsset != null
                   ? Padding(
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.all(BJBankSpacing.sm),
                       child: Image.asset(
                         imageAsset,
                         fit: BoxFit.contain,
@@ -674,11 +690,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             const SizedBox(height: 10),
             Text(
               label,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: Color(0xFF475569),
-              ),
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
               textAlign: TextAlign.center,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -690,47 +704,57 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildTransactionsSection(AccountProvider accountProvider) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
+            Text(
               'Atividade Recente',
-              style: TextStyle(
-                fontSize: 18,
+              style: textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF0F172A),
+                color: colorScheme.onSurface,
               ),
             ),
             GestureDetector(
-              onTap: () => _onNavItemTapped(1),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const HistoryScreen()),
+              ),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: BJBankSpacing.xs,
+                ),
                 decoration: BoxDecoration(
-                  color: BJBankColors.primary.withValues(alpha: 0.1),
+                  color: colorScheme.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Row(
                   children: [
                     Text(
                       'Ver tudo',
-                      style: TextStyle(
+                      style: textTheme.labelLarge?.copyWith(
                         fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                        color: BJBankColors.primary,
+                        color: colorScheme.primary,
                       ),
                     ),
-                    const SizedBox(width: 4),
-                    Icon(Icons.arrow_forward_ios, size: 12, color: BJBankColors.primary),
+                    const SizedBox(width: BJBankSpacing.xxs),
+                    Icon(
+                      Icons.arrow_forward_ios,
+                      size: 12,
+                      color: colorScheme.primary,
+                    ),
                   ],
                 ),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: BJBankSpacing.md),
         accountProvider.isLoading
             ? _buildTransactionsSkeleton()
             : _buildTransactionsList(accountProvider.transactions),
@@ -739,13 +763,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildTransactionsSkeleton() {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colorScheme.surface,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
+            color: colorScheme.shadow.withValues(alpha: 0.03),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -754,14 +779,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       child: Column(
         children: List.generate(4, (index) {
           return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            padding: const EdgeInsets.symmetric(
+              horizontal: BJBankSpacing.md,
+              vertical: 14,
+            ),
             child: Row(
               children: [
                 Container(
                   width: 50,
                   height: 50,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFF1F5F9),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerHighest,
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -774,16 +802,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         height: 14,
                         width: 120,
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF1F5F9),
+                          color: colorScheme.surfaceContainerHighest,
                           borderRadius: BorderRadius.circular(6),
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: BJBankSpacing.xs),
                       Container(
                         height: 10,
                         width: 80,
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF1F5F9),
+                          color: colorScheme.surfaceContainerHighest,
                           borderRadius: BorderRadius.circular(6),
                         ),
                       ),
@@ -797,16 +825,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       height: 14,
                       width: 60,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF1F5F9),
+                        color: colorScheme.surfaceContainerHighest,
                         borderRadius: BorderRadius.circular(6),
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: BJBankSpacing.xs),
                     Container(
                       height: 16,
                       width: 50,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF1F5F9),
+                        color: colorScheme.surfaceContainerHighest,
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
@@ -821,13 +849,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildTransactionsList(List<Transaction> transactions) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
     final displayTransactions = transactions.take(5).toList();
 
     if (displayTransactions.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(40),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: colorScheme.surface,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Column(
@@ -836,30 +866,28 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               width: 64,
               height: 64,
               decoration: BoxDecoration(
-                color: const Color(0xFFF1F5F9),
+                color: colorScheme.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Icon(
                 Icons.receipt_long_outlined,
-                size: 32,
-                color: BJBankColors.onSurfaceVariant.withValues(alpha: 0.5),
+                size: BJBankSpacing.iconLg,
+                color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: BJBankSpacing.md),
             Text(
               'Sem transações',
-              style: TextStyle(
-                fontSize: 16,
+              style: textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w600,
-                color: BJBankColors.onSurface,
+                color: colorScheme.onSurface,
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: BJBankSpacing.xxs),
             Text(
               'As suas transações aparecerão aqui',
-              style: TextStyle(
-                color: BJBankColors.onSurfaceVariant,
-                fontSize: 13,
+              style: textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
               ),
             ),
           ],
@@ -869,11 +897,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colorScheme.surface,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
+            color: colorScheme.shadow.withValues(alpha: 0.03),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -888,10 +916,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               _buildTransactionTile(transaction),
               if (index < displayTransactions.length - 1)
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: BJBankSpacing.md,
+                  ),
                   child: Divider(
                     height: 1,
-                    color: const Color(0xFFE2E8F0).withValues(alpha: 0.6),
+                    color: colorScheme.outlineVariant.withValues(alpha: 0.6),
                   ),
                 ),
             ],
@@ -902,13 +932,18 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildTransactionTile(Transaction transaction) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: () => _showTransactionDetails(transaction),
         borderRadius: BorderRadius.circular(16),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          padding: const EdgeInsets.symmetric(
+            horizontal: BJBankSpacing.md,
+            vertical: 14,
+          ),
           child: Row(
             children: [
               // Circular icon
@@ -921,7 +956,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 ),
                 child: Icon(
                   transaction.icon,
-                  size: 24,
+                  size: BJBankSpacing.iconMd,
                   color: transaction.iconColor,
                 ),
               ),
@@ -932,26 +967,24 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   children: [
                     Text(
                       transaction.description,
-                      style: const TextStyle(
+                      style: textTheme.bodyLarge?.copyWith(
                         fontWeight: FontWeight.w600,
-                        fontSize: 15,
-                        color: Color(0xFF0F172A),
+                        color: colorScheme.onSurface,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: BJBankSpacing.xxs),
                     Row(
                       children: [
                         Text(
                           transaction.formattedDate,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: Color(0xFF94A3B8),
+                          style: textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
                           ),
                         ),
                         if (transaction.isEncrypted) ...[
-                          const SizedBox(width: 8),
+                          const SizedBox(width: BJBankSpacing.xs),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
@@ -961,7 +994,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(
+                                const Icon(
                                   Icons.shield_rounded,
                                   size: 10,
                                   color: BJBankColors.quantum,
@@ -969,7 +1002,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                 const SizedBox(width: 3),
                                 Text(
                                   'PQC',
-                                  style: TextStyle(
+                                  style: textTheme.labelSmall?.copyWith(
                                     fontSize: 9,
                                     fontWeight: FontWeight.w600,
                                     color: BJBankColors.quantum,
@@ -984,31 +1017,30 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: BJBankSpacing.xs),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
                     transaction.formattedAmount,
-                    style: TextStyle(
+                    style: BJBankTypography.valueSmall.copyWith(
                       fontWeight: FontWeight.bold,
-                      fontSize: 15,
                       color: transaction.amountColor,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: BJBankSpacing.xxs),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF10B981).withValues(alpha: 0.1),
+                      color: BJBankColors.success.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Text(
+                    child: Text(
                       'Concluída',
-                      style: TextStyle(
+                      style: textTheme.labelSmall?.copyWith(
                         fontSize: 10,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF10B981),
+                        color: BJBankColors.success,
                       ),
                     ),
                   ),
@@ -1022,13 +1054,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildModernBottomNav() {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colorScheme.surface,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
+            color: colorScheme.shadow.withValues(alpha: 0.06),
             blurRadius: 20,
             offset: const Offset(0, -4),
           ),
@@ -1037,25 +1070,19 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       child: SafeArea(
         child: Container(
           height: 72,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Consumer<AccountProvider>(
-            builder: (context, accountProvider, _) {
-              final cutoff = DateTime.now().subtract(const Duration(hours: 24));
-              final recentCount = accountProvider.transactions
-                  .where((t) => t.date.isAfter(cutoff))
-                  .length;
-              return Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _buildNavItem(0, Icons.home_outlined, Icons.home_rounded, 'Início'),
-                  _buildNavItem(1, Icons.receipt_long_outlined, Icons.receipt_long_rounded, 'Histórico'),
-                  const SizedBox(width: 64), // Space for FAB
-                  _buildNavItem(2, Icons.credit_card_outlined, Icons.credit_card, 'Cartões'),
-                  _buildNavItem(3, Icons.settings_outlined, Icons.settings_rounded, 'Config',
-                      badgeCount: recentCount),
-                ],
-              );
-            },
+          padding: const EdgeInsets.symmetric(horizontal: BJBankSpacing.md),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildNavItem(
+                  0, Icons.home_outlined, Icons.home_rounded, 'Início'),
+              _buildNavItem(1, Icons.credit_card_outlined, Icons.credit_card,
+                  'Cartões'),
+              _buildNavItem(2, Icons.bar_chart_outlined, Icons.bar_chart,
+                  'Estatísticas'),
+              _buildNavItem(3, Icons.settings_outlined, Icons.settings_rounded,
+                  'Definições'),
+            ],
           ),
         ),
       ),
@@ -1069,21 +1096,26 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     String label, {
     int badgeCount = 0,
   }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
     final isSelected = _currentNavIndex == index;
 
     Widget iconWidget = Icon(
       isSelected ? selectedIcon : icon,
       size: 22,
-      color: isSelected ? BJBankColors.primary : const Color(0xFF94A3B8),
+      color: isSelected ? colorScheme.primary : colorScheme.onSurfaceVariant,
     );
 
     if (badgeCount > 0) {
       iconWidget = Badge(
         label: Text(
           badgeCount > 9 ? '9+' : '$badgeCount',
-          style: const TextStyle(fontSize: 9, color: Colors.white),
+          style: textTheme.labelSmall?.copyWith(
+            fontSize: 9,
+            color: colorScheme.onError,
+          ),
         ),
-        backgroundColor: BJBankColors.error,
+        backgroundColor: colorScheme.error,
         child: iconWidget,
       );
     }
@@ -1092,7 +1124,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       onTap: () => _onNavItemTapped(index),
       behavior: HitTestBehavior.opaque,
       child: SizedBox(
-        width: 60,
+        width: 76,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -1101,18 +1133,24 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               width: 44,
               height: 32,
               decoration: BoxDecoration(
-                color: isSelected ? BJBankColors.primary.withValues(alpha: 0.12) : Colors.transparent,
+                color: isSelected
+                    ? colorScheme.primary.withValues(alpha: 0.12)
+                    : Colors.transparent,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Center(child: iconWidget),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: BJBankSpacing.xxs),
             Text(
               label,
-              style: TextStyle(
-                fontSize: 11,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: textTheme.labelSmall?.copyWith(
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                color: isSelected ? BJBankColors.primary : const Color(0xFF94A3B8),
+                color: isSelected
+                    ? colorScheme.primary
+                    : colorScheme.onSurfaceVariant,
               ),
             ),
           ],
@@ -1126,10 +1164,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        padding: const EdgeInsets.all(BJBankSpacing.lg),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1138,18 +1176,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: const Color(0xFFE2E8F0),
+                color: Theme.of(context).colorScheme.outlineVariant,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            const SizedBox(height: 24),
-            const Text(
+            const SizedBox(height: BJBankSpacing.lg),
+            Text(
               'Nova Operação',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF0F172A),
-              ),
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
             ),
             const SizedBox(height: 28),
             Row(
@@ -1158,7 +1195,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 _buildQuickActionCircleItem(
                   icon: Icons.swap_horiz_rounded,
                   label: 'Transferir',
-                  color: const Color(0xFF3B82F6),
+                  color: BJBankColors.primary,
                   onTap: () {
                     Navigator.pop(context);
                     Navigator.pushNamed(context, AppRoutes.transfer);
@@ -1167,7 +1204,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 _buildQuickActionCircleItem(
                   icon: Icons.smartphone_rounded,
                   label: 'MB WAY',
-                  color: const Color(0xFFE11D48),
+                  color: BJBankColors.mbwayRed,
                   onTap: () {
                     Navigator.pop(context);
                     Navigator.pushNamed(context, AppRoutes.mbway);
@@ -1176,12 +1213,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 _buildQuickActionCircleItem(
                   icon: Icons.qr_code_scanner_rounded,
                   label: 'QR Code',
-                  color: const Color(0xFF8B5CF6),
+                  color: BJBankColors.shield,
                   onTap: () => Navigator.pop(context),
                 ),
               ],
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: BJBankSpacing.xl),
           ],
         ),
       ),
@@ -1219,11 +1256,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             const SizedBox(height: 10),
             Text(
               label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFF475569),
-              ),
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
               textAlign: TextAlign.center,
             ),
           ],
@@ -1238,11 +1274,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (context) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
         ),
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(BJBankSpacing.lg),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -1250,7 +1286,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: const Color(0xFFE2E8F0),
+                color: Theme.of(context).colorScheme.outlineVariant,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -1273,27 +1309,27 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             const SizedBox(height: 20),
             Text(
               transaction.description,
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF0F172A),
-              ),
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 6),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+              padding: const EdgeInsets.symmetric(
+                horizontal: BJBankSpacing.sm,
+                vertical: 5,
+              ),
               decoration: BoxDecoration(
-                color: const Color(0xFFF1F5F9),
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Text(
                 transaction.category ?? 'Transação',
-                style: const TextStyle(
-                  color: Color(0xFF64748B),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
               ),
             ),
             const SizedBox(height: 28),
@@ -1301,7 +1337,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             // Amount
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.all(BJBankSpacing.lg),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
@@ -1318,27 +1354,23 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               ),
               child: Column(
                 children: [
-                  const Text(
+                  Text(
                     'Valor',
-                    style: TextStyle(
-                      color: Color(0xFF64748B),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: BJBankSpacing.xs),
                   Text(
                     transaction.formattedAmount,
-                    style: TextStyle(
-                      fontSize: 36,
-                      fontWeight: FontWeight.bold,
+                    style: BJBankTypography.balanceLarge.copyWith(
                       color: transaction.amountColor,
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: BJBankSpacing.lg),
 
             // Details
             _buildDetailItem('Data', transaction.formattedDate),
@@ -1359,18 +1391,19 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               child: FilledButton(
                 onPressed: () => Navigator.pop(context),
                 style: FilledButton.styleFrom(
-                  backgroundColor: BJBankColors.primary,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  padding: const EdgeInsets.symmetric(
+                    vertical: BJBankSpacing.md,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),
                 ),
-                child: const Text(
+                child: Text(
                   'Fechar',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
                 ),
               ),
             ),
@@ -1381,6 +1414,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildDetailItem(String label, String value, {Color? valueColor, IconData? icon}) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(
@@ -1388,23 +1423,25 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         children: [
           Text(
             label,
-            style: TextStyle(
-              color: BJBankColors.onSurfaceVariant,
-              fontSize: 14,
+            style: textTheme.bodyMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
             ),
           ),
           Row(
             children: [
               if (icon != null) ...[
-                Icon(icon, size: 16, color: valueColor ?? BJBankColors.onSurface),
+                Icon(
+                  icon,
+                  size: BJBankSpacing.iconXs,
+                  color: valueColor ?? colorScheme.onSurface,
+                ),
                 const SizedBox(width: 6),
               ],
               Text(
                 value,
-                style: TextStyle(
+                style: textTheme.bodyMedium?.copyWith(
                   fontWeight: FontWeight.w600,
-                  fontSize: 14,
-                  color: valueColor ?? const Color(0xFF0F172A),
+                  color: valueColor ?? colorScheme.onSurface,
                 ),
               ),
             ],
@@ -1413,4 +1450,26 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       ),
     );
   }
+}
+
+/// Paints a faint grid of dots evoking a world-map texture on the home card.
+class _CardMapDotsPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = BJBankColors.onPrimary.withValues(alpha: 0.05)
+      ..style = PaintingStyle.fill;
+
+    const double spacing = 11.0;
+    final rng = math.Random(42);
+    for (double y = 8; y < size.height; y += spacing) {
+      for (double x = 8; x < size.width; x += spacing) {
+        if (rng.nextDouble() < 0.4) continue;
+        canvas.drawCircle(Offset(x, y), 1.0, paint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _CardMapDotsPainter oldDelegate) => false;
 }

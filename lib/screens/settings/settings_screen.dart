@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../app_version.dart';
 import '../../theme/colors.dart';
 import '../../theme/spacing.dart';
 import '../../providers/auth_provider.dart';
@@ -281,8 +282,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ListTile(
                   leading: const Icon(Icons.info_outline),
                   title: const Text('Versão'),
+                  subtitle: Text(
+                    'Codename "${AppVersion.codename}" · ${AppVersion.releaseDate}',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: BJBankColors.onSurfaceVariant,
+                    ),
+                  ),
                   trailing: Text(
-                    '1.0.0',
+                    AppVersion.displayString,
                     style: TextStyle(color: BJBankColors.onSurfaceVariant),
                   ),
                 ),

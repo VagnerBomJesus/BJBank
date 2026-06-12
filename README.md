@@ -65,8 +65,17 @@ flutter run -d iphone     # iOS simulator
 |---|---|
 | **Como contribuir** | [`CONTRIBUTING.md`](CONTRIBUTING.md) — setup dev, padrões, checklist |
 | **Arquitectura técnica** | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — camadas, fluxos, diagramas |
+| **Requisitos funcionais e não funcionais** | [`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md) — RF-01 a RF-60 + RNF-01 a RNF-59 + estado de implementação |
+| **Diagramas UML (Mermaid)** | [`docs/UML_DIAGRAMS.md`](docs/UML_DIAGRAMS.md) — 14 diagramas (componentes, sequência, estado, classes, ER, atividade) |
+| **Diagramas drawio (editáveis)** | [`docs/diagrams/BJBank_Architecture.drawio`](docs/diagrams/BJBank_Architecture.drawio) — 9 páginas com stack, sequências, ER, deployment, comparativo PFS |
+| **Estratégia de segurança** | [`docs/adr/ADR-003-SECURITY-STRATEGY.md`](docs/adr/ADR-003-SECURITY-STRATEGY.md) — modelo de ameaça, mitigações, pipeline wire v2 |
+| **PQC on-device — plano** | [`docs/PQC_ON_DEVICE_MIGRATION.md`](docs/PQC_ON_DEVICE_MIGRATION.md) — Fases 0 a 5 |
+| **PQC — problemas críticos restantes** | [`docs/PQC_REMAINING_CRITICAL_ISSUES.md`](docs/PQC_REMAINING_CRITICAL_ISSUES.md) — estado e resolução dos 3 problemas |
+| **Prontidão para defesa de tese** | [`docs/THESIS_READINESS.md`](docs/THESIS_READINESS.md) — checklist, gaps bloqueantes, antecipação de perguntas do júri |
+| **Trabalhos futuros** | [`docs/FUTURE_WORK.md`](docs/FUTURE_WORK.md) — iOS Swift, ARM real, side-channel, paper follow-up |
 | **Deployment** | [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) — Supabase, Edge Functions, secrets |
-| **Changelog** | [`CHANGELOG.md`](CHANGELOG.md) — v1.0 → v1.1.0 migração |
+| **Play Console — correção rejeição** | [`docs/PLAY_CONSOLE_FIX_PLAN.md`](docs/PLAY_CONSOLE_FIX_PLAN.md) |
+| **Changelog** | [`CHANGELOG.md`](CHANGELOG.md) — v1.0 → v1.4.0 |
 | **Issues & Bugs** | [GitHub Issues](https://github.com/VagnerBomJesus/BJBank/issues) |
 
 ---
@@ -98,26 +107,40 @@ Arquitetura documentada em [`CONTRIBUTING.md`](CONTRIBUTING.md) · Decisões té
 
 ## Arquitectura
 
-```
-┌────────────────────┐                ┌──────────────────────────────────────┐
-│  BJBank App        │                │  Supabase                            │
-│      (Flutter)     │ ◀─ HTTPS+JWT ▶ │  ┌────────────┐  ┌────────────────┐ │
-└────────────────────┘                │  │  Auth      │  │  Postgres 15   │ │
-         │                            │  │  (GoTrue)  │  │  + RLS         │ │
-         │ HKDF-SHA-256               │  └────────────┘  └────────────────┘ │
-         │ AES-256-GCM                │  ┌────────────┐  ┌────────────────┐ │
-         ▼                            │  │  Realtime  │  │  Edge Functions│ │
-       PointyCastle                   │  │ (WebSocket)│  │  (Deno)        │ │
-                                      │  └────────────┘  └────────────────┘ │
-                                      │           │              │           │
-                                      │           ▼              ▼           │
-                                      │      streams         @noble/         │
-                                      │    accounts +        post-quantum    │
-                                      │   transactions       (ML-KEM,ML-DSA) │
-                                      └──────────────────────────────────────┘
+Diagrama de componentes (v1.4.0 — plugin nativo Android + benchmark fair-runtime):
+
+```mermaid
+flowchart TB
+    subgraph Dispositivo["📱 Dispositivo Android — Trust Boundary"]
+        direction TB
+        UI["Flutter UI<br/>(Screens + Widgets)"]
+        Providers["Providers<br/>(Auth, Account, Transfer, ...)"]
+        Services["Services Dart<br/>(SupabaseTransferService, etc)"]
+        DevicePqc["DevicePqcService<br/>(MethodChannel bridge)"]
+        Native["PqcPlugin.kt<br/>BouncyCastle 1.80<br/>ML-DSA-65 + ML-KEM-768"]
+        Keystore[("🔒 EncryptedSharedPreferences<br/>Keystore-backed (StrongBox/TEE)")]
+        UI --> Providers --> Services --> DevicePqc
+        DevicePqc -.MethodChannel.-> Native --> Keystore
+    end
+    subgraph Supabase["☁️ Supabase Cloud"]
+        EdgeFn["Edge Functions Deno 2.1<br/>@noble/post-quantum 0.4"]
+        Postgres[("PostgreSQL 17<br/>15 tabelas + RPCs + RLS")]
+        Realtime["Realtime WebSocket"]
+        Auth["Supabase Auth<br/>JWT + GoTrue"]
+        EdgeFn --> Postgres
+        Realtime --> Postgres
+        Auth --> Postgres
+    end
+    Services -- "REST + JWT" --> Auth
+    Services -- "invoke()" --> EdgeFn
+    Services -- "subscribe()" --> Realtime
+    classDef trust fill:#d4edda,stroke:#28a745,stroke-width:2px,color:#000
+    classDef cloud fill:#cfe2ff,stroke:#0d6efd,stroke-width:2px,color:#000
+    class Dispositivo trust
+    class Supabase cloud
 ```
 
-Detalhe completo: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) · diagramas UML em [`../MCiber/diagramas/`](../Claude/Projects/MCiber/diagramas).
+**Detalhe completo + 12 diagramas UML** (sequência, estado, classes, ER, atividade): [`docs/UML_DIAGRAMS.md`](docs/UML_DIAGRAMS.md). Arquitectura textual em [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ---
 
@@ -157,13 +180,43 @@ Detalhe completo: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) · diagramas UM
 | `send_otp_email` | OTP por email | Resend API |
 | `lookup_*` | RPCs públicas | PostgreSQL SELECT |
 
-**Nota**: Cripto assimétrica (PQC) é **server-only** porque não há bibliotecas Dart confiáveis para ML-DSA-65. Cripto simétrica (HKDF + AES-256-GCM) é **client-side** para minimizar latência. Ver [`ADR-001`](docs/adr/ADR-001-PQC-IMPLEMENTATION.md).
+**Nota v1.4.0**: A decisão original (PQC server-only) foi parcialmente revertida. Em Android, ML-DSA-65, ML-KEM-768, SLH-DSA-SHAKE-128f e X25519 correm **no dispositivo** via `PqcPlugin.kt` (BouncyCastle 1.80). Desde v1.4.0 o plugin também mede ECDSA-P256/ECDH-P256 em BC nativo para comparação fair-runtime na tese. iOS continua server-managed até existir plugin Swift análogo. Ver [`ADR-001`](docs/adr/ADR-001-PQC-IMPLEMENTATION.md) §7 e [`docs/PQC_REMAINING_CRITICAL_ISSUES.md`](docs/PQC_REMAINING_CRITICAL_ISSUES.md).
 
 ---
 
 ## Pipeline pós-quântico end-to-end
 
-Sequência completa de uma transferência por IBAN:
+Sequência simplificada (Android — assinatura local):
+
+```mermaid
+sequenceDiagram
+    participant U as Utilizador
+    participant App as Flutter App
+    participant Plugin as PqcPlugin.kt<br/>(BC 1.80)
+    participant KS as Keystore
+    participant EF as Edge Function<br/>executar_transferencia
+    participant DB as Postgres
+    U->>App: "transferir 50€ p/ PT50..."
+    App->>App: HS handshake (cached 50min)
+    App->>App: serial = next(sessionId)
+    App->>App: payload_v2 canonical
+    App->>Plugin: signDsa(payload)
+    Plugin->>KS: load priv
+    Plugin->>Plugin: MLDSASigner.update+sign
+    Plugin-->>App: signature (3309B)
+    App->>App: envelope + AES-GCM (IV random)
+    App->>EF: POST {envelope, iv, sig, v=2, serial}
+    EF->>EF: valida serial > last_serial
+    EF->>EF: decifra + ml_dsa65.verify
+    EF->>EF: canonical + janela ±30s
+    EF->>DB: RPC executar_transferencia_atomica
+    DB-->>EF: OK
+    EF->>DB: UPDATE last_serial
+    EF-->>App: {status: OK, txId}
+    App-->>U: "Transferência confirmada"
+```
+
+Detalhe técnico passo-a-passo:
 
 1. **Lookup do destinatário** — `RPC lookup_account_by_iban` (`SECURITY DEFINER` contorna RLS para devolver só `account_id`, `user_id`, `iban`, `owner_name`)
 2. **Handshake**
@@ -440,47 +493,66 @@ Comparação com clássico (SUPERCOP @ Intel i7-6500U):
 
 ## Estado actual e o que falta
 
-### ✅ v1.1.0 — Migração Supabase + PQC COMPLETA
+### ✅ v1.4.0 — Benchmark fair-runtime + versionamento centralizado
 
-**Backend**
+- `PqcPlugin.kt`: novo `classicBenchmark` mede ECDSA-P256/ECDH-P256 em BC 1.80 nativo. Comparação algoritmo-vs-algoritmo na mesma runtime.
+- `DeviceBenchmarkScreen` corre 3 pipelines (PQC nativo, Clássico nativo, Clássico Dart) + card de ratios automáticos.
+- `lib/app_version.dart` como single source of truth. Corrige bugs visuais "1.0.0" (settings) e "1.1.0 / BC 1.82" (about).
+
+### ✅ v1.3.x — Material académico + endurecimento Android
+
+- v1.3.1: ProGuard/R8, NetworkSecurityConfig, serial persistido, DataExtractionRules, cleanup 10 serviços legacy.
+- v1.3.0: PFS pós-quântico real, audit log hash-chained, rotação chaves servidor, SLH-DSA-SHAKE-128f, Hybrid X25519+ML-KEM.
+
+### ✅ v1.2.0 — PQC on-device Android + endurecimento criptográfico
+
+**Cripto pós-quântica on-device (Android)**
+- ✅ Plugin nativo Kotlin `PqcPlugin.kt` com BouncyCastle 1.80 (ML-DSA-65 FIPS 204 + ML-KEM-768 FIPS 203)
+- ✅ Chave privada ML-DSA do utilizador no Keystore-backed `EncryptedSharedPreferences` — **nunca sai do dispositivo**
+- ✅ Assinatura ML-DSA local em transferências (`SupabaseTransferService._assinarPayload`)
+- ✅ Verificação ML-DSA local no handshake (fim do trust circular `verify_dsa`)
+- ✅ Auto-onboarding: gera par + regista via RPC `register_client_pubkey` no primeiro login/signup
+- ✅ Migração transparente para utilizadores legados (chave server-managed antiga é revogada implicitamente)
+
+**Endurecimento do protocolo de transferência (wire v2)**
+- ✅ `Random.secure()` (CSPRNG do SO) em vez de Fortuna mal semeado
+- ✅ IV do AES-GCM 12 B random por mensagem (eliminado XOR `nonceBase ⊕ txId` que se reusava em retries)
+- ✅ Janela temporal de replay ±30 s na RPC `executar_transferencia_atomica`
+- ✅ Serial monotónico por sessão (`sessions.last_serial`, protocolo wire v2)
+- ✅ First-use pubkey injection bloqueada (recusa 412 se pubkey não registada)
+- ✅ TTL local de sessão (50 min) com auto-renovação antes do servidor a expirar
+- ✅ Normalização de IBAN/descrição no payload canónico
+
+**IBAN PT válido**
+- ✅ Check NIB calculado pelo algoritmo Banco de Portugal (pesos `73,17,89,38,62,45,53,15,50,5,49,34,81,76,27,90,9,30,3`)
+- ✅ Todos os IBANs gerados começam por `PT50` (matemática garantida)
+
+**Backend e frontend (mantido da v1.1.0)**
 - ✅ Supabase project deployado em `jdybjrpmybkmmfdlwrzp.supabase.co`
-- ✅ 15 tabelas Postgres com RLS
-- ✅ 8 Edge Functions em Deno 2.1 com `@noble/post-quantum 0.4`
-- ✅ RPCs `SECURITY DEFINER` para lookup público (IBAN, phone, user)
-- ✅ Triggers SQL (`handle_new_user` para auto-setup conta + IBAN + MBWay)
-
-**Frontend**
-- ✅ Auth completa (registo/login/reset/alterar password/eliminar conta) via Supabase
-- ✅ Perfil com avatar (base64) e telefone +351 validado
-- ✅ **Transferências PQC end-to-end** (handshake → sign → cipher → atomic RPC)
-- ✅ **MBWay simplificado** (1 número/conta, lookup público, auto-link signup)
-- ✅ Histórico em tempo real com Realtime WebSocket (filtros, pesquisa, agrupamento)
-- ✅ Deep links `bjbank://reset` e `bjbank://login`
-- ✅ **Benchmark PQC** (modalidade local PoC + servidor com primitivas reais)
-- ✅ Website de documentação interativa (`docs-site/`)
-- ✅ Compatibility layer para migração gradual Firebase→Supabase
-
-**Infra**
-- ✅ TOFU pinning de chave pública do servidor (SharedPreferences)
-- ✅ AES-256-GCM com IV derivado e AAD canónico
-- ✅ Transcript canónico compatível com servidor
-- ✅ Cifragem end-to-end de payload + assinatura
-- ✅ RPC atómica com `SELECT FOR UPDATE`
+- ✅ 15 tabelas Postgres com RLS + RPCs `SECURITY DEFINER`
+- ✅ 8 Edge Functions Deno + `@noble/post-quantum 0.4`
+- ✅ Auth + Perfil + Transferências + MBWay + Histórico Realtime + Cards UI
+- ✅ Benchmark PQC servidor com primitivas reais
+- ✅ Deep links + Compatibility layer
 
 ### ⚠️ Parcialmente implementado
+- **iOS**: cripto PQC ainda server-managed (falta `PqcPlugin.swift` com libsodium ou Swift CryptoKit). Fallback automático para Edge Function `flutter_sign_transfer`.
+- ~~**PFS no handshake**~~ → ✅ **Resolvido em v1.3.0**. `pqc_handshake_flutter` v2 + `pqc_handshake_kem_complete` + `kemEncapsulate` local. `sharedSecret` nunca atravessa a rede em claro. HNDL deixa de ser aplicável no Android.
 - QR Code (telas existem mas botão da home mostra "Em breve")
 - Cards (UI funcional mas dados ainda são shim)
 
 ### 📚 Para a parte académica da tese
 - [ ] Pipeline clássico paralelo (ECDH-P256 + ECDSA-P256) para benchmark PQC vs Clássico
 - [ ] Recolha de dados experimentais com N=200+ iterações para confiança estatística
-- [ ] Replay protection explícita (txId UNIQUE constraint em `transactions`)
-- [ ] Análise de overhead temporal (handshake, sign, verify, cipher)
+- [ ] Análise de overhead temporal Android nativo (PqcPlugin) vs server-side
+- [ ] Plugin Swift análogo para iOS
+- [ ] Refactor handshake para PFS real (cliente faz `kemEncapsulate` em vez de receber `sharedSecret`)
 
 ### 🧹 Limpeza técnica sugerida
 - Ficheiros legacy com dados obsoletos (ainda funcionam via shim):
   - `lib/services/bill_service.dart`, `budget_service.dart`, `investment_service.dart`, `loan_service.dart`, `savings_goal_service.dart`
   - `lib/providers/bill_provider.dart`, etc.
+- Edge Functions `flutter_sign_transfer` e `verify_dsa` ficam obsoletas quando iOS migrar — manter durante 1 release pós-migração.
 
 ---
 

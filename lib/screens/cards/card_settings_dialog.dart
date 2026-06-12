@@ -135,7 +135,7 @@ class _CardSettingsDialogState extends State<CardSettingsDialog> {
                                 .textTheme
                                 .titleLarge
                                 ?.copyWith(
-                                  color: Colors.white,
+                                  color: BJBankColors.onPrimary,
                                   fontWeight: FontWeight.bold,
                                 ),
                           ),
@@ -143,7 +143,7 @@ class _CardSettingsDialogState extends State<CardSettingsDialog> {
                             onTap: () => Navigator.pop(context),
                             child: const Icon(
                               Icons.close,
-                              color: Colors.white,
+                              color: BJBankColors.onPrimary,
                             ),
                           ),
                         ],
@@ -151,8 +151,9 @@ class _CardSettingsDialogState extends State<CardSettingsDialog> {
                       const SizedBox(height: BJBankSpacing.sm),
                       Text(
                         widget.card.maskedNumber,
-                        style:
-                            const TextStyle(color: Colors.white, fontSize: 14),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: BJBankColors.onPrimary,
+                            ),
                       ),
                     ],
                   ),
@@ -184,7 +185,7 @@ class _CardSettingsDialogState extends State<CardSettingsDialog> {
                           icon: const Icon(Icons.save),
                           label: const Text('Guardar Alterações'),
                           style: ElevatedButton.styleFrom(
-                            minimumSize: const Size.fromHeight(48),
+                            minimumSize: const Size.fromHeight(BJBankSpacing.minTouchTarget),
                           ),
                         ),
 
@@ -234,16 +235,16 @@ class _CardSettingsDialogState extends State<CardSettingsDialog> {
               Icon(
                 isBlocked ? Icons.lock : Icons.verified,
                 color: isBlocked ? BJBankColors.error : BJBankColors.success,
-                size: 20,
+                size: BJBankSpacing.iconSm,
               ),
               const SizedBox(width: BJBankSpacing.sm),
               Text(
                 isBlocked ? 'Cartão Bloqueado' : 'Cartão Ativo',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color:
-                      isBlocked ? BJBankColors.error : BJBankColors.success,
-                ),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color:
+                          isBlocked ? BJBankColors.error : BJBankColors.success,
+                    ),
               ),
             ],
           ),
@@ -273,7 +274,7 @@ class _CardSettingsDialogState extends State<CardSettingsDialog> {
               borderRadius: BorderRadius.circular(8),
             ),
             filled: true,
-            fillColor: Colors.grey.shade100,
+            fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
           ),
         ),
         const SizedBox(height: BJBankSpacing.md),
@@ -287,7 +288,7 @@ class _CardSettingsDialogState extends State<CardSettingsDialog> {
               borderRadius: BorderRadius.circular(8),
             ),
             filled: true,
-            fillColor: Colors.grey.shade100,
+            fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
           ),
         ),
       ],
@@ -367,14 +368,15 @@ class _CardSettingsDialogState extends State<CardSettingsDialog> {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
                 ),
                 Text(
                   subtitle,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: BJBankColors.onSurfaceVariant,
-                  ),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                 ),
               ],
             ),
@@ -382,7 +384,7 @@ class _CardSettingsDialogState extends State<CardSettingsDialog> {
           Switch(
             value: value,
             onChanged: onChanged,
-            activeThumbColor: BJBankColors.primary,
+            activeThumbColor: Theme.of(context).colorScheme.primary,
           ),
         ],
       ),
@@ -402,10 +404,10 @@ class _CardSettingsDialogState extends State<CardSettingsDialog> {
         children: [
           Text(
             'Zona de Perigo',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: BJBankColors.error,
-            ),
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: BJBankColors.error,
+                ),
           ),
           const SizedBox(height: BJBankSpacing.md),
           OutlinedButton.icon(
@@ -418,7 +420,7 @@ class _CardSettingsDialogState extends State<CardSettingsDialog> {
             style: OutlinedButton.styleFrom(
               foregroundColor: BJBankColors.error,
               side: BorderSide(color: BJBankColors.error),
-              minimumSize: const Size.fromHeight(40),
+              minimumSize: const Size.fromHeight(BJBankSpacing.buttonHeight),
             ),
           ),
         ],

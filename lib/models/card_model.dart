@@ -239,8 +239,21 @@ class CardModel {
   /// Get masked account number (****1234)
   String get maskedNumber => formatCardNumber();
 
-  /// Get formatted card number
+  /// Get formatted card number (masked, ****1234)
   String get formattedNumber => formatCardNumber();
+
+  /// Full card number in groups of 4 (e.g. "4000 1234 5678 9012").
+  /// Shown only when the user explicitly reveals the card.
+  String get fullFormattedNumber {
+    final digits = cardNumber.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.isEmpty) return formatCardNumber();
+    final buf = StringBuffer();
+    for (int i = 0; i < digits.length; i++) {
+      if (i > 0 && i % 4 == 0) buf.write(' ');
+      buf.write(digits[i]);
+    }
+    return buf.toString();
+  }
 
   /// Get cardholder name
   String get holderName => cardHolder;

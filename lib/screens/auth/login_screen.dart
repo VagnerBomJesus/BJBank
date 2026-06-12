@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../theme/colors.dart';
 import '../../theme/spacing.dart';
 import '../../theme/typography.dart';
+import '../../theme/border_radius.dart';
 import '../../theme/app_strings.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/secure_storage_service.dart';
@@ -493,38 +494,28 @@ class _LoginScreenState extends State<LoginScreen>
         prefixIcon: Icon(
           icon,
           color: BJBankColors.onSurfaceVariant,
+          size: 20,
         ),
         suffixIcon: suffixIcon,
-        filled: true,
-        fillColor: BJBankColors.surfaceVariant.withValues(alpha: 0.5),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide.none,
+        filled: false,
+        // Clean underline style (UI-kit inspired)
+        border: const UnderlineInputBorder(
+          borderSide: BorderSide(color: BJBankColors.outlineVariant),
         ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide.none,
+        enabledBorder: const UnderlineInputBorder(
+          borderSide: BorderSide(color: BJBankColors.outlineVariant),
         ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(
-            color: BJBankColors.primary,
-            width: 2,
-          ),
+        focusedBorder: const UnderlineInputBorder(
+          borderSide: BorderSide(color: BJBankColors.primary, width: 2),
         ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(
-            color: BJBankColors.error,
-            width: 1,
-          ),
+        errorBorder: const UnderlineInputBorder(
+          borderSide: BorderSide(color: BJBankColors.error, width: 1),
         ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(
-            color: BJBankColors.error,
-            width: 2,
-          ),
+        focusedErrorBorder: const UnderlineInputBorder(
+          borderSide: BorderSide(color: BJBankColors.error, width: 2),
+        ),
+        floatingLabelStyle: BJBankTypography.labelLarge.copyWith(
+          color: BJBankColors.primary,
         ),
         labelStyle: BJBankTypography.bodyMedium.copyWith(
           color: BJBankColors.onSurfaceVariant,
@@ -533,7 +524,6 @@ class _LoginScreenState extends State<LoginScreen>
           color: BJBankColors.outline,
         ),
         contentPadding: const EdgeInsets.symmetric(
-          horizontal: BJBankSpacing.md,
           vertical: BJBankSpacing.md,
         ),
       ),
@@ -545,11 +535,11 @@ class _LoginScreenState extends State<LoginScreen>
     return FilledButton(
       onPressed: _isLoading ? null : _handleLogin,
       style: FilledButton.styleFrom(
-        minimumSize: const Size.fromHeight(56),
+        minimumSize: const Size.fromHeight(58),
         backgroundColor: BJBankColors.primary,
         disabledBackgroundColor: BJBankColors.primary.withValues(alpha: 0.6),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(BJBankBorderRadius.full),
         ),
         elevation: 0,
       ),

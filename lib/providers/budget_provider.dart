@@ -1,3 +1,2 @@
-// DEPRECATED — funcionalidade de orcamentos nao migrada para Supabase.
-// Sem UI activa, sem providers registados em app.dart.
-// Este ficheiro existe apenas porque o sandbox nao permite delete.
+// DEPRECATED em v1.3.1 — código legado removido. Apagar fisicamente quando
+// o utilizador tiver permissões. Tracking: CHANGELOG v1.3.1.

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../models/user_model.dart';
+import '../services/device_pqc_onboarding_service.dart';
 import '../services/supabase_auth_service.dart';
 import '../services/firestore_service.dart';
 
@@ -74,6 +75,12 @@ class AuthProvider extends ChangeNotifier {
       if (u != null) {
         // ignore: discarded_futures
         refreshProfile();
+        // Auto-onboarding PQC: garante chave ML-DSA-65 local +
+        // registada server-side (idempotente). Necessário para que
+        // _assinarPayload use a privada nativa em vez do servidor.
+        // Ver docs/PQC_REMAINING_CRITICAL_ISSUES.md.
+        // ignore: discarded_futures
+        _onboardPqc();
       }
       return u != null;
     } catch (e) {
@@ -104,6 +111,10 @@ class AuthProvider extends ChangeNotifier {
       _user = r.user;
       if (r.precisaConfirmarEmail) {
         _errorMessage = 'Verifica o teu email para confirmar a conta.';
+      }
+      if (r.user != null) {
+        // ignore: discarded_futures
+        _onboardPqc();
       }
       return r.user != null || r.precisaConfirmarEmail;
     } catch (e) {
@@ -146,8 +157,23 @@ class AuthProvider extends ChangeNotifier {
 
   Future<void> logout() async {
     await _auth.signOut();
+    // Apagar chave PQC local (não revoga server-side — utilizador pode
+    // voltar a fazer login no mesmo dispositivo e gerar par novo).
+    await DevicePqcOnboardingService().clearLocal();
     _user = null;
     notifyListeners();
+  }
+
+  /// Garante par ML-DSA-65 local + pubkey registada no servidor.
+  /// Chamado fire-and-forget após login/signup. Idempotente.
+  Future<void> _onboardPqc() async {
+    try {
+      final r = await DevicePqcOnboardingService().ensureKey();
+      debugPrint('PQC onboarding: ${r.status.name}${r.detail != null ? " — ${r.detail}" : ""}');
+    } catch (e) {
+      // Não bloqueia login. Próxima transferência cai no fallback server-managed.
+      debugPrint('PQC onboarding falhou (será re-tentado): $e');
+    }
   }
 
   void clearError() {

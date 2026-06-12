@@ -59,8 +59,48 @@ android {
             )
         }
     }
+
+    // Resolver conflito de META-INF entre BouncyCastle (bcprov + bcutil) e
+    // jspecify — todos trazem META-INF/versions/9/OSGI-INF/MANIFEST.MF
+    // (apenas relevante para OSGi, não é usado no Android).
+    packaging {
+        resources {
+            excludes += setOf(
+                "META-INF/versions/9/OSGI-INF/MANIFEST.MF",
+                "META-INF/versions/9/OSGI-INF/**",
+                "META-INF/DEPENDENCIES",
+                "META-INF/LICENSE",
+                "META-INF/LICENSE.txt",
+                "META-INF/license.txt",
+                "META-INF/NOTICE",
+                "META-INF/NOTICE.txt",
+                "META-INF/notice.txt",
+                "META-INF/ASL2.0",
+                "META-INF/*.kotlin_module",
+            )
+        }
+    }
 }
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    // BouncyCastle 1.80 (Dezembro 2024) traz ML-DSA-65 (FIPS 204) e ML-KEM-768
+    // (FIPS 203) consolidados nos packages org.bouncycastle.pqc.crypto.mldsa
+    // e mlkem. Versões 1.78/1.79 podem ter o package em locais diferentes —
+    // 1.80 é a primeira release onde a API low-level está estável.
+    // Ver docs/PQC_REMAINING_CRITICAL_ISSUES.md.
+    implementation("org.bouncycastle:bcprov-jdk18on:1.80")
+    implementation("org.bouncycastle:bcutil-jdk18on:1.80")
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
+}
+
+// Forçar uma só versão de BC para evitar conflitos com transitivas
+configurations.all {
+    resolutionStrategy {
+        force("org.bouncycastle:bcprov-jdk18on:1.80")
+        force("org.bouncycastle:bcutil-jdk18on:1.80")
+    }
 }

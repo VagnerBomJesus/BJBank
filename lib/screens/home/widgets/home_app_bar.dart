@@ -33,8 +33,9 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      color: Colors.white,
+      color: colorScheme.surface,
       child: SafeArea(
         bottom: false,
         child: Padding(
@@ -61,13 +62,13 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
                     Text(
                       _greeting,
                       style: BJBankTypography.bodyMedium.copyWith(
-                        color: BJBankColors.onSurfaceVariant,
+                        color: colorScheme.onSurfaceVariant,
                       ),
                     ),
                     Text(
                       userName,
                       style: BJBankTypography.titleMedium.copyWith(
-                        color: BJBankColors.onSurface,
+                        color: colorScheme.onSurface,
                         fontWeight: FontWeight.w600,
                       ),
                       overflow: TextOverflow.ellipsis,
@@ -79,17 +80,18 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
               // Notifications
               Container(
                 decoration: BoxDecoration(
-                  color: BJBankColors.surfaceVariant.withValues(alpha: 0.5),
+                  color: colorScheme.surfaceContainerHighest
+                      .withValues(alpha: 0.5),
                   shape: BoxShape.circle,
                 ),
                 child: IconButton(
                   onPressed: onNotificationsTap,
                   icon: Badge(
                     smallSize: 8,
-                    backgroundColor: BJBankColors.error,
+                    backgroundColor: colorScheme.error,
                     child: Icon(
                       Icons.notifications_outlined,
-                      color: BJBankColors.onSurfaceVariant,
+                      color: colorScheme.onSurfaceVariant,
                       size: 22,
                     ),
                   ),
@@ -137,7 +139,7 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
             ? Text(
                 _getInitials(userName),
                 style: BJBankTypography.titleSmall.copyWith(
-                  color: Colors.white,
+                  color: BJBankColors.onPrimary,
                   fontWeight: FontWeight.w600,
                 ),
               )

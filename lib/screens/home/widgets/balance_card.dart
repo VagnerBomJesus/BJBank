@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../../theme/colors.dart';
 import '../../../theme/spacing.dart';
@@ -5,7 +6,9 @@ import '../../../theme/typography.dart';
 import '../../../theme/border_radius.dart';
 
 /// Balance Card Widget
-/// Redesigned as a realistic bank card with PQC security badge
+/// UI-kit inspired dark navy card: dotted world-map texture, contactless
+/// glyph and a translucent blue glow — keeping the BJBank PQC badge, IBAN
+/// and EUR balance.
 class BalanceCard extends StatelessWidget {
   const BalanceCard({
     super.key,
@@ -30,28 +33,50 @@ class BalanceCard extends StatelessWidget {
         aspectRatio: 1.586, // Credit card ratio
         child: Container(
           decoration: BoxDecoration(
-            gradient: BJBankColors.cardGradient,
-            borderRadius: BJBankBorderRadius.lgRadius,
+            gradient: BJBankColors.cardNavyGradient,
+            borderRadius: BorderRadius.circular(BJBankBorderRadius.xl),
             boxShadow: [
               BoxShadow(
-                color: BJBankColors.primary.withValues(alpha: 0.4),
-                blurRadius: 24,
-                offset: const Offset(0, 12),
-                spreadRadius: 2,
+                color: BJBankColors.cardNavyDeep.withValues(alpha: 0.45),
+                blurRadius: 28,
+                offset: const Offset(0, 14),
+                spreadRadius: 1,
               ),
               BoxShadow(
-                color: BJBankColors.primaryDark.withValues(alpha: 0.2),
-                blurRadius: 8,
+                color: BJBankColors.accentBlue.withValues(alpha: 0.15),
+                blurRadius: 12,
                 offset: const Offset(0, 4),
               ),
             ],
           ),
           child: ClipRRect(
-            borderRadius: BJBankBorderRadius.lgRadius,
+            borderRadius: BorderRadius.circular(BJBankBorderRadius.xl),
             child: Stack(
               children: [
-                // Decorative circles overlay
-                _buildDecorativeOverlay(),
+                // Translucent blue glow on the right (UI-kit signature)
+                Positioned(
+                  right: -70,
+                  top: -10,
+                  bottom: -40,
+                  child: Container(
+                    width: 220,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: RadialGradient(
+                        colors: [
+                          BJBankColors.accentBlue.withValues(alpha: 0.45),
+                          BJBankColors.accentBlue.withValues(alpha: 0.0),
+                        ],
+                        stops: const [0.2, 1.0],
+                      ),
+                    ),
+                  ),
+                ),
+
+                // Faint dotted "world map" texture
+                Positioned.fill(
+                  child: CustomPaint(painter: _MapDotsPainter()),
+                ),
 
                 // Card content
                 Padding(
@@ -59,17 +84,10 @@ class BalanceCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Top row: Logo + Account type + Visibility toggle
                       _buildTopRow(),
-
                       const Spacer(flex: 2),
-
-                      // Balance
                       _buildBalance(),
-
                       const Spacer(flex: 3),
-
-                      // Bottom row: IBAN + Chip + PQC Badge
                       _buildBottomRow(),
                     ],
                   ),
@@ -82,49 +100,6 @@ class BalanceCard extends StatelessWidget {
     );
   }
 
-  Widget _buildDecorativeOverlay() {
-    return Stack(
-      children: [
-        Positioned(
-          top: -40,
-          right: -40,
-          child: Container(
-            width: 160,
-            height: 160,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.white.withValues(alpha: 0.05),
-            ),
-          ),
-        ),
-        Positioned(
-          bottom: -60,
-          left: -30,
-          child: Container(
-            width: 200,
-            height: 200,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.white.withValues(alpha: 0.03),
-            ),
-          ),
-        ),
-        Positioned(
-          top: 40,
-          right: 80,
-          child: Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.white.withValues(alpha: 0.04),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _buildTopRow() {
     return Row(
       children: [
@@ -132,13 +107,13 @@ class BalanceCard extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.15),
+            color: BJBankColors.onPrimary.withValues(alpha: 0.12),
             borderRadius: BJBankBorderRadius.smRadius,
           ),
           child: const Icon(
             Icons.shield,
             size: 18,
-            color: Colors.white,
+            color: BJBankColors.onPrimary,
           ),
         ),
         const SizedBox(width: BJBankSpacing.xs),
@@ -148,7 +123,7 @@ class BalanceCard extends StatelessWidget {
             Text(
               'BJBank',
               style: BJBankTypography.labelLarge.copyWith(
-                color: Colors.white,
+                color: BJBankColors.onPrimary,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 0.5,
               ),
@@ -156,7 +131,7 @@ class BalanceCard extends StatelessWidget {
             Text(
               'Conta à Ordem',
               style: BJBankTypography.labelSmall.copyWith(
-                color: Colors.white.withValues(alpha: 0.7),
+                color: BJBankColors.onPrimary.withValues(alpha: 0.6),
               ),
             ),
           ],
@@ -166,7 +141,7 @@ class BalanceCard extends StatelessWidget {
         Icon(
           Icons.contactless_outlined,
           size: 28,
-          color: Colors.white.withValues(alpha: 0.6),
+          color: BJBankColors.onPrimary.withValues(alpha: 0.7),
         ),
         const SizedBox(width: BJBankSpacing.xs),
         // Visibility toggle
@@ -175,14 +150,14 @@ class BalanceCard extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.12),
+              color: BJBankColors.onPrimary.withValues(alpha: 0.10),
               borderRadius: BJBankBorderRadius.smRadius,
             ),
             child: Icon(
               isBalanceVisible
                   ? Icons.visibility_outlined
                   : Icons.visibility_off_outlined,
-              color: Colors.white.withValues(alpha: 0.8),
+              color: BJBankColors.onPrimary.withValues(alpha: 0.8),
               size: 18,
             ),
           ),
@@ -198,7 +173,7 @@ class BalanceCard extends StatelessWidget {
         Text(
           'Saldo Disponível',
           style: BJBankTypography.labelMedium.copyWith(
-            color: Colors.white.withValues(alpha: 0.7),
+            color: BJBankColors.onPrimary.withValues(alpha: 0.6),
             letterSpacing: 0.5,
           ),
         ),
@@ -210,7 +185,7 @@ class BalanceCard extends StatelessWidget {
             Text(
               '€',
               style: BJBankTypography.headlineMedium.copyWith(
-                color: Colors.white.withValues(alpha: 0.85),
+                color: BJBankColors.onPrimary.withValues(alpha: 0.85),
                 fontWeight: FontWeight.w300,
               ),
             ),
@@ -221,7 +196,7 @@ class BalanceCard extends StatelessWidget {
                 isBalanceVisible ? _formatBalance(balance) : '••••••',
                 key: ValueKey(isBalanceVisible),
                 style: BJBankTypography.balanceLarge.copyWith(
-                  color: Colors.white,
+                  color: BJBankColors.onPrimary,
                   fontSize: 34,
                 ),
               ),
@@ -270,7 +245,8 @@ class BalanceCard extends StatelessWidget {
                       decoration: BoxDecoration(
                         border: Border(
                           right: BorderSide(
-                            color: BJBankColors.chipGoldDark.withValues(alpha: 0.3),
+                            color:
+                                BJBankColors.chipGoldDark.withValues(alpha: 0.3),
                             width: 0.5,
                           ),
                         ),
@@ -294,15 +270,17 @@ class BalanceCard extends StatelessWidget {
               Text(
                 'IBAN',
                 style: BJBankTypography.labelSmall.copyWith(
-                  color: Colors.white.withValues(alpha: 0.6),
+                  color: BJBankColors.onPrimary.withValues(alpha: 0.5),
                   fontSize: 9,
                 ),
               ),
               const SizedBox(height: 2),
               Text(
-                isBalanceVisible ? _formatIbanFull(iban) : '•••• •••• •••• •••• •••• •',
+                isBalanceVisible
+                    ? _formatIbanFull(iban)
+                    : '•••• •••• •••• •••• •••• •',
                 style: BJBankTypography.labelSmall.copyWith(
-                  color: Colors.white.withValues(alpha: 0.9),
+                  color: BJBankColors.onPrimary.withValues(alpha: 0.9),
                   fontFamily: BJBankTypography.fontFamilyMono,
                   fontSize: 10,
                   letterSpacing: 0.3,
@@ -322,10 +300,10 @@ class BalanceCard extends StatelessWidget {
             vertical: BJBankSpacing.xxs + 2,
           ),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.15),
+            color: BJBankColors.onPrimary.withValues(alpha: 0.12),
             borderRadius: BJBankBorderRadius.fullRadius,
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.2),
+              color: BJBankColors.quantum.withValues(alpha: 0.35),
               width: 0.5,
             ),
           ),
@@ -335,13 +313,13 @@ class BalanceCard extends StatelessWidget {
               Icon(
                 Icons.shield_outlined,
                 size: 12,
-                color: BJBankColors.quantum.withValues(alpha: 0.9),
+                color: BJBankColors.quantum.withValues(alpha: 0.95),
               ),
               const SizedBox(width: BJBankSpacing.xxs),
               Text(
                 'Quantum Safe',
                 style: BJBankTypography.labelSmall.copyWith(
-                  color: Colors.white.withValues(alpha: 0.95),
+                  color: BJBankColors.onPrimary.withValues(alpha: 0.95),
                   fontWeight: FontWeight.w600,
                   fontSize: 10,
                 ),
@@ -372,4 +350,29 @@ class BalanceCard extends StatelessWidget {
     }
     return buffer.toString();
   }
+}
+
+/// Paints a faint grid of dots evoking a world-map texture on the card.
+class _MapDotsPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = BJBankColors.onPrimary.withValues(alpha: 0.05)
+      ..style = PaintingStyle.fill;
+
+    const double spacing = 11.0;
+    const double radius = 1.0;
+    final rng = math.Random(42);
+
+    for (double y = 8; y < size.height; y += spacing) {
+      for (double x = 8; x < size.width; x += spacing) {
+        // Skip ~40% of dots for an organic, map-like scatter.
+        if (rng.nextDouble() < 0.4) continue;
+        canvas.drawCircle(Offset(x, y), radius, paint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _MapDotsPainter oldDelegate) => false;
 }
