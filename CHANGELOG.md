@@ -1,65 +1,80 @@
 # BJBank — Changelog
 
-Histórico de alterações relevantes. Formato baseado em [Keep a Changelog](https://keepachangelog.com).
+History of significant changes. Format based on [Keep a Changelog](https://keepachangelog.com).
+
+> Entries prior to v1.4.0 are kept in Portuguese as historical artefacts.
+> All new entries (≥ v1.4.0) are written in English to align with the
+> dissertation and SEO coverage for the international audience.
 
 ---
 
 ## [1.4.0] — 2026-06-12 — codename `fair-runtime`
 
-Comparação experimental fair-runtime PQC vs Clássico — material primário para
-o capítulo de avaliação da tese. Permite afirmar com rigor "ML-DSA-65 é Nx
-mais lento que ECDSA-P256" sem o viés introduzido por runtimes diferentes
-(BouncyCastle JVM nativa vs Dart interpretado).
+Experimental fair-runtime comparison PQC vs Classical — primary material
+for the evaluation chapter of the dissertation. Allows rigorous assertions
+such as "ML-DSA-65 is Nx slower than ECDSA-P256" without the bias introduced
+by different runtimes (BouncyCastle native JVM vs interpreted Dart).
 
 ### PqcPlugin.kt (Android)
-- **NOVO** `classicBenchmark(iterations)` mede ECDSA-P256 (keygen/sign/verify
-  via `ECDSASigner` + RFC 6979 `HMacDSAKCalculator`) e ECDH-P256
-  (keygen+agree via `ECDHBasicAgreement`) na MESMA runtime BC 1.80 nativa.
-- Curva `NISTNamedCurves.P-256` (`ECDomainParameters`).
-- Pattern measure/warmup idêntico ao benchmark PQC: warmup 3 iter,
-  P50/P95/P99 + mean + stdev sobre amostras ordenadas.
+- **NEW** `classicBenchmark(iterations)` measures ECDSA-P256 (keygen/sign/verify
+  via `ECDSASigner` + RFC 6979 `HMacDSAKCalculator`) and ECDH-P256
+  (keygen+agree via `ECDHBasicAgreement`) on the SAME native BC 1.80 runtime.
+- Curve `NISTNamedCurves.P-256` (`ECDomainParameters`).
+- Same measure/warmup pattern as the PQC benchmark: 3-iteration warmup,
+  P50/P95/P99 + mean + stdev over sorted samples.
 
 ### Dart bridge
-- `DevicePqcService.runClassicBenchmark({iterations})` chama o novo método
-  channel `classicBenchmark`.
+- `DevicePqcService.runClassicBenchmark({iterations})` calls the new
+  channel method `classicBenchmark`.
 
 ### UI
-- `DeviceBenchmarkScreen` agora corre 3 pipelines:
-  - ① PQC nativo BC 1.80 (verde).
-  - ② Clássico nativo BC 1.80 (índigo, **NOVO**) — fair runtime.
-  - ③ Clássico Dart PointyCastle (cinza) — referência runtime interpretado.
-- Card amarelo **"Comparação fair-runtime PQC vs Clássico"** com ratios
-  automáticos: ML-DSA-65 vs ECDSA-P256 (keygen/sign/verify) + ML-KEM-768
-  vs ECDH-P256 handshake. Cálculo: `pqc.p50 / classic.p50`, formatado como
-  "Nx mais lento/rápido que clássico".
-- Export JSON inclui os 3 datasets com nota metodológica explicando
-  o porquê do ①↔② ser comparação fair e ③ ser referência runtime.
+- `DeviceBenchmarkScreen` now runs 3 pipelines:
+  - ① PQC native BC 1.80 (green).
+  - ② Classical native BC 1.80 (indigo, **NEW**) — fair runtime.
+  - ③ Classical Dart PointyCastle (grey) — interpreted-runtime reference.
+- Yellow card **"Fair-runtime PQC vs Classical comparison"** with automatic
+  ratios: ML-DSA-65 vs ECDSA-P256 (keygen/sign/verify) + ML-KEM-768 vs
+  ECDH-P256 handshake. Calculation: `pqc.p50 / classical.p50`, formatted as
+  "Nx slower/faster than classical".
+- JSON export includes all 3 datasets with a methodological note explaining
+  why ①↔② is a fair comparison and ③ is a runtime reference.
 
-### Versionamento
-- **NOVO** `lib/app_version.dart` — single source of truth com `semver`,
-  `build`, `codename`, `releaseDate`, e versões BC/noble/PointyCastle +
-  parameter sets PQC ativos.
-- `settings_screen.dart` deixa de mostrar **"1.0.0" hardcoded** (era um
-  bug visual desde o protótipo) — agora lê de `AppVersion.displayString`
-  com subtitle `codename · releaseDate`.
-- `about_screen.dart` deixa de mostrar **"Versão 1.1.0 — Maio 2026"** e
-  **"BouncyCastle 1.82"** (errados). Tudo do `AppVersion`.
+### Versioning
+- **NEW** `lib/app_version.dart` — single source of truth with `semver`,
+  `build`, `codename`, `releaseDate`, and BC/noble/PointyCastle versions +
+  active PQC parameter sets.
+- `settings_screen.dart` no longer shows **hardcoded "1.0.0"** (a visual
+  bug since the prototype) — now reads from `AppVersion.displayString`
+  with subtitle `codename · releaseDate`.
+- `about_screen.dart` no longer shows **"Version 1.1.0 — May 2026"** and
+  **"BouncyCastle 1.82"** (wrong). All from `AppVersion`.
 - `pubspec.yaml` 1.3.1+4 → 1.4.0+5.
 
-### Output esperado (emulador x86_64, 100 iter)
+### Expected output (x86_64 emulator, 100 iter)
 
-| Algoritmo (BC 1.80 nativo) | P50 esperado |
+| Algorithm (BC 1.80 native) | Expected P50 |
 |---|---|
 | ECDSA-P256 keygen | 0.3–0.8 ms |
 | ECDSA-P256 sign | 0.2–0.5 ms |
 | ECDSA-P256 verify | 0.4–1.0 ms |
 | ECDH-P256 keygen+agree | 0.6–1.5 ms |
-| ML-DSA-65 sign | ~2.7 ms (medido) |
-| ML-KEM-768 encap | ~3.4 ms (medido) |
+| ML-DSA-65 sign | ~2.7 ms (measured) |
+| ML-KEM-768 encap | ~3.4 ms (measured) |
 
-Ratios fair-runtime esperados: ML-DSA sign ~5–10× ECDSA sign, ML-KEM
-encap ~3–5× ECDH handshake. Coerente com literatura NIST. Argumento
-defensável: PQC tem custo mas é aceitável (<10×) para mobile banking.
+Expected fair-runtime ratios: ML-DSA sign ~5–10× ECDSA sign, ML-KEM encap
+~3–5× ECDH handshake. Consistent with NIST literature. Defensible
+argument: PQC has cost, but it is acceptable (<10×) for mobile banking.
+
+### Documentation
+- **NEW** [`docs/THESIS_READINESS.md`](docs/THESIS_READINESS.md) — defence
+  checklist, blocking gaps, jury question anticipation.
+- **NEW** [`docs/FUTURE_WORK.md`](docs/FUTURE_WORK.md) — post-thesis roadmap
+  (iOS Swift plugin, real ARM benchmarks, side-channel, follow-up paper).
+- README.md fully rewritten in English with PQC SEO keywords and the 9
+  drawio pages embedded as inline Mermaid diagrams.
+- CHANGELOG header migrated to English.
+- `docs/REQUIREMENTS.md` updated with RF-50…RF-54.
+- `docs/PQC_REMAINING_CRITICAL_ISSUES.md` updated.
 
 ---
 

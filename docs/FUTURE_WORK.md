@@ -1,194 +1,194 @@
-# BJBank — Trabalhos Futuros
+# BJBank — Future Work
 
-**Documento:** Roadmap explícito post-tese.
-**Última actualização:** 2026-06-12 (v1.4.0).
-**Audiência:** capítulo §8 da dissertação + contribuidores futuros do projeto.
+**Document:** Explicit post-thesis roadmap.
+**Last update:** 2026-06-12 (v1.4.0).
+**Audience:** Chapter §8 of the dissertation + future project contributors.
 
 ---
 
-## 1. iOS — plugin Swift análogo ao Android
+## 1. iOS — Swift plugin analogous to Android
 
-**Estado actual:** iOS roda em modo server-managed (chave PQC vive no servidor para devices iOS, igual ao protótipo v1.0). `DevicePqcService.isAvailable()` retorna `false` e o `SupabaseTransferService` faz fallback automático.
+**Current state:** iOS runs in server-managed mode (PQC key lives on the server for iOS devices, identical to the v1.0 prototype). `DevicePqcService.isAvailable()` returns `false` and `SupabaseTransferService` falls back automatically.
 
-**Esforço estimado:** 5-10 dias.
+**Estimated effort:** 5-10 days.
 
-### O que falta
+### What is missing
 
-| Item | Como |
+| Item | How |
 |---|---|
-| Plugin Swift `PqcPlugin.swift` análogo ao Kotlin | `FlutterPlugin` + `MethodChannel` `com.bjbank.ipg/pqc` |
-| ML-DSA-65 + ML-KEM-768 nativo iOS | **Opção A** liboqs como `xcframework` via CocoaPods. **Opção B** swift-crypto extension (não tem PQC built-in ainda em 2026). **Opção C** pqcrystals-dilithium C reference compilada como library binária |
-| Chave privada em Secure Enclave | `kSecAttrTokenIDSecureEnclave` + `SecKeyCreateRandomKey` para wrapping key; ML-DSA priv encriptada com wrapping key |
-| Equivalente `EncryptedSharedPreferences` | Keychain com `kSecAttrAccessibleWhenUnlockedThisDeviceOnly` + `kSecAttrSynchronizable=false` |
-| Bloquear iCloud Keychain sync da privada PQC | atributo acima resolve |
-| Testes paridade comportamental Android ↔ iOS | Suite de fixtures (mesmas chaves, mesmo wire) |
+| `PqcPlugin.swift` plugin analogous to Kotlin | `FlutterPlugin` + `MethodChannel` `com.bjbank.ipg/pqc` |
+| ML-DSA-65 + ML-KEM-768 native iOS | **Option A** liboqs as `xcframework` via CocoaPods. **Option B** swift-crypto extension (no built-in PQC yet in 2026). **Option C** pqcrystals-dilithium C reference compiled as binary library |
+| Private key in Secure Enclave | `kSecAttrTokenIDSecureEnclave` + `SecKeyCreateRandomKey` for wrapping key; ML-DSA priv encrypted with wrapping key |
+| Equivalent to `EncryptedSharedPreferences` | Keychain with `kSecAttrAccessibleWhenUnlockedThisDeviceOnly` + `kSecAttrSynchronizable=false` |
+| Block iCloud Keychain sync of PQC private | the attribute above solves it |
+| Android ↔ iOS behavioural parity tests | Fixture suite (same keys, same wire) |
 
-### Riscos
-- liboqs build pipeline iOS é frágil — depende de Xcode version, target arch, etc.
-- Secure Enclave tem limites de tamanho de chave; ML-DSA-65 priv = 4032B pode não caber directamente. Solução: wrap com chave SE-resident.
-- Apple App Store review pode questionar uso de criptografia não-Apple — declarar via `ITSAppUsesNonExemptEncryption=NO` e adicionar nota de classificação.
+### Risks
+- liboqs iOS build pipeline is fragile — depends on Xcode version, target arch, etc.
+- Secure Enclave has key size limits; ML-DSA-65 priv = 4032B may not fit directly. Solution: wrap with SE-resident key.
+- Apple App Store review may question non-Apple cryptography — declare via `ITSAppUsesNonExemptEncryption=NO` and add classification note.
 
 ---
 
-## 2. Validação experimental em hardware real
+## 2. Experimental validation on real hardware
 
-**Estado actual:** todos os benchmarks medidos em emulador `sdk_gphone64_x86_64` (Android API 36, x86_64). Resultados publicados na dissertação referem-se a este ambiente.
+**Current state:** all benchmarks measured on emulator `sdk_gphone64_x86_64` (Android API 36, x86_64). Results published in the dissertation refer to this environment.
 
-**Esforço:** 1 dia (se já tens devices), 1 semana se precisas de adquirir.
+**Effort:** 1 day (if devices on hand), 1 week if you need to acquire them.
 
-### Devices recomendados (cobertura espectro mobile)
+### Recommended devices (mobile spectrum coverage)
 
-| Device | SoC | Porquê |
+| Device | SoC | Why |
 |---|---|---|
-| Pixel 7/8 | Tensor G2/G3 (ARM Cortex-A78/A715) | Referência Android puro |
-| Samsung Galaxy A54 mid-range | Exynos 1380 | Mass-market dominante PT |
-| Qualquer dispositivo low-end Android 12+ | Snapdragon 4 series | Pior caso latência |
-| iPhone 13+ (após plugin Swift) | A15+ | Comparação Apple Silicon |
+| Pixel 7/8 | Tensor G2/G3 (ARM Cortex-A78/A715) | Pure Android reference |
+| Samsung Galaxy A54 mid-range | Exynos 1380 | Dominant mass-market in PT |
+| Any low-end Android 12+ device | Snapdragon 4 series | Worst-case latency |
+| iPhone 13+ (after Swift plugin) | A15+ | Apple Silicon comparison |
 
-### Métricas a recolher
+### Metrics to collect
 
-- P50/P95/P99 em ns para cada operação PQC + clássico nativo BC + clássico Dart.
-- Energy delta (mWh) via `BatteryManager` API entre teste e baseline idle — opcional mas forte para tese.
-- Heap usage durante batch — verificar pressão GC durante ML-DSA verify (operações pesadas em ints).
-- Thermal throttling — correr 5×500 iter sequenciais e verificar se P50 sobe (CPU clock desce).
+- P50/P95/P99 in ns for each PQC + classical native BC + classical Dart operation.
+- Energy delta (mWh) via `BatteryManager` API between test and idle baseline — optional but strong for the thesis.
+- Heap usage during batch — verify GC pressure during ML-DSA verify (heavy big-int ops).
+- Thermal throttling — run 5×500 sequential iterations and check whether P50 climbs (CPU clock drops).
 
-### Comparação cross-device
+### Cross-device comparison
 
-Gráfico essencial para §6: 4 devices × 3 pipelines × 6 operações = matriz colorida. Mostra que **PQC overhead é consistente entre hardware**, não outlier do emulador.
+Essential chart for §6: 4 devices × 3 pipelines × 6 operations = coloured matrix. Shows that **PQC overhead is consistent across hardware**, not an emulator outlier.
 
 ---
 
 ## 3. Side-channel hardening
 
-**Estado actual:** o código usa BC 1.80 que tem mitigações constant-time em algumas operações ML-KEM/ML-DSA (cite changelog BC), mas não há validação empírica neste projecto.
+**Current state:** the code uses BC 1.80, which has constant-time mitigations in some ML-KEM/ML-DSA operations (cite BC changelog), but there is no empirical validation in this project.
 
-**Trabalho futuro:**
-- Timing analysis via Mona Lisa / dudect em laboratório dedicado.
-- Verificação que `MLDSAPrivateKeyParameters` não faz allocations dependentes da chave.
-- Substituir comparação byte-a-byte de assinaturas por `MessageDigest.isEqual` (constant-time) onde aplicável.
-- Citação obrigatória: **Banegas et al., "Concrete quantum-resistance" SoK CHES 2024** + **Howe et al., "TimeCryptAnalyse"**.
+**Future work:**
+- Timing analysis via Mona Lisa / dudect in a dedicated lab.
+- Verify that `MLDSAPrivateKeyParameters` does not allocate dependently on the key.
+- Replace byte-by-byte signature comparison with `MessageDigest.isEqual` (constant-time) where applicable.
+- Mandatory citations: **Banegas et al., "Concrete quantum-resistance" SoK CHES 2024** + **Howe et al., "TimeCryptAnalyse"**.
 
 ---
 
 ## 4. Protocol-level enhancements
 
-### 4.1 Forward secrecy multi-session (KEM rotation)
+### 4.1 Multi-session forward secrecy (KEM rotation)
 
-Actualmente cada handshake KEM gera nova efémera, mas a chave **ML-DSA do utilizador** é long-term. Comprometida → revogação manual. Trabalho futuro:
+Currently each KEM handshake generates a new ephemeral key, but the user's **ML-DSA key** is long-term. Compromise → manual revocation. Future work:
 
-- **Key transparency** estilo CONIKS — publicação verificável de pubkeys com Merkle tree assinada.
-- **Key rotation automática client-side** — gerar nova ML-DSA a cada N transferências ou T tempo, sem perda de histórico.
-- Compatibilidade com `revokeKey` actual.
+- **Key transparency** CONIKS-style — verifiable pubkey publication with signed Merkle tree.
+- **Automatic client-side key rotation** — generate a new ML-DSA every N transfers or T time, without history loss.
+- Compatibility with the current `revokeKey`.
 
-### 4.2 Hybrid PFS triplo
+### 4.2 Triple hybrid PFS
 
-Actualmente o handshake usa apenas ML-KEM-768. Para resistir a falhas catastróficas em lattices, adicionar como camada extra:
+Currently the handshake uses only ML-KEM-768. To resist catastrophic failures in lattice cryptography, add an extra layer:
 
-- **X25519 + ML-KEM-768 + Classic-McEliece-460896** — McEliece é code-based, assunção independente de lattice.
-- Combiner HKDF expandido para 3 segredos.
-- Custo: ~250KB pubkey McEliece — proibitivo para mobile na maioria dos casos, mas viável para handshake inicial (não por sessão).
+- **X25519 + ML-KEM-768 + Classic-McEliece-460896** — McEliece is code-based, with lattice-independent assumption.
+- HKDF combiner expanded to 3 secrets.
+- Cost: ~250KB McEliece pubkey — prohibitive for mobile in most cases, but viable for initial handshake (not per-session).
 
-### 4.3 Verifiable random function (VRF) para serial
+### 4.3 Verifiable Random Function (VRF) for serial
 
-Actualmente o serial é monotónico determinístico. Para resistência contra um atacante que vê o stream:
+The serial is currently deterministic monotonic. For resistance against an attacker observing the stream:
 
-- Implementar VRF baseado em ML-DSA assinatura sobre `(sessionId, counter)`.
-- Serial deixa de ser previsível mas continua a evitar replay.
-- Custo: +1 ML-DSA sign por transferência (~5ms).
+- Implement ML-DSA-based VRF signing `(sessionId, counter)`.
+- Serial becomes unpredictable but still avoids replay.
+- Cost: +1 ML-DSA sign per transfer (~5ms).
 
 ---
 
-## 5. Operação e observabilidade
+## 5. Operations and observability
 
-| Item | Porque importa |
+| Item | Why it matters |
 |---|---|
-| **Telemetria opt-in de benchmarks** | Recolher estatísticas reais de produção PQC across user base — material para paper follow-up |
-| **Dashboard Grafana com métricas Edge Functions** | Latência p95/p99 por operação, taxa de erro `kemCipherInvalid`, rotações de chave |
-| **Alertas Sentry para `_kemCompletePending` timeout** | Detectar quebra de handshake |
-| **Logging estruturado JSON** | Substituir `debugPrint` por `logger` package com níveis |
-| **APM end-to-end tracing** | OpenTelemetry trace de request → Edge → Postgres |
+| **Opt-in benchmark telemetry** | Collect real PQC production statistics across user base — material for a follow-up paper |
+| **Grafana dashboard with Edge Function metrics** | p95/p99 latency per operation, `kemCipherInvalid` error rate, key rotations |
+| **Sentry alerts for `_kemCompletePending` timeout** | Detect handshake breakage |
+| **Structured JSON logging** | Replace `debugPrint` with `logger` package with levels |
+| **End-to-end APM tracing** | OpenTelemetry trace request → Edge → Postgres |
 
 ---
 
-## 6. Funcionalidades banking não-PQC pendentes
+## 6. Non-PQC pending banking features
 
-Estas são features de produto, não de tese, mas fazem parte do roadmap se o projecto continuar:
+These are product features, not thesis ones, but they belong to the roadmap if the project continues:
 
-| Feature | Estado | Esforço |
+| Feature | State | Effort |
 |---|---|---|
-| QR Code transferência (parse + assinar) | Placeholder "Em breve" | 1-2 dias |
-| Push notifications FCM | Schema OK, falta backend trigger | 2-3 dias |
-| Cards CRUD virtual real | Mock, falta schema + RPCs + UI | 5-7 dias |
-| Open Banking PSD2 | Não existe | 3-4 semanas (regulatório) |
-| Splash screen branded | Default Flutter | 30 min `flutter_native_splash` |
-| Tratamento offline + retry exponential backoff | Inexistente | 1-2 dias |
-| Onboarding tour first-time-user | Não existe | 1 dia |
+| QR Code transfer (parse + sign) | "Coming soon" placeholder | 1-2 days |
+| FCM push notifications | Schema OK, backend trigger missing | 2-3 days |
+| Real virtual cards CRUD | Mock, schema + RPCs + UI missing | 5-7 days |
+| Open Banking PSD2 | Does not exist | 3-4 weeks (regulatory) |
+| Branded splash screen | Flutter default | 30 min `flutter_native_splash` |
+| Offline handling + exponential-backoff retry | Non-existent | 1-2 days |
+| First-time-user onboarding tour | Does not exist | 1 day |
 
 ---
 
-## 7. Compliance e regulação (banca real)
+## 7. Compliance and regulation (real banking)
 
-Se a app vier a ser produto:
+If the app becomes a product:
 
-- **PSD2 SCA** — Strong Customer Authentication two-factor (já temos OTP email, falta biometric attestation + dynamic linking)
-- **GDPR DPIA** — Data Protection Impact Assessment formal
-- **eIDAS** — assinaturas qualificadas se houver assinatura de contratos
-- **DORA** — Digital Operational Resilience Act (2025+ obrigatório para banca EU)
-- **Cyber Resilience Act** — para produtos software com componente cripto
-- **NIS2** — segurança de redes para entidades críticas
-- **Penetration testing certificado** por entidade externa
+- **PSD2 SCA** — Strong Customer Authentication two-factor (already have email OTP, missing biometric attestation + dynamic linking)
+- **GDPR DPIA** — formal Data Protection Impact Assessment
+- **eIDAS** — qualified signatures if signing contracts
+- **DORA** — Digital Operational Resilience Act (2025+ mandatory for EU banking)
+- **Cyber Resilience Act** — for software products with crypto components
+- **NIS2** — network security for critical entities
+- **Certified penetration testing** by external entity
 - **Bug bounty programme**
 
 ---
 
-## 8. Investigação futura específica para academia
+## 8. Specific academic research follow-ups
 
-### 8.1 Paper follow-up — "PQC verify is faster than ECDSA in mobile hot paths"
+### 8.1 Follow-up paper — "PQC verify is faster than ECDSA in mobile hot paths"
 
-Observação inesperada e contra-intuitiva nos benchmarks v1.4.0: em BC 1.80 nativo num emulador x86_64, **ML-DSA-65 verify é 3× mais rápido que ECDSA-P256 verify** (1.36ms vs 3.97ms P50). Hipótese: NTT vectoriza melhor que big-int em JIT JVM. Trabalho futuro:
+Unexpected, counter-intuitive observation in v1.4.0 benchmarks: in BC 1.80 native on an x86_64 emulator, **ML-DSA-65 verify is 3× faster than ECDSA-P256 verify** (1.36ms vs 3.97ms P50). Hypothesis: NTT vectorises better than big-int in JIT JVM. Future work:
 
-- Validar em ARM64 real (pode inverter se ARMv8 PMULL acelera big-int).
-- Profile com `perf` para confirmar hot loop (cache miss, branch mispredict).
-- Submeter como short paper IACR ePrint.
+- Validate on real ARM64 (may invert if ARMv8 PMULL accelerates big-int).
+- Profile with `perf` to confirm hot loop (cache miss, branch mispredict).
+- Submit as IACR ePrint short paper.
 
-### 8.2 Estudo de aceitação de utilizadores PQC mobile
+### 8.2 Mobile PQC user acceptance study
 
 Survey:
-- Utilizadores percebem PQC quando explicado? (UX challenge)
-- Aceitam latência ~5-10ms a mais nas transferências?
-- Trust transfer: "se o banco diz pós-quântico, é mais seguro?"
-- Comparação com etiqueta TLS "cadeado verde" — quantum lock seria equivalente?
+- Do users perceive PQC when explained? (UX challenge)
+- Do they accept ~5-10ms extra latency on transfers?
+- Trust transfer: "if the bank says post-quantum, is it more secure?"
+- Comparison with TLS "green padlock" — quantum lock equivalent?
 
-### 8.3 Migração protocol-aware
+### 8.3 Protocol-aware migration
 
-Se PQC tiver de mudar de parameter set (e.g. ataque a ML-DSA-65 → migrar para ML-DSA-87):
+If PQC has to change parameter set (e.g. attack on ML-DSA-65 → migrate to ML-DSA-87):
 
-- Versionar wire protocol com negotiation downgrade-resistant
-- Estratégia de rollover (período coexistência v2 + v3)
+- Version wire protocol with downgrade-resistant negotiation
+- Rollover strategy (v2 + v3 coexistence window)
 - Backward compatibility window
 
 ---
 
-## 9. Limitações honestas que a tese deve admitir
+## 9. Honest limitations the thesis must acknowledge
 
-Para manter rigor académico — declarar explicitamente:
+To maintain academic rigour — explicitly declare:
 
-1. **Plataforma única validada experimentalmente:** Android emulador x86_64. ARM real e iOS são extensões assumidas, não medidas.
-2. **Ausência de side-channel testing:** assume-se que BC 1.80 é constant-time onde necessário; não validado por meios próprios.
-3. **Sem teste de carga em escala produção:** medições single-device, não concorrentes.
-4. **Sem auditoria formal de segurança:** wire protocol v2 não foi revisto por entidade independente.
-5. **Comparativo classical vs PQC limita-se a ECDSA-P256/ECDH-P256:** não cobre RSA-2048/3072 nem Ed25519 (este último usado por X25519 mas não ECDSA-equivalent).
-6. **PFS é por-sessão, não por-mensagem:** atacante com sessão capturada pode decifrar todas as mensagens dela. Mitigação parcial via session TTL 5min.
-7. **Quantum threat model assumido:** segue NIST estimativas; um quantum computer prático ainda não existe. A análise é pre-quantum mitigation, não post-attack response.
+1. **Single platform experimentally validated:** Android emulator x86_64. Real ARM and iOS are assumed extensions, not measured.
+2. **No side-channel testing:** assumes BC 1.80 is constant-time where needed; not independently validated.
+3. **No production-scale load testing:** single-device measurements, no concurrency.
+4. **No formal security audit:** wire protocol v2 was not reviewed by an independent entity.
+5. **Classical vs PQC comparison limited to ECDSA-P256/ECDH-P256:** does not cover RSA-2048/3072 nor Ed25519 (the latter used by X25519 but not as ECDSA equivalent).
+6. **PFS is per-session, not per-message:** an attacker with a captured session can decrypt all messages within it. Partial mitigation via 5 min session TTL.
+7. **Assumed quantum threat model:** follows NIST estimates; a practical quantum computer does not yet exist. The analysis is pre-quantum mitigation, not post-attack response.
 
 ---
 
-## 10. Resumo executivo do roadmap
+## 10. Roadmap executive summary
 
-| Horizonte | Itens |
+| Horizon | Items |
 |---|---|
-| **Pré-defesa (esta semana)** | B1+B2 (ARM real + PFS validation) + gráficos finais |
-| **3 meses post-defesa** | iOS Swift plugin + side-channel hardening + paper follow-up |
-| **6-12 meses** | KEM rotation + Hybrid triplo (McEliece) + telemetria opt-in |
-| **Roadmap produto** | QR + push + cards + Open Banking + compliance |
-| **Investigação contínua** | Estudo aceitação + protocol migration awareness |
+| **Pre-defence (this week)** | B1+B2 (real ARM + PFS validation) + final charts |
+| **3 months post-defence** | iOS Swift plugin + side-channel hardening + follow-up paper |
+| **6-12 months** | KEM rotation + triple hybrid (McEliece) + opt-in telemetry |
+| **Product roadmap** | QR + push + cards + Open Banking + compliance |
+| **Continuous research** | Acceptance study + protocol migration awareness |
