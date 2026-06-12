@@ -1,20 +1,88 @@
+<div align="center">
+
+<img src="assets/logo_bjbank.png" alt="BJBank logo" height="120"/>
+
 # BJBank — Banca Móvel Pós-Quântica
+
+### Criptografia Pós-Quântica em Aplicações Móveis
+### Proposta de um Protocolo Resiliente para Ambientes Homebanking
 
 [![Flutter](https://img.shields.io/badge/Flutter-3.8.1-02569B?logo=flutter)](https://docs.flutter.dev)
 [![Dart](https://img.shields.io/badge/Dart-3.8.1-0175C2?logo=dart)](https://dart.dev)
 [![Supabase](https://img.shields.io/badge/Backend-Supabase-3ECF8E?logo=supabase)](https://supabase.com)
-[![NIST FIPS 203/204](https://img.shields.io/badge/NIST-FIPS%20203%2F204-green)](https://csrc.nist.gov/projects/post-quantum-cryptography)
-[![Status](https://img.shields.io/badge/Status-Demonstrável-brightgreen)]()
+[![NIST FIPS 203/204/205](https://img.shields.io/badge/NIST-FIPS%20203%2F204%2F205-green)](https://csrc.nist.gov/projects/post-quantum-cryptography)
+[![BouncyCastle](https://img.shields.io/badge/BouncyCastle-1.80-orange)](https://www.bouncycastle.org)
+[![Version](https://img.shields.io/badge/version-1.4.0%20%E2%80%94%20fair--runtime-blue)](CHANGELOG.md)
+[![Status](https://img.shields.io/badge/Status-Demonstr%C3%A1vel-brightgreen)]()
 
-<div align="center">
+<br/>
 
-**Banca móvel pós-quântica · Tese de Mestrado · Instituto Politécnico da Guarda · 2026**
+<img src="https://moodle.ipg.pt/pluginfile.php/1/theme_moove/logo/1779184858/Logotipo%20Polit%C3%A9cnico%20Guarda%20RGB-01p.png" alt="Instituto Politécnico da Guarda" height="80"/>
 
-Autor: **Vagner Bom Jesus** · Orientador: **Prof. Rui A. P. Perdigão**
+**Dissertação de Mestrado · Instituto Politécnico da Guarda · 2026**
+
+<br/>
+
+<table>
+  <tr>
+    <td align="center" width="50%">
+      <img src="https://media.licdn.com/dms/image/v2/D4D03AQFzwTBGHFfsdQ/profile-displayphoto-scale_400_400/B4DZvsIQc_JMAg-/0/1769193147421?e=1782950400&v=beta&t=pr1JiMBgdxA-8SOpoNtyiX8EQSxlOPngTzOF6vDz2jI" width="120" height="120" style="border-radius: 50%;" alt="Vagner Bom Jesus"/><br/>
+      <b>Vagner Bom Jesus</b><br/>
+      <sub>Autor · Mestrando</sub>
+    </td>
+    <td align="center" width="50%">
+      <img src="https://fluiddynamicalsystems.eu/wp-content/uploads/2024/09/profdrruipitaperdigao-2.jpg" width="120" height="120" style="border-radius: 50%;" alt="Prof. Dr. Rui A. P. Perdigão"/><br/>
+      <b>Prof. Dr. Rui A. P. Perdigão</b><br/>
+      <sub>Orientador</sub>
+    </td>
+  </tr>
+</table>
 
 </div>
 
 ---
+
+## Resumo da proposta
+
+A computação quântica em larga escala torna obsoletos os protocolos criptográficos clássicos (RSA, ECDSA, ECDH) que hoje protegem a banca móvel. O ataque **Harvest-Now-Decrypt-Later (HNDL)** já está em curso — atacantes capturam tráfego cifrado hoje para o decifrarem quando dispuserem de um quantum computer prático.
+
+Esta dissertação propõe um **protocolo de comunicação resiliente para homebanking** baseado em criptografia pós-quântica (PQC) padronizada pelo NIST: **ML-KEM-768** (FIPS 203, troca de chaves), **ML-DSA-65** (FIPS 204, assinatura digital) e **SLH-DSA-SHAKE-128f** (FIPS 205, assinatura de segurança independente de lattice). O protocolo é validado por uma implementação Android funcional (`BJBank`), com chaves privadas residentes em **StrongBox/TEE** e **Perfect Forward Secrecy pós-quântico** através de handshake KEM efémero on-device.
+
+---
+
+## Resultados experimentais
+
+> Benchmark v1.4.0 (`fair-runtime`) executado em emulador Android SDK 36 (x86_64), BouncyCastle 1.80 nativo, 100 iterações por operação. **Sem comparação ARM real ainda — ver [`THESIS_READINESS.md`](docs/THESIS_READINESS.md).**
+
+### PQC vs Clássico na mesma runtime (BC 1.80 JVM nativa)
+
+| Operação | PQC (BC nativo) | Clássico (BC nativo) | Ratio P50 | Interpretação |
+|---|---:|---:|---:|---|
+| **Sign** | ML-DSA-65: **5.22 ms** | ECDSA-P256: 3.57 ms | **1.46×** | PQC 46% mais lento |
+| **Verify** | ML-DSA-65: **1.35 ms** | ECDSA-P256: 3.97 ms | **0.34×** | **PQC 3× MAIS RÁPIDO** |
+| **Keygen** | ML-DSA-65: **4.73 ms** | ECDSA-P256: 3.83 ms | **1.24×** | Praticamente igual |
+| **KEM/DH** | ML-KEM-768 encap: **2.62 ms** | ECDH-P256 agree: 14.99 ms | **0.17×** | **PQC 5.7× MAIS RÁPIDO** |
+| **Hash-based sign (defesa em profundidade)** | SLH-DSA-SHAKE-128f: **202.8 ms** | — | — | Apenas para transferências de alto valor |
+| **Hybrid component** | X25519: 2.07 ms | — | — | Componente clássico do hybrid X25519+ML-KEM |
+
+**Conclusão preliminar:** o argumento "PQC é proibitivo para mobile" não se confirma. ML-DSA verify e ML-KEM encap são na verdade **mais rápidos** que os equivalentes ECC quando medidos na mesma runtime — porque o BouncyCastle implementa as operações lattice (NTT sobre poly rings) de forma muito eficiente em JVM. Resultado contra-intuitivo, defensável e tratado em §6 da dissertação.
+
+### Tamanhos FIPS oficiais (overhead bytes — o argumento mais sólido)
+
+| Algoritmo | pk (bytes) | sk (bytes) | sig/ct (bytes) | × vs Ed25519/X25519 |
+|---|---:|---:|---:|---:|
+| Ed25519 sig | 32 | 32 | 64 | 1× |
+| ECDSA-P256 sig | 64 | 32 | 64 | 1× |
+| X25519 KEM | 32 | 32 | 32 | 1× |
+| **ML-DSA-65** | **1 952** | **4 032** | **3 309** | **~52× sig, 61× pk** |
+| **ML-KEM-768** | **1 184** | **2 400** | **1 088** | **~34× pk, 34× ct** |
+| **SLH-DSA-SHAKE-128f** | **32** | **64** | **~17 088** | **~266× sig** |
+
+**Overhead total por transferência PQC:** ML-DSA-65 sig (3 309 B) + ML-KEM-768 ct (1 088 B) = **~4.4 KB**, contra ECDSA sig (64 B) + ECDH (32 B) = ~96 B. **Aumento de ~46× em bytes** — o trade-off real do PQC.
+
+---
+
+
 
 ## Sumário
 
