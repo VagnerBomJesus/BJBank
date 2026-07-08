@@ -12,7 +12,7 @@
 [![Supabase](https://img.shields.io/badge/Backend-Supabase-3ECF8E?logo=supabase)](https://supabase.com)
 [![NIST FIPS 203/204/205](https://img.shields.io/badge/NIST-FIPS%20203%2F204%2F205-green)](https://csrc.nist.gov/projects/post-quantum-cryptography)
 [![BouncyCastle](https://img.shields.io/badge/BouncyCastle-1.80-orange)](https://www.bouncycastle.org)
-[![Version](https://img.shields.io/badge/version-1.4.0%20%E2%80%94%20fair--runtime-blue)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.5.0%20%E2%80%94%20UI%20redesign-blue)](CHANGELOG.md)
 [![Status](https://img.shields.io/badge/Status-Demonstrable-brightgreen)]()
 
 <br/>
@@ -28,12 +28,17 @@
     <td align="center" width="50%">
       <img src="https://media.licdn.com/dms/image/v2/D4D03AQFzwTBGHFfsdQ/profile-displayphoto-scale_400_400/B4DZvsIQc_JMAg-/0/1769193147421?e=1782950400&v=beta&t=pr1JiMBgdxA-8SOpoNtyiX8EQSxlOPngTzOF6vDz2jI" width="120" height="120" style="border-radius: 50%;" alt="Vagner Bom Jesus"/><br/>
       <b>Vagner Bom Jesus</b><br/>
-      <sub>Author · MSc Candidate</sub>
+      <sub>Author · MSc Candidate in Computer Engineering</sub><br/>
+      <sub>Polytechnic Institute of Guarda (IPG)</sub><br/>
+      <a href="mailto:vagneripg@gmail.com">vagneripg@gmail.com</a> ·
+      <a href="https://github.com/VagnerBomJesus">GitHub</a>
     </td>
     <td align="center" width="50%">
       <img src="https://fluiddynamicalsystems.eu/wp-content/uploads/2024/09/profdrruipitaperdigao-2.jpg" width="120" height="120" style="border-radius: 50%;" alt="Prof. Dr. Rui A. P. Perdigão"/><br/>
       <b>Prof. Dr. Rui A. P. Perdigão</b><br/>
-      <sub>Supervisor</sub>
+      <sub>Supervisor</sub><br/>
+      <sub>Physics of Information, Complexity &amp; Predictability</sub><br/>
+      <a href="https://fluiddynamicalsystems.eu">fluiddynamicalsystems.eu</a>
     </td>
   </tr>
 </table>
@@ -500,6 +505,18 @@ flowchart LR
 
 ## Implemented Features
 
+### ✅ v1.5.0 — UI/UX redesign + MB WAY Request Money
+
+- **Full visual redesign** inspired by a modern banking UI kit, keeping the BJBank identity (EUR, IBAN, MB WAY, PQC badges): dark **navy payment-card** with dotted world-map texture and blue glow, minimalist circular quick actions, **pill buttons** and **underline inputs** across auth/forms, softer cards, and global theme tokens (`colors.dart`, `border_radius.dart`).
+- **Home** aligned to the mockup: "welcome back" + search, hero card showing the **logged-in account IBAN**, four circular actions, recent activity, and a 4-tab bottom nav (Home · Cards · Statistics · Settings).
+- **Statistics** screen: current balance, smooth **monthly spending line chart** with a month selector, received/spent summary and per-month transactions.
+- **Cards**: horizontal carousel of navy cards with selection ring + identity header, **full card number reveal**, IBAN/CVV in the data sheet, brand restricted to **Visa/Mastercard** (encoded in the card BIN and derived on read), and a dedicated **Add New Card** screen (live preview + underline form).
+- **Search** screen: live-filtered transactions by description/category.
+- **Request Money (MB WAY)**: new `money_requests` table (with RLS) + service; a user requests money from another, who **approves (executes the MB WAY payment) or declines**; a requests inbox with *received* / *sent* tabs.
+- **Contact picker**: choose recipients from frequent MB WAY contacts or **import from the device's phone contacts** (name, number, photo) via `flutter_contacts`.
+- **Profile hub** + **Edit Profile** form + redesigned **Settings** (grouped sections, biometric toggle) and **Onboarding** (highlighted illustrations, full-width pill CTA).
+- **Android 15 (API 35) edge-to-edge**: `SystemUiMode.edgeToEdge` with transparent system bars.
+
 ### ✅ v1.4.0 — Fair-runtime benchmark + centralised versioning
 
 - `PqcPlugin.kt`: new `classicBenchmark` measures ECDSA-P256/ECDH-P256 on native BC 1.80. Algorithm-vs-algorithm comparison on the same runtime.
@@ -534,8 +551,11 @@ flowchart LR
 - Initial balance €0 (real bank, no demo money).
 - Realtime balance via WebSocket.
 - IBAN transfers with PQC signature.
-- MB WAY (transfer by phone number / contact).
-- Transaction history with infinite scroll.
+- MB WAY (transfer by phone number / contact), plus **Request Money** with approve/decline.
+- **Contact import** from the device phonebook (name, number, photo) for MB WAY.
+- Cards: add/manage Visa/Mastercard cards, spending limits, reveal full number.
+- Transaction **search** and history with infinite scroll.
+- **Statistics**: balance chart, month selector, monthly summary.
 - Push notifications (in-app inbox, FCM ready).
 - Biometric (fingerprint / Face ID via `local_auth`).
 - Light/dark theme.
@@ -545,7 +565,6 @@ flowchart LR
 
 ### ⏸️ Outside this version's scope
 
-- Cards CRUD (virtual / physical / mock — UI placeholders only).
 - Bills / Budgets / Investments / Loans / Savings Goals (legacy demo — removed in v1.3.1).
 - Open Banking PSD2 (no DSP API).
 - Custom 2FA (PIN serves as second factor).
@@ -739,64 +758,3 @@ JSON export shares the 3 datasets + methodological note via `share_plus`.
 ### Working (v1.4.0)
 
 - On-device PQC on Android: ML-DSA-65 + ML-KEM-768 + SLH-DSA + X25519 native.
-- Real post-quantum PFS (sharedSecret never on wire).
-- Hash-chained audit log.
-- Fair-runtime benchmark (3 pipelines).
-- Wire protocol v2 with multi-layer anti-replay.
-- Server key rotation.
-
-### Blocking for thesis defence
-
-- ⚠️ **Run benchmark on a physical ARM device** (Pixel, Samsung, anything Android — 30 min). Without this any reviewer can say "x86 emulator, not representative".
-- ⚠️ **Validate end-to-end PFS flow** on a physical ARM device with captured logcat (15 min).
-
-### Strongly recommended
-
-- Final charts (matplotlib P50 + P95 error bars).
-- FIPS sizes table (pk/sig/ct) side by side with classical.
-- Honest discussion of counter-intuitive results (ML-DSA verify faster than ECDSA verify).
-
-### Future Work (post-thesis)
-
-See [`docs/FUTURE_WORK.md`](docs/FUTURE_WORK.md) for the full roadmap:
-
-- iOS Swift plugin analogous to Android (liboqs xcframework + Secure Enclave wrapping).
-- Cross-device validation on physical ARM (Pixel 7/8, Samsung A54, low-end Snapdragon).
-- Side-channel hardening (timing analysis, dudect, constant-time verification).
-- Hybrid PQC triple (X25519 + ML-KEM + Classic-McEliece) for catastrophic-failure resistance.
-- Verifiable Random Function (VRF) for unpredictable but anti-replay serials.
-- Telemetry opt-in for production PQC stats — material for a follow-up paper.
-- Banking features beyond thesis scope: QR transfer, push notifications, virtual cards, Open Banking PSD2, splash branding, offline retry.
-
----
-
-## Contributing
-
-This project is part of a Master's dissertation. External contributions are not the primary target, but the code is open for academic study and reproducibility. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for guidelines.
-
-To reproduce thesis results:
-
-```bash
-git clone https://github.com/VagnerBomJesus/BJBank.git
-cd BJBank
-git checkout v1.4.0      # exact tag used in the dissertation
-flutter pub get
-flutter run               # Android emulator or physical device
-# In the app: Settings → Security → Benchmark PQC → smartphone icon → run
-```
-
----
-
-## License
-
-See [`LICENSE`](LICENSE). The project is published under terms compatible with the academic use of the dissertation.
-
----
-
-<div align="center">
-
-**Master's Thesis** · **Polytechnic Institute of Guarda** · **2026**
-
-Made with care to demonstrate that post-quantum cryptography is **practical, performant, and deployable today** in mobile banking environments.
-
-</div>
