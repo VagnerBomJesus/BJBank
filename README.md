@@ -2,7 +2,7 @@
 
 <img src="assets/logo_bjbank.png" alt="BJBank logo" height="120"/>
 
-# BJBank — Post-Quantum Mobile Banking
+# BJBank - Post-Quantum Mobile Banking
 
 ### Post-Quantum Cryptography in Mobile Applications
 ### A Resilient Protocol Proposal for Home Banking Environments
@@ -26,7 +26,7 @@
 <table>
   <tr>
     <td align="center" width="50%">
-      <img src="https://media.licdn.com/dms/image/v2/D4D03AQFzwTBGHFfsdQ/profile-displayphoto-scale_400_400/B4DZvsIQc_JMAg-/0/1769193147421?e=1782950400&v=beta&t=pr1JiMBgdxA-8SOpoNtyiX8EQSxlOPngTzOF6vDz2jI" width="120" height="120" style="border-radius: 50%;" alt="Vagner Bom Jesus"/><br/>
+      <img src="https://avatars.githubusercontent.com/u/48354097?v=4" width="120" height="120" style="border-radius: 50%;" alt="Vagner Bom Jesus"/><br/>
       <b>Vagner Bom Jesus</b><br/>
       <sub>Author · MSc Candidate in Computer Engineering</sub><br/>
       <sub>Polytechnic Institute of Guarda (IPG)</sub><br/>
@@ -49,7 +49,7 @@
 
 ## Abstract
 
-Large-scale quantum computing renders obsolete the classical cryptographic protocols (RSA, ECDSA, ECDH) that currently protect mobile banking. The **Harvest-Now-Decrypt-Later (HNDL)** attack is already underway — adversaries capture encrypted traffic today to decrypt it once a practical quantum computer becomes available.
+Large-scale quantum computing renders obsolete the classical cryptographic protocols (RSA, ECDSA, ECDH) that currently protect mobile banking. The **Harvest-Now-Decrypt-Later (HNDL)** attack is already underway - adversaries capture encrypted traffic today to decrypt it once a practical quantum computer becomes available.
 
 This dissertation proposes a **resilient communication protocol for home banking** based on NIST-standardised post-quantum cryptography (PQC): **ML-KEM-768** (FIPS 203, key encapsulation), **ML-DSA-65** (FIPS 204, digital signature), and **SLH-DSA-SHAKE-128f** (FIPS 205, hash-based signature for defence in depth, lattice-independent). The protocol is validated by a functional Android implementation (`BJBank`), with private keys residing in **StrongBox/TEE** and **post-quantum Perfect Forward Secrecy** delivered through ephemeral on-device KEM handshakes.
 
@@ -59,7 +59,7 @@ This dissertation proposes a **resilient communication protocol for home banking
 
 ## Experimental Results
 
-> Benchmark v1.4.0 (`fair-runtime`) executed on Android emulator SDK 36 (x86_64), BouncyCastle 1.80 native, 100 iterations per operation. **No physical ARM device measurements yet — see [`THESIS_READINESS.md`](docs/THESIS_READINESS.md).**
+> Benchmark v1.4.0 (`fair-runtime`) executed on Android emulator SDK 36 (x86_64), BouncyCastle 1.80 native, 100 iterations per operation. **No physical ARM device measurements yet - see [`THESIS_READINESS.md`](docs/THESIS_READINESS.md).**
 
 ### PQC vs Classical on the same runtime (BC 1.80 JVM native)
 
@@ -69,12 +69,12 @@ This dissertation proposes a **resilient communication protocol for home banking
 | **Verify** | ML-DSA-65: **1.35 ms** | ECDSA-P256: 3.97 ms | **0.34×** | **PQC 3× FASTER** |
 | **Keygen** | ML-DSA-65: **4.73 ms** | ECDSA-P256: 3.83 ms | **1.24×** | Effectively tied |
 | **KEM/DH** | ML-KEM-768 encap: **2.62 ms** | ECDH-P256 agree: 14.99 ms | **0.17×** | **PQC 5.7× FASTER** |
-| **Hash-based sign (defence in depth)** | SLH-DSA-SHAKE-128f: **202.8 ms** | — | — | Reserved for high-value transfers |
-| **Hybrid component** | X25519: 2.07 ms | — | — | Classical leg of X25519+ML-KEM hybrid |
+| **Hash-based sign (defence in depth)** | SLH-DSA-SHAKE-128f: **202.8 ms** | - | - | Reserved for high-value transfers |
+| **Hybrid component** | X25519: 2.07 ms | - | - | Classical leg of X25519+ML-KEM hybrid |
 
-**Preliminary conclusion:** the claim that *"PQC is prohibitive on mobile"* is not supported by these data. ML-DSA verify and ML-KEM encapsulation are in fact **faster** than their ECC counterparts when measured on the same runtime — because BouncyCastle implements lattice operations (NTT over polynomial rings) very efficiently on the JVM. This counter-intuitive result is defensible and discussed in Chapter 6 of the dissertation.
+**Preliminary conclusion:** the claim that *"PQC is prohibitive on mobile"* is not supported by these data. ML-DSA verify and ML-KEM encapsulation are in fact **faster** than their ECC counterparts when measured on the same runtime - because BouncyCastle implements lattice operations (NTT over polynomial rings) very efficiently on the JVM. This counter-intuitive result is defensible and discussed in Chapter 6 of the dissertation.
 
-### Official FIPS sizes (byte overhead — the strongest argument)
+### Official FIPS sizes (byte overhead - the strongest argument)
 
 | Algorithm | pk (bytes) | sk (bytes) | sig/ct (bytes) | × vs Ed25519/X25519 |
 |---|---:|---:|---:|---:|
@@ -85,7 +85,7 @@ This dissertation proposes a **resilient communication protocol for home banking
 | **ML-KEM-768** | **1,184** | **2,400** | **1,088** | **~34× pk, 34× ct** |
 | **SLH-DSA-SHAKE-128f** | **32** | **64** | **~17,088** | **~266× sig** |
 
-**Total PQC overhead per transfer:** ML-DSA-65 sig (3,309 B) + ML-KEM-768 ct (1,088 B) = **~4.4 KB**, versus ECDSA sig (64 B) + ECDH (32 B) = ~96 B. **~46× byte increase** — the real trade-off of PQC adoption.
+**Total PQC overhead per transfer:** ML-DSA-65 sig (3,309 B) + ML-KEM-768 ct (1,088 B) = **~4.4 KB**, versus ECDSA sig (64 B) + ECDH (32 B) = ~96 B. **~46× byte increase** - the real trade-off of PQC adoption.
 
 ---
 
@@ -118,20 +118,20 @@ The implementation deliberately mixes **on-device** PQC (Android via BouncyCastl
 
 | Document | Content |
 |---|---|
-| **Architecture** | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — stack, flows, deployment |
-| **UML Diagrams (Mermaid)** | [`docs/UML_DIAGRAMS.md`](docs/UML_DIAGRAMS.md) — sequence (PQC bootstrap, transfers, handshake), components, states, ER, deployment, security strategy |
-| **Diagrams drawio (editable)** | [`docs/diagrams/BJBank_Architecture.drawio`](docs/diagrams/BJBank_Architecture.drawio) — 9 pages: stack, sequences, ER, deployment, PFS comparison |
-| **Functional and Non-Functional Requirements** | [`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md) — RF-01 to RF-60 + RNF-01 to RNF-59 with implementation status |
-| **PQC Implementation (ADR)** | [`docs/adr/ADR-001-PQC-IMPLEMENTATION.md`](docs/adr/ADR-001-PQC-IMPLEMENTATION.md) — architectural decision for PQC |
-| **Multi-tenancy / RLS (ADR)** | [`docs/adr/ADR-002-MULTI-TENANCY.md`](docs/adr/ADR-002-MULTI-TENANCY.md) — Postgres row-level security |
-| **Security Strategy (ADR)** | [`docs/adr/ADR-003-SECURITY-STRATEGY.md`](docs/adr/ADR-003-SECURITY-STRATEGY.md) — threat model, mitigations, wire v2 pipeline |
-| **PQC on-device — migration plan** | [`docs/PQC_ON_DEVICE_MIGRATION.md`](docs/PQC_ON_DEVICE_MIGRATION.md) — phases 0 to 5 |
-| **PQC — remaining critical issues** | [`docs/PQC_REMAINING_CRITICAL_ISSUES.md`](docs/PQC_REMAINING_CRITICAL_ISSUES.md) — state and resolution of the 3 issues |
-| **Thesis defence readiness** | [`docs/THESIS_READINESS.md`](docs/THESIS_READINESS.md) — checklist, blocking gaps, anticipation of jury questions |
-| **Future Work** | [`docs/FUTURE_WORK.md`](docs/FUTURE_WORK.md) — iOS Swift plugin, ARM-real benchmarks, side-channel, follow-up paper |
-| **Deployment** | [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) — Supabase, Edge Functions, secrets |
-| **Changelog** | [`CHANGELOG.md`](CHANGELOG.md) — v1.0 → v1.4.0 |
-| **Email/OTP** | [`EMAIL_OTP_IMPLEMENTATION.md`](EMAIL_OTP_IMPLEMENTATION.md) — Resend integration |
+| **Architecture** | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) - stack, flows, deployment |
+| **UML Diagrams (Mermaid)** | [`docs/UML_DIAGRAMS.md`](docs/UML_DIAGRAMS.md) - sequence (PQC bootstrap, transfers, handshake), components, states, ER, deployment, security strategy |
+| **Diagrams drawio (editable)** | [`docs/diagrams/BJBank_Architecture.drawio`](docs/diagrams/BJBank_Architecture.drawio) - 9 pages: stack, sequences, ER, deployment, PFS comparison |
+| **Functional and Non-Functional Requirements** | [`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md) - RF-01 to RF-60 + RNF-01 to RNF-59 with implementation status |
+| **PQC Implementation (ADR)** | [`docs/adr/ADR-001-PQC-IMPLEMENTATION.md`](docs/adr/ADR-001-PQC-IMPLEMENTATION.md) - architectural decision for PQC |
+| **Multi-tenancy / RLS (ADR)** | [`docs/adr/ADR-002-MULTI-TENANCY.md`](docs/adr/ADR-002-MULTI-TENANCY.md) - Postgres row-level security |
+| **Security Strategy (ADR)** | [`docs/adr/ADR-003-SECURITY-STRATEGY.md`](docs/adr/ADR-003-SECURITY-STRATEGY.md) - threat model, mitigations, wire v2 pipeline |
+| **PQC on-device - migration plan** | [`docs/PQC_ON_DEVICE_MIGRATION.md`](docs/PQC_ON_DEVICE_MIGRATION.md) - phases 0 to 5 |
+| **PQC - remaining critical issues** | [`docs/PQC_REMAINING_CRITICAL_ISSUES.md`](docs/PQC_REMAINING_CRITICAL_ISSUES.md) - state and resolution of the 3 issues |
+| **Thesis defence readiness** | [`docs/THESIS_READINESS.md`](docs/THESIS_READINESS.md) - checklist, blocking gaps, anticipation of jury questions |
+| **Future Work** | [`docs/FUTURE_WORK.md`](docs/FUTURE_WORK.md) - iOS Swift plugin, ARM-real benchmarks, side-channel, follow-up paper |
+| **Deployment** | [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) - Supabase, Edge Functions, secrets |
+| **Changelog** | [`CHANGELOG.md`](CHANGELOG.md) - v1.0 → v1.4.0 |
+| **Email/OTP** | [`EMAIL_OTP_IMPLEMENTATION.md`](EMAIL_OTP_IMPLEMENTATION.md) - Resend integration |
 
 ---
 
@@ -153,13 +153,13 @@ flutter build apk --release
 flutter build appbundle --release
 ```
 
-The release pipeline already includes ProGuard/R8 rules that preserve BouncyCastle, Supabase, and AndroidX Security classes — without these the release build crashes with `NoClassDefFoundError` on PQC operations.
+The release pipeline already includes ProGuard/R8 rules that preserve BouncyCastle, Supabase, and AndroidX Security classes - without these the release build crashes with `NoClassDefFoundError` on PQC operations.
 
 ---
 
 ## Architecture
 
-Component diagram (v1.4.0 — native Android plugin with fair-runtime benchmark):
+Component diagram (v1.4.0 - native Android plugin with fair-runtime benchmark):
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
@@ -206,8 +206,8 @@ Component diagram (v1.4.0 — native Android plugin with fair-runtime benchmark)
 | **Backend** | Supabase | Hosted | PostgreSQL 17 + GoTrue + Realtime + Edge Functions |
 | **Database** | PostgreSQL | 17 | RLS + triggers + functions PL/pgSQL |
 | **Backend functions** | Deno | 2.1 | TypeScript Edge Functions |
-| **Authentication** | Supabase GoTrue + biometric | — | Email/password + biometrics + PIN |
-| **Real-time** | Supabase Realtime (WebSocket) | — | Balance + transactions push |
+| **Authentication** | Supabase GoTrue + biometric | - | Email/password + biometrics + PIN |
+| **Real-time** | Supabase Realtime (WebSocket) | - | Balance + transactions push |
 | **Deep links** | app_links | 6.1 | `bjbank://reset` and `bjbank://login` |
 
 ---
@@ -227,8 +227,8 @@ Component diagram (v1.4.0 — native Android plugin with fair-runtime benchmark)
 
 1. Client calls Edge Function `pqc_handshake_flutter` (v2): server generates ephemeral ML-KEM-768 keypair, returns `serverKemPublicKey` + `pendingSessionId` (TTL 5 min).
 2. `DevicePqcService.kemEncapsulate` locally produces `(ciphertext, sharedSecret)`.
-3. Client sends only `ciphertext` to `pqc_handshake_kem_complete` — server decapsulates with its ephemeral private key, recovers the same `sharedSecret`, and discards the private key.
-4. **`sharedSecret` never traverses the network in clear text** — post-quantum Perfect Forward Secrecy.
+3. Client sends only `ciphertext` to `pqc_handshake_kem_complete` - server decapsulates with its ephemeral private key, recovers the same `sharedSecret`, and discards the private key.
+4. **`sharedSecret` never traverses the network in clear text** - post-quantum Perfect Forward Secrecy.
 
 ### 3. Transfer (per operation)
 
@@ -271,7 +271,7 @@ High-level view: three layers (Flutter UI, Edge Functions, Postgres) and the **t
 
 ```mermaid
 flowchart TB
-    subgraph Device["📱 Android Device — Trust Boundary"]
+    subgraph Device["📱 Android Device - Trust Boundary"]
         direction TB
         UI["Flutter UI<br/>(Screens + Widgets)"]
         Providers["Providers<br/>(AuthProvider, AccountProvider, ...)"]
@@ -311,7 +311,7 @@ flowchart TB
 - The `Trust Boundary` is the Android device itself. The user's ML-DSA private key never crosses this line.
 - iOS still outside this boundary (private in `flutter_client_keys.secret_key_base64` in Postgres). Plan: analogous Swift plugin.
 
-### 2. Transfer sequence — Wire protocol v2 (Cryptography + Cybersecurity)
+### 2. Transfer sequence - Wire protocol v2 (Cryptography + Cybersecurity)
 
 ```mermaid
 sequenceDiagram
@@ -331,7 +331,7 @@ sequenceDiagram
     Edge->>DB: SELECT last_serial FROM sessions WHERE id=?
     Edge->>Edge: Validate serial > last_serial<br/>(strict monotonic)
     Edge->>Edge: Validate ±30 s timestamp<br/>(window)
-    Edge->>DB: INSERT txId (UNIQUE — anti-replay)
+    Edge->>DB: INSERT txId (UNIQUE - anti-replay)
     Edge->>Edge: AES-GCM decrypt(ciphertext)
     Edge->>Edge: ML-DSA-65 verify(payload, sig, pubkey)
     Edge->>DB: BEGIN tx<br/>UPDATE balances<br/>INSERT transaction<br/>INSERT audit_log (hash chain)<br/>COMMIT
@@ -339,7 +339,7 @@ sequenceDiagram
     App-->>U: ✅ Transfer completed
 ```
 
-### 3. Post-quantum PFS handshake (Cryptography — core thesis contribution)
+### 3. Post-quantum PFS handshake (Cryptography - core thesis contribution)
 
 ```mermaid
 sequenceDiagram
@@ -363,7 +363,7 @@ sequenceDiagram
     Edge2->>DB: DELETE pending_kem_session (one-time use)
     Edge2->>DB: INSERT session(id, sharedSecret, last_serial=0)
     Edge2-->>App: {sessionId, expires_at}
-    Note right of App: sharedSecret NEVER traverses<br/>the network in clear — post-quantum PFS
+    Note right of App: sharedSecret NEVER traverses<br/>the network in clear - post-quantum PFS
 ```
 
 ### 4. PQC session state diagram (Software Engineering)
@@ -475,7 +475,7 @@ flowchart TD
     class Reject1,Reject2,Reject3,Reject4,Reject5,Reject6 reject
 ```
 
-### 7. Legacy mode vs KEM v2 comparison (Cybersecurity — HNDL surface)
+### 7. Legacy mode vs KEM v2 comparison (Cybersecurity - HNDL surface)
 
 ```mermaid
 flowchart LR
@@ -505,7 +505,7 @@ flowchart LR
 
 ## Implemented Features
 
-### ✅ v1.5.0 — UI/UX redesign + MB WAY Request Money
+### ✅ v1.5.0 - UI/UX redesign + MB WAY Request Money
 
 - **Full visual redesign** inspired by a modern banking UI kit, keeping the BJBank identity (EUR, IBAN, MB WAY, PQC badges): dark **navy payment-card** with dotted world-map texture and blue glow, minimalist circular quick actions, **pill buttons** and **underline inputs** across auth/forms, softer cards, and global theme tokens (`colors.dart`, `border_radius.dart`).
 - **Home** aligned to the mockup: "welcome back" + search, hero card showing the **logged-in account IBAN**, four circular actions, recent activity, and a 4-tab bottom nav (Home · Cards · Statistics · Settings).
@@ -517,18 +517,18 @@ flowchart LR
 - **Profile hub** + **Edit Profile** form + redesigned **Settings** (grouped sections, biometric toggle) and **Onboarding** (highlighted illustrations, full-width pill CTA).
 - **Android 15 (API 35) edge-to-edge**: `SystemUiMode.edgeToEdge` with transparent system bars.
 
-### ✅ v1.4.0 — Fair-runtime benchmark + centralised versioning
+### ✅ v1.4.0 - Fair-runtime benchmark + centralised versioning
 
 - `PqcPlugin.kt`: new `classicBenchmark` measures ECDSA-P256/ECDH-P256 on native BC 1.80. Algorithm-vs-algorithm comparison on the same runtime.
 - `DeviceBenchmarkScreen` runs 3 pipelines (PQC native, Classical native, Classical Dart) + automatic ratios card.
 - `lib/app_version.dart` as single source of truth. Fixes visual bugs "1.0.0" (settings) and "1.1.0 / BC 1.82" (about).
 
-### ✅ v1.3.x — Academic material + Android hardening
+### ✅ v1.3.x - Academic material + Android hardening
 
 - v1.3.1: ProGuard/R8 rules, NetworkSecurityConfig, persisted serial, DataExtractionRules, cleanup of 10 legacy services.
 - v1.3.0: real post-quantum PFS, hash-chained audit log, server key rotation, SLH-DSA-SHAKE-128f, Hybrid X25519+ML-KEM.
 
-### ✅ v1.2.0 — PQC on-device Android + cryptographic hardening
+### ✅ v1.2.0 - PQC on-device Android + cryptographic hardening
 
 - Native Kotlin plugin with BouncyCastle 1.80 native API (`org.bouncycastle.pqc.crypto.*`): ML-DSA-65 and ML-KEM-768.
 - Private key in `EncryptedSharedPreferences` (StrongBox/TEE when available).
@@ -536,7 +536,7 @@ flowchart LR
 - Local ML-DSA verify (removes `verify_dsa` circular trust to the server).
 - 100% functional on Android; iOS continues server-managed (no Swift plugin yet).
 
-### ✅ v1.1.0 — Migration to Supabase
+### ✅ v1.1.0 - Migration to Supabase
 
 - Removal of Firebase (Auth, Firestore, Storage, Messaging, Functions).
 - Local compat shims for legacy code (`lib/compat/`).
@@ -546,7 +546,7 @@ flowchart LR
 ### Banking features
 
 - Email + password authentication with OTP (Resend) and Forgot Password via deep link.
-- Profile (name, phone, photo, change password, account deletion — GDPR art. 17).
+- Profile (name, phone, photo, change password, account deletion - GDPR art. 17).
 - Single account per user with **Portuguese IBAN PT50** (calculated check NIB).
 - Initial balance €0 (real bank, no demo money).
 - Realtime balance via WebSocket.
@@ -565,7 +565,7 @@ flowchart LR
 
 ### ⏸️ Outside this version's scope
 
-- Bills / Budgets / Investments / Loans / Savings Goals (legacy demo — removed in v1.3.1).
+- Bills / Budgets / Investments / Loans / Savings Goals (legacy demo - removed in v1.3.1).
 - Open Banking PSD2 (no DSP API).
 - Custom 2FA (PIN serves as second factor).
 - Multi-account.
@@ -656,7 +656,7 @@ bjbank/
 | `server_key_history` | Server key rotation |
 | `notifications` | In-app inbox |
 
-All tables protected by **Row-Level Security (RLS)** — see [`ADR-002`](docs/adr/ADR-002-MULTI-TENANCY.md).
+All tables protected by **Row-Level Security (RLS)** - see [`ADR-002`](docs/adr/ADR-002-MULTI-TENANCY.md).
 
 ### Edge Functions (Deno + TypeScript)
 
@@ -669,7 +669,7 @@ All tables protected by **Row-Level Security (RLS)** — see [`ADR-002`](docs/ad
 | `flutter_sign_transfer` | Server-managed signing (iOS fallback) | ML-DSA-65 sign |
 | `verify_dsa` | DSA verification (legacy iOS) | ML-DSA-65 verify |
 | `bench_server_pqc` | Server-side benchmark | All |
-| `auth_email_otp_*` | Resend OTP integration | — |
+| `auth_email_otp_*` | Resend OTP integration | - |
 
 ---
 
